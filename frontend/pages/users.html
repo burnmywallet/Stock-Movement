@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المستخدمين - نظام المخازن المتقدم</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* نفس أنماط warehouses.html مع تعديلات */
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Tajawal','Segoe UI',sans-serif;background:#0a0e1a;min-height:100vh;direction:rtl;overflow-x:hidden}
+        
+        .sidebar{position:fixed;right:0;top:0;width:280px;height:100vh;background:rgba(10,14,26,0.95);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,0.05);padding:20px 0;z-index:1000;transition:all 0.3s ease;overflow-y:auto}
+        .sidebar .brand{padding:0 25px 20px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:12px}
+        .sidebar .brand i{font-size:28px;color:#667eea}
+        .sidebar .brand h2{color:#fff;font-size:20px;font-weight:800}
+        .sidebar .brand h2 span{background:linear-gradient(135deg,#667eea,#f093fb);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .sidebar .user-profile{padding:20px 25px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:14px}
+        .sidebar .user-profile .avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700}
+        .sidebar .user-profile .info .name{color:#fff;font-size:16px;font-weight:700}
+        .sidebar .user-profile .info .role{color:rgba(255,255,255,0.3);font-size:12px}
+        .sidebar .nav-menu{padding:15px 0}
+        .sidebar .nav-menu .nav-section{padding:0 15px;margin-bottom:5px}
+        .sidebar .nav-menu .nav-section .section-title{color:rgba(255,255,255,0.15);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:10px 10px 5px}
+        .sidebar .nav-menu .nav-item{display:flex;align-items:center;gap:12px;padding:12px 15px;border-radius:12px;color:rgba(255,255,255,0.4);text-decoration:none;transition:all 0.3s ease;cursor:pointer;margin:2px 0}
+        .sidebar .nav-menu .nav-item:hover{background:rgba(255,255,255,0.05);color:#fff}
+        .sidebar .nav-menu .nav-item.active{background:linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.15));color:#667eea;border:1px solid rgba(102,126,234,0.1)}
+        .sidebar .nav-menu .nav-item i{width:22px;text-align:center;font-size:18px}
+        .sidebar .nav-menu .nav-item .badge{margin-right:auto;padding:2px 10px;border-radius:20px;font-size:11px}
+        .sidebar .nav-menu .nav-item .badge.success{background:rgba(40,167,69,0.15);color:#28a745}
+        .sidebar .nav-menu .nav-item.logout{margin-top:20px;border-top:1px solid rgba(255,255,255,0.05);padding-top:20px;color:rgba(255,255,255,0.2)}
+        .sidebar .nav-menu .nav-item.logout:hover{color:#dc3545}
+
+        .main-content{margin-right:280px;padding:30px 40px;min-height:100vh}
+        .topbar{display:flex;justify-content:space-between;align-items:center;padding:15px 0 25px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;gap:15px}
+        .topbar .page-title h1{color:#fff;font-size:28px;font-weight:800}
+        .topbar .page-title p{color:rgba(255,255,255,0.3);font-size:14px}
+        .topbar .actions{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+        .topbar .actions .search-box{display:flex;align-items:center;background:rgba(255,255,255,0.05);border-radius:14px;padding:8px 16px;border:1px solid rgba(255,255,255,0.05);transition:all 0.3s ease}
+        .topbar .actions .search-box:focus-within{border-color:rgba(102,126,234,0.3);background:rgba(255,255,255,0.08)}
+        .topbar .actions .search-box input{background:transparent;border:none;color:#fff;outline:none;font-family:'Tajawal',sans-serif;padding:4px 8px;width:180px}
+        .topbar .actions .search-box input::placeholder{color:rgba(255,255,255,0.2)}
+        .topbar .actions .search-box i{color:rgba(255,255,255,0.2)}
+        .topbar .actions .btn-primary{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#fd7e14,#dc3545);border:none;color:#fff;font-family:'Tajawal',sans-serif;font-weight:700;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .topbar .actions .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(220,53,69,0.3)}
+        .sidebar-toggle{display:none;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.05);color:#fff;padding:10px 14px;border-radius:12px;cursor:pointer;font-size:18px}
+
+        .table-container{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:20px;padding:20px;margin-top:25px;overflow-x:auto}
+        .table-container .table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+        .table-container .table-header .info{color:rgba(255,255,255,0.3);font-size:14px}
+        .table-container .table-header .filters{display:flex;gap:10px;flex-wrap:wrap}
+        .table-container .table-header .filters select{padding:8px 16px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-family:'Tajawal',sans-serif;outline:none;cursor:pointer}
+        .table-container .table-header .filters select option{background:#1a2332}
+        
+        table{width:100%;border-collapse:collapse}
+        table thead th{text-align:right;padding:14px 16px;color:rgba(255,255,255,0.2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.05)}
+        table tbody td{padding:14px 16px;color:rgba(255,255,255,0.7);font-size:14px;border-bottom:1px solid rgba(255,255,255,0.03)}
+        table tbody tr:hover{background:rgba(255,255,255,0.02)}
+        table tbody td .status{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600}
+        table tbody td .status.active{background:rgba(40,167,69,0.15);color:#28a745}
+        table tbody td .status.inactive{background:rgba(220,53,69,0.15);color:#dc3545}
+        table tbody td .role-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+        table tbody td .role-badge.admin{background:rgba(102,126,234,0.15);color:#667eea}
+        table tbody td .role-badge.manager{background:rgba(255,193,7,0.15);color:#ffc107}
+        table tbody td .role-badge.user{background:rgba(40,167,69,0.15);color:#28a745}
+        table tbody td .actions{display:flex;gap:8px}
+        table tbody td .actions button{width:32px;height:32px;border-radius:8px;border:none;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center}
+        table tbody td .actions .edit{background:rgba(102,126,234,0.15);color:#667eea}
+        table tbody td .actions .edit:hover{background:rgba(102,126,234,0.25)}
+        table tbody td .actions .delete{background:rgba(220,53,69,0.15);color:#dc3545}
+        table tbody td .actions .delete:hover{background:rgba(220,53,69,0.25)}
+        table tbody td .actions .lock{background:rgba(255,193,7,0.15);color:#ffc107}
+        table tbody td .actions .lock:hover{background:rgba(255,193,7,0.25)}
+
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);z-index:9999;display:none;align-items:center;justify-content:center;animation:fadeIn 0.3s ease}
+        .modal-overlay.show{display:flex}
+        .modal-content{background:rgba(10,14,26,0.95);border:1px solid rgba(255,255,255,0.05);border-radius:24px;padding:40px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s ease}
+        .modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+        .modal-content .modal-header h3{color:#fff;font-size:22px;font-weight:800}
+        .modal-content .modal-header .close-btn{background:none;border:none;color:rgba(255,255,255,0.3);font-size:24px;cursor:pointer}
+        .modal-content .form-group{margin-bottom:18px}
+        .modal-content .form-group label{color:rgba(255,255,255,0.6);display:block;margin-bottom:6px;font-weight:600}
+        .modal-content .form-group input,.modal-content .form-group select{width:100%;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.05);color:#fff;font-family:'Tajawal',sans-serif;outline:none;transition:all 0.3s ease}
+        .modal-content .form-group input:focus,.modal-content .form-group select:focus{border-color:rgba(102,126,234,0.3);background:rgba(255,255,255,0.08)}
+        .modal-content .form-group select option{background:#1a2332}
+        .modal-content .btn-submit{width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#fd7e14,#dc3545);border:none;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s ease;margin-top:10px}
+        .modal-content .btn-submit:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(220,53,69,0.3)}
+
+        .custom-toast{position:fixed;bottom:30px;right:30px;padding:14px 24px;border-radius:14px;background:rgba(102,126,234,0.95);color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;box-shadow:0 10px 40px rgba(0,0,0,0.5);z-index:9999;animation:slideUp 0.4s ease;max-width:90%;backdrop-filter:blur(10px);display:flex;align-items:center;gap:10px}
+        .custom-toast.success{background:rgba(40,167,69,0.95)}
+        .custom-toast.error{background:rgba(220,53,69,0.95)}
+        .custom-toast.warning{background:rgba(255,193,7,0.95);color:#1a2332}
+
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+        @media(max-width:992px){.sidebar{right:-280px}.sidebar.open{right:0;box-shadow:0 0 50px rgba(0,0,0,0.5)}.sidebar-toggle{display:block}.main-content{margin-right:0;padding:20px}.topbar{flex-direction:column;align-items:flex-start}.topbar .actions{width:100%}.topbar .actions .search-box{flex:1}.topbar .actions .search-box input{width:100%}}
+        @media(max-width:576px){.main-content{padding:15px}.topbar .page-title h1{font-size:22px}.table-container{padding:12px}table thead th,table tbody td{padding:10px 12px;font-size:13px}.modal-content{padding:24px;margin:15px}}
+    </style>
+</head>
+<body>
+
+    <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="brand"><i class="fas fa-warehouse"></i><h2>نظام <span>المخازن</span></h2></div>
+        <div class="user-profile">
+            <div class="avatar" id="userAvatar">م</div>
+            <div class="info"><div class="name" id="userName">مدير النظام</div><div class="role" id="userRole">مدير</div></div>
+        </div>
+        <nav class="nav-menu">
+            <div class="nav-section"><div class="section-title">الرئيسية</div><a href="/frontend/pages/dashboard.html" class="nav-item"><i class="fas fa-chart-pie"></i> لوحة التحكم</a></div>
+            <div class="nav-section"><div class="section-title">إدارة المخزون</div>
+                <a href="/frontend/pages/warehouses.html" class="nav-item"><i class="fas fa-warehouse"></i> المخازن <span class="badge success" id="warehouseBadge">0</span></a>
+                <a href="/frontend/pages/products.html" class="nav-item"><i class="fas fa-boxes"></i> الأصناف <span class="badge" id="productBadge">0</span></a>
+                <a href="/frontend/pages/users.html" class="nav-item active"><i class="fas fa-users"></i> المستخدمين <span class="badge success" id="userBadge">0</span></a>
+            </div>
+            <div class="nav-section"><div class="section-title">العمليات</div>
+                <a href="/frontend/pages/receipts.html" class="nav-item"><i class="fas fa-arrow-down" style="color:#28a745;"></i> إذن استلام</a>
+                <a href="/frontend/pages/transfers.html" class="nav-item"><i class="fas fa-exchange-alt"></i> التحويلات</a>
+                <a href="/frontend/pages/inventory.html" class="nav-item"><i class="fas fa-clipboard-check"></i> الجرد</a>
+                <a href="/frontend/pages/audit.html" class="nav-item"><i class="fas fa-history"></i> سجل التدقيق</a>
+            </div>
+            <div class="nav-section"><div class="section-title">التقارير</div><a href="/frontend/pages/reports.html" class="nav-item"><i class="fas fa-chart-bar"></i> التقارير المتقدمة</a></div>
+            <div class="nav-section"><a href="#" class="nav-item logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></div>
+        </nav>
+    </aside>
+
+    <div class="main-content">
+        <header class="topbar">
+            <div class="page-title"><h1>إدارة المستخدمين</h1><p>إدارة صلاحيات وحسابات المستخدمين</p></div>
+            <div class="actions">
+                <div class="search-box"><i class="fas fa-search"></i><input type="text" placeholder="بحث في المستخدمين..." id="searchInput"></div>
+                <button class="btn-primary" id="addUserBtn"><i class="fas fa-user-plus"></i> مستخدم جديد</button>
+                <button class="sidebar-toggle" style="display:inline-block;" id="mobileSidebarToggle"><i class="fas fa-bars"></i></button>
+            </div>
+        </header>
+
+        <div class="table-container">
+            <div class="table-header">
+                <span class="info">عرض <strong id="totalCount">0</strong> مستخدمين</span>
+                <div class="filters">
+                    <select id="roleFilter"><option value="all">جميع الأدوار</option><option value="admin">مدير</option><option value="manager">مدير مخزن</option><option value="user">مستخدم</option></select>
+                    <select id="statusFilter"><option value="all">جميع الحالات</option><option value="active">نشط</option><option value="inactive">غير نشط</option></select>
+                </div>
+            </div>
+
+            <table>
+                <thead><tr><th>#</th><th>اسم المستخدم</th><th>البريد الإلكتروني</th><th>الدور</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                <tbody id="usersTableBody"><tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.2);"><i class="fas fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:10px;"></i>جاري تحميل البيانات...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 id="modalTitle">إضافة مستخدم</h3><button class="close-btn" id="closeModal">&times;</button></div>
+            <form id="userForm">
+                <input type="hidden" id="editId" value="">
+                <div class="form-group"><label>اسم المستخدم *</label><input type="text" id="userUsername" placeholder="أدخل اسم المستخدم" required></div>
+                <div class="form-group"><label>الاسم الكامل *</label><input type="text" id="userFullName" placeholder="الاسم الكامل" required></div>
+                <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="userEmail" placeholder="البريد الإلكتروني"></div>
+                <div class="form-group" id="passwordGroup"><label>كلمة المرور *</label><input type="password" id="userPassword" placeholder="كلمة المرور" required></div>
+                <div class="form-group"><label>الدور</label>
+                    <select id="userRole"><option value="user">مستخدم</option><option value="manager">مدير مخزن</option><option value="admin">مدير عام</option></select>
+                </div>
+                <div class="form-group"><label>الحالة</label>
+                    <select id="userStatus"><option value="active">نشط</option><option value="inactive">غير نشط</option></select>
+                </div>
+                <button type="submit" class="btn-submit" id="submitBtn">إضافة المستخدم</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            const token = localStorage.getItem('auth_token');
+            if (!token) { window.location.href = '/frontend/pages/login.html'; return; }
+
+            try {
+                const userData = JSON.parse(localStorage.getItem('user') || '{}');
+                document.getElementById('userName').textContent = userData.name || 'مدير النظام';
+                document.getElementById('userRole').textContent = userData.role === 'admin' ? 'مدير' : 'مستخدم';
+                document.getElementById('userAvatar').textContent = (userData.name || 'م')[0];
+            } catch (e) {}
+
+            let users = [
+                { id: 1, username: 'admin', name: 'مدير النظام', email: 'admin@system.com', role: 'admin', status: 'active' },
+                { id: 2, username: 'ahmed', name: 'أحمد محمد', email: 'ahmed@system.com', role: 'manager', status: 'active' },
+                { id: 3, username: 'sara', name: 'سارة علي', email: 'sara@system.com', role: 'user', status: 'active' },
+                { id: 4, username: 'khaled', name: 'خالد سعيد', email: 'khaled@system.com', role: 'user', status: 'inactive' }
+            ];
+
+            function loadData() {
+                document.getElementById('userBadge').textContent = users.filter(u => u.status === 'active').length;
+                renderTable();
+            }
+
+            function renderTable() {
+                const tbody = document.getElementById('usersTableBody');
+                const search = document.getElementById('searchInput').value.toLowerCase();
+                const role = document.getElementById('roleFilter').value;
+                const status = document.getElementById('statusFilter').value;
+
+                let filtered = users;
+                if (search) filtered = filtered.filter(u => u.name.toLowerCase().includes(search) || u.username.toLowerCase().includes(search));
+                if (role !== 'all') filtered = filtered.filter(u => u.role === role);
+                if (status !== 'all') filtered = filtered.filter(u => u.status === status);
+
+                document.getElementById('totalCount').textContent = filtered.length;
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.2);"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;"></i>لا توجد مستخدمين</td></tr>`;
+                    return;
+                }
+
+                const roleNames = { admin: 'مدير عام', manager: 'مدير مخزن', user: 'مستخدم' };
+                const roleClasses = { admin: 'admin', manager: 'manager', user: 'user' };
+
+                tbody.innerHTML = filtered.map((u, i) => `
+                    <tr data-id="${u.id}">
+                        <td>${i+1}</td>
+                        <td><strong>${u.name}</strong><br><small style="color:rgba(255,255,255,0.3);font-size:11px;">@${u.username}</small></td>
+                        <td>${u.email || '-'}</td>
+                        <td><span class="role-badge ${roleClasses[u.role] || 'user'}">${roleNames[u.role] || u.role}</span></td>
+                        <td><span class="status ${u.status === 'active' ? 'active' : 'inactive'}">${u.status === 'active' ? 'نشط' : 'غير نشط'}</span></td>
+                        <td>
+                            <div class="actions">
+                                <button class="edit" onclick="editUser(${u.id})"><i class="fas fa-edit"></i></button>
+                                ${u.id !== 1 ? `<button class="lock" onclick="toggleUserStatus(${u.id})"><i class="fas ${u.status === 'active' ? 'fa-lock' : 'fa-unlock'}"></i></button>` : ''}
+                                ${u.id !== 1 ? `<button class="delete" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // Modal
+            const modal = document.getElementById('userModal');
+            document.getElementById('addUserBtn').addEventListener('click', () => {
+                document.getElementById('modalTitle').textContent = 'إضافة مستخدم جديد';
+                document.getElementById('submitBtn').textContent = 'إضافة المستخدم';
+                document.getElementById('editId').value = '';
+                document.getElementById('userForm').reset();
+                document.getElementById('passwordGroup').style.display = 'block';
+                document.getElementById('userPassword').required = true;
+                modal.classList.add('show');
+            });
+            document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+            window.editUser = function(id) {
+                const u = users.find(u => u.id === id);
+                if (u) {
+                    document.getElementById('modalTitle').textContent = 'تعديل المستخدم';
+                    document.getElementById('submitBtn').textContent = 'تحديث المستخدم';
+                    document.getElementById('editId').value = id;
+                    document.getElementById('userUsername').value = u.username || '';
+                    document.getElementById('userUsername').readOnly = true;
+                    document.getElementById('userFullName').value = u.name || '';
+                    document.getElementById('userEmail').value = u.email || '';
+                    document.getElementById('userRole').value = u.role || 'user';
+                    document.getElementById('userStatus').value = u.status || 'active';
+                    document.getElementById('passwordGroup').style.display = 'none';
+                    document.getElementById('userPassword').required = false;
+                    modal.classList.add('show');
+                }
+            };
+
+            document.getElementById('userForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const id = document.getElementById('editId').value;
+                const data = {
+                    username: document.getElementById('userUsername').value.trim(),
+                    name: document.getElementById('userFullName').value.trim(),
+                    email: document.getElementById('userEmail').value.trim(),
+                    role: document.getElementById('userRole').value,
+                    status: document.getElementById('userStatus').value
+                };
+                if (!data.username || !data.name) { showToast('⚠️ يرجى ملء الحقول المطلوبة', 'warning'); return; }
+                
+                if (id) {
+                    const index = users.findIndex(u => u.id === parseInt(id));
+                    if (index !== -1) {
+                        users[index] = { ...users[index], ...data };
+                        showToast('✅ تم تحديث المستخدم', 'success');
+                    }
+                } else {
+                    const password = document.getElementById('userPassword').value;
+                    if (!password) { showToast('⚠️ يرجى إدخال كلمة المرور', 'warning'); return; }
+                    const newId = Math.max(...users.map(u => u.id)) + 1;
+                    users.push({ id: newId, ...data });
+                    showToast('✅ تم إضافة المستخدم', 'success');
+                }
+                modal.classList.remove('show');
+                loadData();
+            });
+
+            window.toggleUserStatus = function(id) {
+                const u = users.find(u => u.id === id);
+                if (!u) return;
+                const action = u.status === 'active' ? 'تعطيل' : 'تفعيل';
+                if (confirm(`هل أنت متأكد من ${action} المستخدم "${u.name}"؟`)) {
+                    const index = users.findIndex(u => u.id === id);
+                    if (index !== -1) {
+                        users[index].status = users[index].status === 'active' ? 'inactive' : 'active';
+                        showToast(`✅ تم ${action} المستخدم`, 'success');
+                        loadData();
+                    }
+                }
+            };
+
+            window.deleteUser = function(id) {
+                const u = users.find(u => u.id === id);
+                if (!u) return;
+                if (confirm(`هل أنت متأكد من حذف المستخدم "${u.name}"؟`)) {
+                    users = users.filter(u => u.id !== id);
+                    showToast('🗑️ تم حذف المستخدم', 'success');
+                    loadData();
+                }
+            };
+
+            document.getElementById('searchInput').addEventListener('input', renderTable);
+            document.getElementById('roleFilter').addEventListener('change', renderTable);
+            document.getElementById('statusFilter').addEventListener('change', renderTable);
+
+            function showToast(message, type = 'info') {
+                const existing = document.querySelector('.custom-toast');
+                if (existing) existing.remove();
+                const toast = document.createElement('div');
+                toast.className = `custom-toast ${type}`;
+                const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+                toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s ease'; setTimeout(() => toast.remove(), 400); }, 3500);
+            }
+
+            const sidebar = document.getElementById('sidebar');
+            document.getElementById('sidebarToggle').addEventListener('click', function() { sidebar.classList.toggle('open'); this.querySelector('i').classList.toggle('fa-bars'); this.querySelector('i').classList.toggle('fa-times'); });
+            document.getElementById('mobileSidebarToggle').addEventListener('click', function() { sidebar.classList.toggle('open'); });
+
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/frontend/pages/login.html';
+                }
+            });
+
+            loadData();
+            console.log('%c👥 إدارة المستخدمين - نظام المخازن v5.0', 'font-size:20px;font-weight:bold;color:#fd7e14;');
+        })();
+    </script>
+
+</body>
+</html>

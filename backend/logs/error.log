@@ -1,0 +1,11 @@
+2026-08-21 14:18:45 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:47 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:48 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:48 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:48 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:49 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:49 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 14:18:49 - Routing error: ملف التوجيه غير موجود: /home/angel/Desktop/AK.WH/backend/routes/api.php - {"path":"\/frontend\/pages\/dashboard.html","method":"GET"}
+2026-08-21 17:10:38 - Routing error: Invalid handler - {"path":"\/api\/auth\/logout","method":"POST"}
+2026-08-21 17:47:36 - Routing error: Invalid handler - {"path":"\/api\/auth\/logout","method":"POST"}
+2026-08-21 17:52:27 - Routing error: Invalid handler - {"path":"\/api\/auth\/logout","method":"POST"}

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تقرير المخزون المتقدم - نظام المخازن</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Tajawal',sans-serif;background:#0a0e1a;direction:rtl;min-height:100vh;overflow-x:hidden}
+        .bg-animation{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;overflow:hidden}
+        .bg-animation .gradient{position:absolute;border-radius:50%;filter:blur(120px);opacity:0.2;animation:floatGradient 25s ease-in-out infinite alternate}
+        .bg-animation .gradient-1{top:-200px;right:-200px;width:600px;height:600px;background:linear-gradient(135deg,#667eea,#764ba2)}
+        .bg-animation .gradient-2{bottom:-200px;left:-200px;width:500px;height:500px;background:linear-gradient(135deg,#f093fb,#f5576c);animation-delay:-8s}
+        .bg-animation .gradient-3{top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:800px;background:linear-gradient(135deg,#4facfe,#00f2fe);animation-delay:-15s}
+        @keyframes floatGradient{0%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-50px) scale(1.1)}66%{transform:translate(-20px,30px) scale(0.9)}100%{transform:translate(10px,-10px) scale(1.05)}}
+        .particles{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;pointer-events:none}
+        .particle{position:absolute;width:4px;height:4px;background:rgba(255,255,255,0.08);border-radius:50%;animation:floatParticle 20s infinite linear}
+        .particle:nth-child(1){left:5%;animation-delay:0s}.particle:nth-child(2){left:15%;animation-delay:2s;width:6px;height:6px}.particle:nth-child(3){left:25%;animation-delay:4s}.particle:nth-child(4){left:35%;animation-delay:1s;width:3px;height:3px}.particle:nth-child(5){left:45%;animation-delay:3s;width:5px;height:5px}.particle:nth-child(6){left:55%;animation-delay:5s}.particle:nth-child(7){left:65%;animation-delay:2s;width:7px;height:7px}.particle:nth-child(8){left:75%;animation-delay:4s}.particle:nth-child(9){left:85%;animation-delay:1s;width:4px;height:4px}.particle:nth-child(10){left:95%;animation-delay:3s;width:6px;height:6px}
+        @keyframes floatParticle{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-100vh) rotate(720deg);opacity:0}}
+        .navbar{position:fixed;top:0;left:0;right:0;z-index:1000;padding:12px 30px;background:rgba(10,14,26,0.9);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+        .navbar .logo{display:flex;align-items:center;gap:10px;color:#fff;font-size:20px;font-weight:800;text-decoration:none}
+        .navbar .logo i{color:#667eea;font-size:26px}
+        .navbar .logo span{background:linear-gradient(135deg,#fff,#667eea);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .navbar .user-area{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+        .navbar .user-area .user-info{display:flex;align-items:center;gap:10px;color:#fff}
+        .navbar .user-area .user-info .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+        .navbar .user-area .user-info .name{font-size:14px;font-weight:600}
+        .btn-back{padding:6px 18px;border-radius:10px;background:rgba(102,126,234,0.15);border:1px solid rgba(102,126,234,0.3);color:#667eea;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.3s ease;text-decoration:none}
+        .btn-back:hover{background:rgba(102,126,234,0.25)}
+        .btn-logout{padding:6px 18px;border-radius:10px;background:rgba(220,53,69,0.15);border:1px solid rgba(220,53,69,0.3);color:#dc3545;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.3s ease}
+        .btn-logout:hover{background:rgba(220,53,69,0.25)}
+        .main-content{margin-right:0;padding:90px 25px 30px;position:relative;z-index:1;max-width:1600px;margin-left:auto;margin-right:auto}
+        .page-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;margin-bottom:25px}
+        .page-header h2{color:#fff;font-size:28px;font-weight:800}
+        .page-header h2 i{color:#667eea;margin-left:10px}
+        .page-header .subtitle{color:rgba(255,255,255,0.3);font-size:14px}
+        .page-actions{display:flex;gap:10px;flex-wrap:wrap}
+        .btn-primary{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(102,126,234,0.3)}
+        .btn-secondary{padding:10px 24px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-secondary:hover{background:rgba(255,255,255,0.1)}
+        .btn-success{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#28a745,#20c997);border:none;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-success:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(40,167,69,0.3)}
+        .btn-warning{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#ffc107,#f8a100);border:none;color:#1a2332;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-warning:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,193,7,0.3)}
+        .btn-danger{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#dc3545,#e83e8c);border:none;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-danger:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(220,53,69,0.3)}
+        .btn-purple{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#764ba2,#667eea);border:none;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .btn-purple:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(118,75,162,0.3)}
+        .filter-bar{display:flex;gap:15px;flex-wrap:wrap;margin-bottom:25px;padding:15px 20px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(255,255,255,0.05)}
+        .filter-bar input,.filter-bar select{padding:10px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;flex:1;min-width:150px;outline:none;transition:all 0.3s ease}
+        .filter-bar input:focus,.filter-bar select:focus{border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.1)}
+        .filter-bar input::placeholder{color:rgba(255,255,255,0.3)}
+        .filter-bar select option{background:#0a0e1a;color:#fff}
+        .view-toggle{display:flex;gap:8px;align-items:center}
+        .view-toggle .toggle-btn{padding:8px 16px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);cursor:pointer;transition:all 0.3s ease;font-family:'Tajawal',sans-serif;font-size:13px}
+        .view-toggle .toggle-btn:hover{background:rgba(255,255,255,0.05)}
+        .view-toggle .toggle-btn.active{background:rgba(102,126,234,0.15);border-color:#667eea;color:#667eea}
+        .report-container{background:rgba(255,255,255,0.02);border-radius:16px;border:1px solid rgba(255,255,255,0.05);overflow:hidden}
+        .report-header{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;gap:10px}
+        .report-header .report-title{color:rgba(255,255,255,0.5);font-size:14px}
+        .report-header .report-stats{display:flex;gap:20px;flex-wrap:wrap}
+        .report-header .report-stats .stat{color:rgba(255,255,255,0.3);font-size:12px}
+        .report-header .report-stats .stat strong{color:#fff}
+        .table-responsive{overflow-x:auto;padding:0 15px 15px}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        thead{background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.05)}
+        thead th{padding:12px 10px;text-align:right;color:rgba(255,255,255,0.4);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;cursor:pointer;transition:all 0.3s ease}
+        thead th:hover{color:#fff}
+        thead th i{margin-left:4px;font-size:10px}
+        tbody tr{border-bottom:1px solid rgba(255,255,255,0.03);transition:all 0.3s ease}
+        tbody tr:hover{background:rgba(255,255,255,0.02)}
+        tbody td{padding:12px 10px;color:rgba(255,255,255,0.7);vertical-align:middle}
+        tbody td .product-name{color:#fff;font-weight:500}
+        tbody td .product-code{color:rgba(255,255,255,0.3);font-size:11px}
+        tbody td .badge-status{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block}
+        tbody td .badge-status.normal{background:rgba(40,167,69,0.15);color:#28a745}
+        tbody td .badge-status.low{background:rgba(255,193,7,0.15);color:#ffc107}
+        tbody td .badge-status.out{background:rgba(220,53,69,0.15);color:#dc3545}
+        tbody td .badge-status.over{background:rgba(102,126,234,0.15);color:#667eea}
+        tbody td .quantity{font-weight:600}
+        tbody td .quantity.normal{color:#28a745}
+        tbody td .quantity.low{color:#ffc107}
+        tbody td .quantity.out{color:#dc3545}
+        tbody td .quantity.over{color:#667eea}
+        .tree-view{padding:10px 0}
+        .tree-item{padding:8px 12px;margin:2px 0;border-radius:8px;cursor:pointer;transition:all 0.3s ease;border-right:3px solid transparent;display:flex;align-items:center;gap:10px}
+        .tree-item:hover{background:rgba(255,255,255,0.02)}
+        .tree-item .icon{width:24px;text-align:center;font-size:14px}
+        .tree-item .name{color:rgba(255,255,255,0.8);font-size:14px}
+        .tree-item .count{color:rgba(255,255,255,0.2);font-size:12px;margin-right:auto}
+        .tree-item .expand{color:rgba(255,255,255,0.2);cursor:pointer;padding:0 8px}
+        .tree-item .expand:hover{color:#fff}
+        .tree-item .children{padding-right:30px}
+        .tree-item.active{background:rgba(102,126,234,0.05);border-right-color:#667eea}
+        .tree-item .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:8px}
+        .tree-item .status-dot.normal{background:#28a745}
+        .tree-item .status-dot.low{background:#ffc107}
+        .tree-item .status-dot.out{background:#dc3545}
+        .tree-item .status-dot.over{background:#667eea}
+        .card-view{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px;padding:10px}
+        .card-view .item-card{background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.05);padding:16px;transition:all 0.3s ease}
+        .card-view .item-card:hover{transform:translateY(-3px);background:rgba(255,255,255,0.04);border-color:rgba(102,126,234,0.15)}
+        .card-view .item-card .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+        .card-view .item-card .card-top .name{color:#fff;font-weight:600;font-size:15px}
+        .card-view .item-card .card-top .code{color:rgba(255,255,255,0.2);font-size:11px}
+        .card-view .item-card .details{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+        .card-view .item-card .details .detail{display:flex;justify-content:space-between;padding:2px 0}
+        .card-view .item-card .details .detail .lbl{color:rgba(255,255,255,0.2);font-size:11px}
+        .card-view .item-card .details .detail .val{color:rgba(255,255,255,0.7);font-size:12px;font-weight:500}
+        .card-view .item-card .card-bottom{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;flex-wrap:wrap}
+        .card-view .item-card .card-bottom .btn-sm{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'Tajawal',sans-serif}
+        .card-view .item-card .card-bottom .btn-sm.blue{background:rgba(102,126,234,0.15);color:#667eea}
+        .card-view .item-card .card-bottom .btn-sm.green{background:rgba(40,167,69,0.15);color:#28a745}
+        .card-view .item-card .card-bottom .btn-sm.orange{background:rgba(255,193,7,0.15);color:#ffc107}
+        .pagination{display:flex;justify-content:center;gap:8px;padding:15px;flex-wrap:wrap}
+        .pagination .page-btn{padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);color:rgba(255,255,255,0.4);cursor:pointer;transition:all 0.3s ease;font-family:'Tajawal',sans-serif;font-size:13px}
+        .pagination .page-btn:hover{background:rgba(255,255,255,0.05);color:#fff}
+        .pagination .page-btn.active{background:rgba(102,126,234,0.15);border-color:#667eea;color:#667eea}
+        .pagination .page-btn:disabled{opacity:0.3;cursor:not-allowed}
+        .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);z-index:2000;align-items:center;justify-content:center;padding:20px}
+        .modal.active{display:flex}
+        .modal-content{background:#0a0e1a;border-radius:20px;padding:30px;max-width:800px;width:100%;border:1px solid rgba(255,255,255,0.05);max-height:90vh;overflow-y:auto}
+        .modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+        .modal-content .modal-header h3{color:#fff;font-size:22px;font-weight:700}
+        .modal-content .modal-header h3 i{color:#667eea;margin-left:8px}
+        .modal-content .modal-header .close{background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:24px;cursor:pointer;transition:all 0.3s ease}
+        .modal-content .modal-header .close:hover{color:#fff}
+        .modal-content .history-item{padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+        .modal-content .history-item:last-child{border-bottom:none}
+        .modal-content .history-item .top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+        .modal-content .history-item .top .action{color:#fff;font-weight:600}
+        .modal-content .history-item .top .time{color:rgba(255,255,255,0.2);font-size:12px}
+        .modal-content .history-item .details{color:rgba(255,255,255,0.4);font-size:13px;margin-top:4px}
+        .modal-content .history-item .user{color:rgba(255,255,255,0.3);font-size:12px}
+        .empty-state{text-align:center;padding:60px 20px;color:rgba(255,255,255,0.2)}
+        .empty-state i{font-size:60px;display:block;margin-bottom:15px;opacity:0.3}
+        .empty-state h3{color:rgba(255,255,255,0.3);font-size:20px}
+        .empty-state p{color:rgba(255,255,255,0.15);font-size:14px;margin-top:5px}
+        .toast{position:fixed;bottom:20px;left:20px;background:rgba(40,167,69,0.9);color:#fff;padding:12px 20px;border-radius:12px;z-index:3000;animation:slideUp 0.4s ease;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+        .toast.error{background:rgba(220,53,69,0.9)}
+        .toast.warning{background:rgba(255,193,7,0.9);color:#1a2332}
+        @keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+        @media(max-width:768px){.main-content{padding:80px 15px 20px}.page-header h2{font-size:22px}.filter-bar{flex-direction:column}.filter-bar input,.filter-bar select{min-width:100%}.modal-content{padding:20px;margin:10px}.page-actions{width:100%}.page-actions .btn{flex:1;justify-content:center}.report-header{flex-direction:column}.report-header .report-stats{width:100%;justify-content:space-between}.card-view{grid-template-columns:1fr}}
+        @media(max-width:576px){.navbar{padding:10px 15px}.navbar .logo{font-size:16px}.navbar .user-area .user-info .name{display:none}.view-toggle{width:100%;justify-content:center}.view-toggle .toggle-btn{flex:1;text-align:center}}
+        ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:8px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+    </style>
+</head>
+<body>
+    <div class="bg-animation"><div class="gradient gradient-1"></div><div class="gradient gradient-2"></div><div class="gradient gradient-3"></div></div>
+    <div class="particles"><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div></div>
+    <nav class="navbar">
+        <a href="/" class="logo"><i class="fas fa-warehouse"></i><span>نظام المخازن</span></a>
+        <div class="user-area">
+            <a href="/frontend/pages/dashboard.html" class="btn-back"><i class="fas fa-arrow-right"></i> العودة</a>
+            <div class="user-info">
+                <div class="avatar" id="userAvatar">م</div>
+                <div><div class="name" id="userName">مرحباً</div></div>
+            </div>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
+        </div>
+    </nav>
+    <div class="main-content">
+        <div class="page-header">
+            <div><h2><i class="fas fa-chart-bar"></i> تقرير المخزون المتقدم</h2><div class="subtitle">عرض الأصناف في المخازن - مجمع / تفصيلي</div></div>
+            <div class="page-actions">
+                <button class="btn-success" onclick="exportReport('csv')"><i class="fas fa-file-csv"></i> CSV</button>
+                <button class="btn-warning" onclick="exportReport('excel')"><i class="fas fa-file-excel"></i> Excel</button>
+                <button class="btn-danger" onclick="exportReport('pdf')"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn-secondary" onclick="refreshData()"><i class="fas fa-sync"></i> تحديث</button>
+            </div>
+        </div>
+        <div class="filter-bar">
+            <input type="text" placeholder="🔍 بحث عن صنف..." id="searchProduct" onkeyup="filterData()">
+            <select id="filterWarehouse" onchange="filterData()"><option value="">كل المخازن</option></select>
+            <select id="filterCategory" onchange="filterData()"><option value="">كل التصنيفات</option></select>
+            <select id="filterStatus" onchange="filterData()"><option value="">كل الحالات</option><option value="normal">طبيعي</option><option value="low">منخفض</option><option value="out">نفذ</option><option value="over">زائد</option></select>
+            <div class="view-toggle">
+                <button class="toggle-btn active" onclick="setView('table')" id="viewTable"><i class="fas fa-table"></i> جدول</button>
+                <button class="toggle-btn" onclick="setView('card')" id="viewCard"><i class="fas fa-th-large"></i> بطاقات</button>
+                <button class="toggle-btn" onclick="setView('tree')" id="viewTree"><i class="fas fa-sitemap"></i> شجري</button>
+            </div>
+        </div>
+        <div class="report-container">
+            <div class="report-header">
+                <div class="report-title"><i class="fas fa-file-alt"></i> تقرير الأصناف في المخازن</div>
+                <div class="report-stats">
+                    <span class="stat">إجمالي الأصناف: <strong id="totalItems">0</strong></span>
+                    <span class="stat">إجمالي الكميات: <strong id="totalQuantity">0</strong></span>
+                    <span class="stat">القيمة الإجمالية: <strong id="totalValue">0</strong> ر.س</span>
+                </div>
+            </div>
+            <div id="reportContent"></div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+    <div class="modal" id="historyModal"><div class="modal-content">
+        <div class="modal-header"><h3><i class="fas fa-history"></i> سجل حركات الصنف</h3><button class="close" onclick="document.getElementById('historyModal').classList.remove('active')">&times;</button></div>
+        <div id="historyContent"></div>
+    </div></div>
+    <script>
+        const token=localStorage.getItem('auth_token');if(!token){window.location.href='/frontend/pages/login.html'}
+        let allData=[],filteredData=[],currentView='table',currentPage=1,pageSize=20;
+        async function fetchUser(){try{const r=await fetch('/validate',{headers:{'Authorization':'Bearer '+token}});const d=await r.json();if(d.success&&d.data){document.getElementById('userName').textContent=d.data.user.full_name||d.data.user.username;document.getElementById('userAvatar').textContent=(d.data.user.full_name||'م')[0]}else{localStorage.removeItem('auth_token');window.location.href='/frontend/pages/login.html'}}catch(e){localStorage.removeItem('auth_token');window.location.href='/frontend/pages/login.html'}}
+        async function loadData(){try{const r=await fetch('/api/reports/stock',{headers:{'Authorization':'Bearer '+token}});const d=await r.json();if(d.success){allData=d.data||[];populateFilters();filterData()}else{showError('فشل تحميل البيانات')}}catch(e){showError('حدث خطأ في تحميل البيانات')}}
+        function populateFilters(){const warehouses=[...new Set(allData.map(item=>item.warehouse))].filter(Boolean);const wsel=document.getElementById('filterWarehouse');wsel.innerHTML='<option value="">كل المخازن</option>';warehouses.forEach(w=>{const opt=document.createElement('option');opt.value=w;opt.textContent=w;wsel.appendChild(opt)});const categories=[...new Set(allData.map(item=>item.category))].filter(Boolean);const csel=document.getElementById('filterCategory');csel.innerHTML='<option value="">كل التصنيفات</option>';categories.forEach(c=>{const opt=document.createElement('option');opt.value=c;opt.textContent=c;csel.appendChild(opt)})}
+        function filterData(){const search=document.getElementById('searchProduct').value.toLowerCase();const warehouse=document.getElementById('filterWarehouse').value;const category=document.getElementById('filterCategory').value;const status=document.getElementById('filterStatus').value;filteredData=allData.filter(item=>{const matchSearch=item.name.toLowerCase().includes(search)||(item.code||'').toLowerCase().includes(search)||(item.barcode||'').toLowerCase().includes(search);const matchWh=!warehouse||item.warehouse===warehouse;const matchCat=!category||item.category===category;const matchStatus=!status||item.stock_status===status;return matchSearch&&matchWh&&matchCat&&matchStatus});currentPage=1;renderReport()}
+        function renderReport(){const total=filteredData.length;document.getElementById('totalItems').textContent=total;document.getElementById('totalQuantity').textContent=filteredData.reduce((s,i)=>s+i.quantity,0).toLocaleString();document.getElementById('totalValue').textContent=filteredData.reduce((s,i)=>s+i.total_value,0).toFixed(2);const start=(currentPage-1)*pageSize,end=Math.min(start+pageSize,total);const pageData=filteredData.slice(start,end);const container=document.getElementById('reportContent');if(total===0){container.innerHTML='<div class="empty-state"><i class="fas fa-box-open"></i><h3>لا توجد بيانات</h3><p>لا توجد أصناف تطابق معايير البحث</p></div>';document.getElementById('pagination').innerHTML='';return}
+        if(currentView==='table'){renderTableView(pageData,container)}else if(currentView==='card'){renderCardView(pageData,container)}else{renderTreeView(pageData,container)}renderPagination(total)}
+        function renderTableView(data,container){let html='<div class="table-responsive"><table><thead><tr><th onclick="sortBy(\'code\')">الكود <i class="fas fa-sort"></i></th><th onclick="sortBy(\'name\')">الصنف <i class="fas fa-sort"></i></th><th onclick="sortBy(\'category\')">التصنيف <i class="fas fa-sort"></i></th><th onclick="sortBy(\'warehouse\')">المخزن <i class="fas fa-sort"></i></th><th onclick="sortBy(\'quantity\')">الكمية <i class="fas fa-sort"></i></th><th onclick="sortBy(\'available\')">المتاح <i class="fas fa-sort"></i></th><th onclick="sortBy(\'total_value\')">القيمة <i class="fas fa-sort"></i></th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>';data.forEach(item=>{const statusClass=item.stock_status;const statusLabels={normal:'طبيعي',low:'منخفض',out:'نفذ',over:'زائد'};html+=`<tr><td><span style="color:rgba(255,255,255,0.3);font-size:11px;">${item.code||'---'}</span></td><td><div class="product-name">${item.name}</div><div class="product-code">${item.barcode||''}</div></td><td>${item.category||'---'}</td><td>${item.warehouse||'---'}</td><td class="quantity ${statusClass}">${item.quantity||0}</td><td>${item.available||0}</td><td>${(item.total_value||0).toFixed(2)}</td><td><span class="badge-status ${statusClass}">${statusLabels[statusClass]||item.stock_status}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn-sm blue" onclick="showHistory(${item.product_id})"><i class="fas fa-history"></i></button><button class="btn-sm green" onclick="viewProduct(${item.product_id})"><i class="fas fa-eye"></i></button></div></td></tr>`});html+='</tbody></table></div>';container.innerHTML=html}
+        function renderCardView(data,container){let html='<div class="card-view">';data.forEach(item=>{const statusClass=item.stock_status;const statusLabels={normal:'طبيعي',low:'منخفض',out:'نفذ',over:'زائد'};html+=`<div class="item-card"><div class="card-top"><div><div class="name">${item.name}</div><div class="code">${item.code||''} ${item.barcode?`· ${item.barcode}`:''}</div></div><span class="badge-status ${statusClass}">${statusLabels[statusClass]||item.stock_status}</span></div><div class="details"><div class="detail"><span class="lbl">المخزن</span><span class="val">${item.warehouse||'---'}</span></div><div class="detail"><span class="lbl">التصنيف</span><span class="val">${item.category||'---'}</span></div><div class="detail"><span class="lbl">الكمية</span><span class="val quantity ${statusClass}">${item.quantity||0}</span></div><div class="detail"><span class="lbl">المتاح</span><span class="val">${item.available||0}</span></div><div class="detail"><span class="lbl">الوحدة</span><span class="val">${item.unit||'---'}</span></div><div class="detail"><span class="lbl">القيمة</span><span class="val">${(item.total_value||0).toFixed(2)} ر.س</span></div></div><div class="card-bottom"><button class="btn-sm blue" onclick="showHistory(${item.product_id})"><i class="fas fa-history"></i> السجل</button><button class="btn-sm green" onclick="viewProduct(${item.product_id})"><i class="fas fa-eye"></i> عرض</button></div></div>`});html+='</div>';container.innerHTML=html}
+        function renderTreeView(data,container){const grouped=data.reduce((acc,item)=>{const key=item.warehouse||'بدون مخزن';if(!acc[key])acc[key]=[];acc[key].push(item);return acc},{})};let html='<div class="tree-view">';Object.keys(grouped).forEach(wh=>{const items=grouped[wh];const total=items.reduce((s,i)=>s+i.quantity,0);html+=`<div class="tree-item active"><span class="icon"><i class="fas fa-warehouse"></i></span><span class="name">${wh}</span><span class="count">${items.length} صنف · ${total} قطعة</span><span class="expand" onclick="toggleTree(this)"><i class="fas fa-chevron-down"></i></span></div><div class="children">`;items.forEach(item=>{const statusClass=item.stock_status;const statusLabels={normal:'طبيعي',low:'منخفض',out:'نفذ',over:'زائد'};html+=`<div class="tree-item"><span class="status-dot ${statusClass}"></span><span class="name">${item.name}</span><span class="count">${item.quantity||0}</span><span class="badge-status ${statusClass}" style="font-size:9px;padding:1px 8px;">${statusLabels[statusClass]||item.stock_status}</span></div>`});html+='</div>'});html+='</div>';container.innerHTML=html}
+        function toggleTree(el){const children=el.closest('.tree-item').nextElementSibling;if(children){children.style.display=children.style.display==='none'?'block':'none';el.querySelector('i').classList.toggle('fa-chevron-down');el.querySelector('i').classList.toggle('fa-chevron-right')}}
+        function renderPagination(total){const pages=Math.ceil(total/pageSize);const container=document.getElementById('pagination');if(pages<=1){container.innerHTML='';return}let html='';html+=`<button class="page-btn" onclick="goToPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>السابق</button>`;for(let i=1;i<=pages;i++){html+=`<button class="page-btn ${i===currentPage?'active':''}" onclick="goToPage(${i})">${i}</button>`}html+=`<button class="page-btn" onclick="goToPage(${currentPage+1})" ${currentPage>=pages?'disabled':''}>التالي</button>`;container.innerHTML=html}
+        function goToPage(page){const pages=Math.ceil(filteredData.length/pageSize);if(page<1||page>pages)return;currentPage=page;renderReport()}
+        function setView(view){currentView=view;document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));document.getElementById('view'+view.charAt(0).toUpperCase()+view.slice(1)).classList.add('active');renderReport()}
+        function sortBy(field){filteredData.sort((a,b)=>{const va=a[field]||'',vb=b[field]||'';if(typeof va==='number')return va-vb;return va.toString().localeCompare(vb.toString())});renderReport()}
+        function refreshData(){loadData();showToast('تم تحديث البيانات','success')}
+        function showError(msg){const c=document.getElementById('reportContent');c.innerHTML=`<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#ffc107;"></i><h3 style="color:#ffc107;">${msg}</h3><p>يرجى المحاولة مرة أخرى</p></div>`}
+        function showToast(msg,type='success'){const existing=document.querySelector('.toast');if(existing)existing.remove();const toast=document.createElement('div');toast.className=`toast ${type}`;toast.textContent=msg;document.body.appendChild(toast);setTimeout(()=>toast.remove(),3000)}
+        function showHistory(productId){const modal=document.getElementById('historyModal');modal.classList.add('active');const container=document.getElementById('historyContent');container.innerHTML='<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.2);"><i class="fas fa-spinner fa-spin fa-2x"></i><p>جاري تحميل السجل...</p></div>';fetch(`/api/reports/product/${productId}/history`,{headers:{'Authorization':'Bearer '+token}}).then(r=>r.json()).then(d=>{if(d.success&&d.data){const items=d.data;if(items.length===0){container.innerHTML='<div class="empty-state"><i class="fas fa-history"></i><h3>لا توجد حركات</h3></div>';return}container.innerHTML=items.map(h=>`<div class="history-item"><div class="top"><span class="action">${h.action||'حركة'}</span><span class="time">${new Date(h.created_at).toLocaleString('ar-SA')}</span></div><div class="details">${h.details||h.description||''}</div><div class="user"><i class="fas fa-user"></i> ${h.user_name||'نظام'} · ${h.warehouse_name||''}</div></div>`).join('')}else{container.innerHTML='<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>فشل تحميل السجل</h3></div>'}}).catch(()=>{container.innerHTML='<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>حدث خطأ</h3></div>'})}
+        function viewProduct(id){const item=allData.find(i=>i.product_id===id);if(!item){showToast('الصنف غير موجود','error');return}showToast(`📦 ${item.name}\n📊 الكمية: ${item.quantity||0}\n💰 القيمة: ${(item.total_value||0).toFixed(2)} ر.س`,'success')}
+        function exportReport(format){if(filteredData.length===0){showToast('لا توجد بيانات للتصدير','error');return}const data=filteredData.map(item=>({الكود:item.code||'',الاسم:item.name,التصنيف:item.category||'',المخزن:item.warehouse||'',الكمية:item.quantity||0,المتاح:item.available||0,الوحدة:item.unit||'',سعر_الشراء:item.cost_price||0,سعر_البيع:item.selling_price||0,القيمة:item.total_value||0,الحالة:item.stock_status||''}));if(format==='csv'){const headers=Object.keys(data[0]);let csv=headers.join(',')+'\n';data.forEach(row=>{csv+=headers.map(h=>row[h]).join(',')+'\n'});const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`تقرير_المخزون_${new Date().toISOString().slice(0,10)}.csv`;link.click();showToast('✅ تم تصدير CSV بنجاح','success')}else if(format==='excel'){let html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table border="1">';html+='<tr>'+Object.keys(data[0]).map(h=>`<th style="background:#667eea;color:#fff;font-weight:bold;">${h}</th>`).join('')+'</tr>';data.forEach(row=>{html+='<tr>'+Object.values(row).map(v=>`<td>${v}</td>`).join('')+'</tr>'});html+='</table></body></html>';const blob=new Blob([html],{type:'application/vnd.ms-excel'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`تقرير_المخزون_${new Date().toISOString().slice(0,10)}.xls`;link.click();showToast('✅ تم تصدير Excel بنجاح','success')}else if(format==='pdf'){showToast('🔄 جاري إنشاء PDF...','warning');setTimeout(()=>{const printWindow=window.open('','_blank','width=1000,height=800');printWindow.document.write('<html><head><title>تقرير المخزون</title><style>body{font-family:"Tajawal",sans-serif;direction:rtl;padding:20px;background:#fff;}h1{text-align:center;color:#667eea;}table{width:100%;border-collapse:collapse;margin-top:20px;}th{background:#667eea;color:#fff;padding:10px;border:1px solid #ddd;}td{padding:8px;border:1px solid #ddd;}tr:nth-child(even){background:#f9f9f9;}</style></head><body><h1>📊 تقرير المخزون</h1><p>تاريخ التقرير: '+new Date().toLocaleString('ar-SA')+'</p><table border="1"><tr>'+Object.keys(data[0]).map(h=>`<th>${h}</th>`).join('')+'</tr>'+data.map(row=>'<tr>'+Object.values(row).map(v=>`<td>${v}</td>`).join('')+'</tr>').join('')+'</table><p style="margin-top:20px;text-align:center;color:#888;">تم التصدير بواسطة نظام المخازن المتقدم</p></body></html>');printWindow.document.close();printWindow.print();showToast('✅ تم فتح PDF للطباعة','success')},1000)}}
+        function logout(){if(confirm('هل أنت متأكد من رغبتك في تسجيل الخروج؟')){localStorage.removeItem('auth_token');localStorage.removeItem('user');window.location.href='/frontend/pages/login.html'}}
+        document.addEventListener('DOMContentLoaded',function(){fetchUser();loadData()});
+        console.log('%c📊 تقرير المخزون المتقدم v4.0.0','font-size:20px;font-weight:bold;color:#667eea;');
+    </script>
+</body>
+</html>
