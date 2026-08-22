@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/ProductController.php
 // الوصف: متحكم إدارة الأصناف - CRUD كامل مع ميزات متقدمة
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -12,6 +11,7 @@ namespace Controllers;
 use Core\Database;
 use Core\Auth;
 use Core\Audit;
+use Exception;
 
 class ProductController
 {
@@ -65,11 +65,11 @@ class ProductController
             $maxStock = $_GET['max_stock'] ?? '';
             $sort = $_GET['sort'] ?? 'created_at';
             $order = $_GET['order'] ?? 'DESC';
-            $view = $_GET['view'] ?? 'list'; // list, tree, cards, icons
+            $view = $_GET['view'] ?? 'list';
 
             // بناء شروط البحث
             $params = [];
-            $where = [];
+            $where = ["p.deleted_at IS NULL"];
             
             if (!empty($search)) {
                 $where[] = "(p.code LIKE :search OR p.name LIKE :search OR p.barcode LIKE :search)";
@@ -79,11 +79,6 @@ class ProductController
             if (!empty($category)) {
                 $where[] = "p.category_id = :category";
                 $params['category'] = $category;
-            }
-            
-            if (!empty($warehouse)) {
-                $where[] = "EXISTS (SELECT 1 FROM stock_balances sb WHERE sb.product_id = p.id AND sb.warehouse_id = :warehouse)";
-                $params['warehouse'] = $warehouse;
             }
             
             if ($status === 'active') {
@@ -108,8 +103,6 @@ class ProductController
                 $params['max_stock'] = $maxStock;
             }
             
-            $where[] = "p.deleted_at IS NULL";
-            
             $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
             // الحقول المسموح بالترتيب بها
@@ -127,6 +120,7 @@ class ProductController
                     p.description,
                     p.category_id,
                     c.name as category_name,
+                    c.color as category_color,
                     p.unit_id,
                     u.name as unit_name,
                     u.symbol as unit_symbol,
@@ -152,7 +146,8 @@ class ProductController
                     (SELECT COALESCE(SUM(sb.quantity), 0) FROM stock_balances sb WHERE sb.product_id = p.id) as total_quantity,
                     (SELECT COALESCE(SUM(sb.reserved_quantity), 0) FROM stock_balances sb WHERE sb.product_id = p.id) as total_reserved,
                     (SELECT COALESCE(SUM(sb.quantity * p.cost_price), 0) FROM stock_balances sb WHERE sb.product_id = p.id) as total_value,
-                    (SELECT COUNT(DISTINCT sb.warehouse_id) FROM stock_balances sb WHERE sb.product_id = p.id AND sb.quantity > 0) as warehouses_count
+                    (SELECT COUNT(DISTINCT sb.warehouse_id) FROM stock_balances sb WHERE sb.product_id = p.id AND sb.quantity > 0) as warehouses_count,
+                    (SELECT COUNT(*) FROM stock_movements sm WHERE sm.product_id = p.id) as movement_count
                 FROM products p
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN units u ON u.id = p.unit_id
@@ -180,14 +175,6 @@ class ProductController
                 WHERE p.deleted_at IS NULL
             ");
 
-            // بيانات إضافية حسب نوع العرض
-            $extraData = [];
-            if ($view === 'tree') {
-                $extraData['tree'] = $this->buildProductTree($products);
-            } elseif ($view === 'cards') {
-                $extraData['cards'] = $this->formatCards($products);
-            }
-
             successResponse('تم جلب قائمة الأصناف', [
                 'data' => $products,
                 'stats' => [
@@ -203,13 +190,12 @@ class ProductController
                     'limit' => $limit,
                     'total' => (int)$total,
                     'pages' => ceil((int)$total / $limit)
-                ],
-                'extra' => $extraData
+                ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Products list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -349,12 +335,18 @@ class ProductController
                 'recent_movements' => $movements,
                 'audits' => $audits,
                 'batches' => $batches,
-                'serials' => $serials
+                'serials' => $serials,
+                'summary' => [
+                    'total_quantity' => array_sum(array_column($balances, 'quantity')),
+                    'total_reserved' => array_sum(array_column($balances, 'reserved_quantity')),
+                    'total_value' => array_sum(array_column($balances, 'total_value')),
+                    'total_movements' => count($movements)
+                ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -369,6 +361,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية الإنشاء
+            if (!$this->auth->hasPermission($userId, 'products.create')) {
+                errorResponse('ليس لديك صلاحية لإنشاء أصناف', 403);
                 return;
             }
 
@@ -402,6 +400,19 @@ class ProductController
                 
                 if ($exists) {
                     errorResponse('الباركود مستخدم بالفعل');
+                    return;
+                }
+            }
+
+            // التحقق من الوحدة
+            if (!empty($input['unit_id'])) {
+                $unit = $this->db->queryValue(
+                    "SELECT id FROM units WHERE id = :id AND is_active = 1",
+                    ['id' => $input['unit_id']]
+                );
+                
+                if (!$unit) {
+                    errorResponse('الوحدة غير موجودة أو غير نشطة');
                     return;
                 }
             }
@@ -451,9 +462,9 @@ class ProductController
 
             successResponse('تم إنشاء الصنف بنجاح', ['product_id' => $productId]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -468,6 +479,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية التحديث
+            if (!$this->auth->hasPermission($userId, 'products.edit')) {
+                errorResponse('ليس لديك صلاحية لتحديث الأصناف', 403);
                 return;
             }
 
@@ -553,9 +570,9 @@ class ProductController
 
             successResponse('تم تحديث بيانات الصنف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -570,6 +587,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية الحذف
+            if (!$this->auth->hasPermission($userId, 'products.delete')) {
+                errorResponse('ليس لديك صلاحية لحذف الأصناف', 403);
                 return;
             }
 
@@ -620,9 +643,9 @@ class ProductController
 
             successResponse('تم حذف الصنف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product delete error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -666,9 +689,9 @@ class ProductController
 
             successResponse('تم جلب أرصدة الصنف', $balances);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product balances error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -729,9 +752,15 @@ class ProductController
             // إحصائيات الحركات
             $stats = [
                 'total' => count($movements),
-                'total_in' => array_sum(array_filter($movements, fn($m) => in_array($m['movement_type'], ['RECEIPT', 'TRANSFER_IN', 'RETURN_IN']))),
-                'total_out' => array_sum(array_filter($movements, fn($m) => in_array($m['movement_type'], ['ISSUE', 'TRANSFER_OUT', 'RETURN_OUT']))),
-                'total_adjustments' => array_sum(array_filter($movements, fn($m) => $m['movement_type'] === 'ADJUSTMENT'))
+                'total_in' => array_sum(array_filter($movements, function($m) {
+                    return in_array($m['movement_type'], ['RECEIPT', 'TRANSFER_IN', 'RETURN_IN']);
+                })),
+                'total_out' => array_sum(array_filter($movements, function($m) {
+                    return in_array($m['movement_type'], ['ISSUE', 'TRANSFER_OUT', 'RETURN_OUT']);
+                })),
+                'total_adjustments' => array_sum(array_filter($movements, function($m) {
+                    return $m['movement_type'] === 'ADJUSTMENT';
+                }))
             ];
 
             successResponse('تم جلب تاريخ حركات الصنف', [
@@ -739,9 +768,9 @@ class ProductController
                 'stats' => $stats
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Product history error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -752,28 +781,36 @@ class ProductController
     public function categories(): void
     {
         try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
             $categories = $this->db->query("
                 SELECT 
-                    id,
-                    code,
-                    name,
-                    description,
-                    parent_id,
-                    icon,
-                    color,
-                    is_active,
-                    sort_order,
-                    (SELECT COUNT(*) FROM products WHERE category_id = c.id AND deleted_at IS NULL) as products_count
+                    c.id,
+                    c.code,
+                    c.name,
+                    c.description,
+                    c.parent_id,
+                    c.icon,
+                    c.color,
+                    c.is_active,
+                    c.sort_order,
+                    (SELECT COUNT(*) FROM products WHERE category_id = c.id AND deleted_at IS NULL) as products_count,
+                    (SELECT COUNT(*) FROM categories WHERE parent_id = c.id AND deleted_at IS NULL) as sub_count
                 FROM categories c
-                WHERE is_active = 1
-                ORDER BY sort_order, name
+                WHERE c.is_active = 1
+                ORDER BY c.sort_order, c.name
             ");
 
             successResponse('تم جلب التصنيفات', $categories);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Categories error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -784,27 +821,37 @@ class ProductController
     public function units(): void
     {
         try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
             $units = $this->db->query("
                 SELECT 
-                    id,
-                    code,
-                    name,
-                    symbol,
-                    is_base_unit,
-                    conversion_factor,
-                    base_unit_id,
-                    precision_digits,
-                    is_active
-                FROM units
-                WHERE is_active = 1
-                ORDER BY name
+                    u.id,
+                    u.code,
+                    u.name,
+                    u.name_plural,
+                    u.symbol,
+                    u.is_base_unit,
+                    u.conversion_factor,
+                    u.base_unit_id,
+                    u.precision_digits,
+                    u.is_active,
+                    bu.name as base_unit_name
+                FROM units u
+                LEFT JOIN units bu ON bu.id = u.base_unit_id
+                WHERE u.is_active = 1
+                ORDER BY u.name
             ");
 
             successResponse('تم جلب الوحدات', $units);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Units error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -819,6 +866,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية الإنشاء
+            if (!$this->auth->hasPermission($userId, 'products.create')) {
+                errorResponse('ليس لديك صلاحية لاستيراد الأصناف', 403);
                 return;
             }
 
@@ -879,7 +932,7 @@ class ProductController
                     $this->db->insert('products', $data);
                     $imported++;
                     
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $errors[] = [
                         'product' => $product['name'] ?? 'غير معروف',
                         'error' => $e->getMessage()
@@ -903,10 +956,10 @@ class ProductController
                 'errors' => $errors
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Bulk import error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -921,6 +974,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية التصدير
+            if (!$this->auth->hasPermission($userId, 'products.export')) {
+                errorResponse('ليس لديك صلاحية لتصدير الأصناف', 403);
                 return;
             }
 
@@ -970,9 +1029,9 @@ class ProductController
                 successResponse('تم جلب بيانات التصدير', $products);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Export error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -987,6 +1046,12 @@ class ProductController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية طباعة الباركود
+            if (!$this->auth->hasPermission($userId, 'products.barcode')) {
+                errorResponse('ليس لديك صلاحية لطباعة الباركود', 403);
                 return;
             }
 
@@ -1013,9 +1078,9 @@ class ProductController
                 'barcode_image' => $this->generateBarcodeImage($product['barcode'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Barcode error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1085,46 +1150,6 @@ class ProductController
     }
 
     /**
-     * بناء شجرة الأصناف
-     */
-    private function buildProductTree(array $products): array
-    {
-        $tree = [];
-        foreach ($products as $product) {
-            $categoryId = $product['category_id'] ?? 'uncategorized';
-            if (!isset($tree[$categoryId])) {
-                $tree[$categoryId] = [
-                    'name' => $product['category_name'] ?? 'بدون تصنيف',
-                    'products' => []
-                ];
-            }
-            $tree[$categoryId]['products'][] = $product;
-        }
-        return $tree;
-    }
-
-    /**
-     * تنسيق البطاقات
-     */
-    private function formatCards(array $products): array
-    {
-        $cards = [];
-        foreach ($products as $product) {
-            $cards[] = [
-                'id' => $product['id'],
-                'name' => $product['name'],
-                'code' => $product['code'],
-                'category' => $product['category_name'] ?? 'بدون تصنيف',
-                'quantity' => $product['total_quantity'] ?? 0,
-                'price' => $product['selling_price'] ?? $product['cost_price'] ?? 0,
-                'image' => '/assets/images/products/default.png',
-                'status' => $product['is_active'] ? 'نشط' : 'غير نشط'
-            ];
-        }
-        return $cards;
-    }
-
-    /**
      * تصدير CSV
      */
     private function exportCSV(array $data): void
@@ -1138,13 +1163,11 @@ class ProductController
         header('Content-Disposition: attachment; filename="products_' . date('Y-m-d') . '.csv"');
         
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM for UTF-8
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
         
-        // رؤوس الأعمدة
         $headers = array_keys($data[0]);
         fputcsv($output, $headers);
         
-        // البيانات
         foreach ($data as $row) {
             fputcsv($output, $row);
         }
@@ -1167,15 +1190,12 @@ class ProductController
         header('Content-Disposition: attachment; filename="products_' . date('Y-m-d') . '.xls"');
         
         echo '<table border="1">';
-        
-        // رؤوس الأعمدة
-        echo '<tr>';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
         foreach (array_keys($data[0]) as $header) {
-            echo '<th style="background:#667eea;color:#fff;font-weight:bold;">' . $header . '</th>';
+            echo '<th>' . $header . '</th>';
         }
         echo '</tr>';
         
-        // البيانات
         foreach ($data as $row) {
             echo '<tr>';
             foreach ($row as $value) {
@@ -1231,5 +1251,27 @@ class ProductController
                 return;
             }
         }
+        
+        // التحقق من الحد الأدنى والأقصى
+        if (isset($data['min_stock']) && isset($data['max_stock']) && 
+            $data['max_stock'] !== null && $data['min_stock'] > $data['max_stock']) {
+            errorResponse('الحد الأدنى لا يمكن أن يكون أكبر من الحد الأقصى');
+            return;
+        }
+        
+        // التحقق من السعر
+        if (isset($data['cost_price']) && $data['cost_price'] < 0) {
+            errorResponse('سعر الشراء لا يمكن أن يكون سالباً');
+            return;
+        }
+        
+        if (isset($data['selling_price']) && $data['selling_price'] < 0) {
+            errorResponse('سعر البيع لا يمكن أن يكون سالباً');
+            return;
+        }
     }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

@@ -1,0 +1,44 @@
+# ملفات البيئة
+.env
+.env.local
+.env.*.local
+
+# سجلات
+*.log
+logs/
+backend/logs/
+*.log.*
+
+# ملفات قاعدة البيانات
+*.sqlite
+*.db
+
+# ملفات نظام التشغيل
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# مجلدات التبعيات
+vendor/
+node_modules/
+
+# ملفات التحميل المؤقتة
+tmp/
+temp/
+*.tmp
+
+# ملفات الإنتاج
+dist/
+build/
+*.min.js
+*.min.css
+
+# ملفات IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ملفات GitHub
+.github/

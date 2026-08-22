@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/ReturnController.php
-// الوصف: متحكم إدارة المرتجعات - إنشاء، اعتماد، رفض
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة المرتجعات - إنشاء، اعتماد، رفض، إلغاء، طباعة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -13,6 +12,7 @@ use Core\Database;
 use Core\Auth;
 use Core\Audit;
 use Services\StockService;
+use Exception;
 
 class ReturnController
 {
@@ -146,20 +146,28 @@ class ReturnController
                     r.notes,
                     (SELECT COUNT(*) FROM return_items WHERE return_id = r.id) as items_count,
                     CASE 
-                        WHEN r.return_type = 'to_supplier' THEN 
-                            (SELECT receipt_no FROM receipts WHERE id = r.reference_id)
-                        WHEN r.return_type = 'from_customer' THEN 
-                            (SELECT issue_no FROM issues WHERE id = r.reference_id)
-                        ELSE NULL
-                    END as reference_number,
-                    CASE 
                         WHEN r.status = 'draft' THEN 'مسودة'
                         WHEN r.status = 'submitted' THEN 'مرسل'
                         WHEN r.status = 'approved' THEN 'معتمد'
                         WHEN r.status = 'rejected' THEN 'مرفوض'
                         WHEN r.status = 'cancelled' THEN 'ملغي'
                         ELSE r.status
-                    END as status_label
+                    END as status_label,
+                    CASE 
+                        WHEN r.status = 'approved' THEN 'success'
+                        WHEN r.status = 'rejected' THEN 'danger'
+                        WHEN r.status = 'cancelled' THEN 'secondary'
+                        WHEN r.status = 'draft' THEN 'warning'
+                        WHEN r.status = 'submitted' THEN 'info'
+                        ELSE 'secondary'
+                    END as status_color,
+                    CASE 
+                        WHEN r.return_type = 'to_supplier' THEN 
+                            (SELECT receipt_no FROM receipts WHERE id = r.reference_id)
+                        WHEN r.return_type = 'from_customer' THEN 
+                            (SELECT issue_no FROM issues WHERE id = r.reference_id)
+                        ELSE NULL
+                    END as reference_number
                 FROM returns r
                 LEFT JOIN warehouses w ON w.id = r.warehouse_id
                 LEFT JOIN users u ON u.id = r.user_id
@@ -217,9 +225,9 @@ class ReturnController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Returns list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -257,6 +265,7 @@ class ReturnController
                     p.name as product_name,
                     p.barcode,
                     u.name as unit_name,
+                    u.symbol as unit_symbol,
                     COALESCE(sb.quantity, 0) as current_balance
                 FROM return_items ri
                 INNER JOIN products p ON p.id = ri.product_id
@@ -305,9 +314,9 @@ class ReturnController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Return show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -393,6 +402,24 @@ class ReturnController
                     'serial_numbers' => $item['serial_numbers'] ?? null,
                     'notes' => $item['notes'] ?? null
                 ]);
+
+                // إذا كان مرتجع للمورد، يجب التأكد من توفر الكمية
+                if ($input['return_type'] === 'to_supplier') {
+                    $balance = $this->db->queryValue("
+                        SELECT COALESCE(quantity, 0) 
+                        FROM stock_balances 
+                        WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                    ", [
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $input['warehouse_id']
+                    ]);
+
+                    if ($balance < $item['quantity']) {
+                        $this->db->rollback();
+                        errorResponse("الكمية غير متوفرة للصنف (المتاح: {$balance})");
+                        return;
+                    }
+                }
             }
 
             // تحديث إجماليات المرتجع
@@ -427,10 +454,141 @@ class ReturnController
                 'return_no' => $returnNo
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Return create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * PUT /api/returns/{id}
+     * تحديث مرتجع (فقط في حالة المسودة)
+     */
+    public function update(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.edit')) {
+                errorResponse('ليس لديك صلاحية لتعديل المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            // التحقق من الحالة (فقط المسودة يمكن تعديلها)
+            if ($return['status'] !== 'draft') {
+                errorResponse('لا يمكن تعديل المرتجع بعد اعتماده أو رفضه');
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            // التحقق من البيانات
+            $this->validateReturnData($input, true);
+
+            // بدء المعاملة
+            $this->db->beginTransaction();
+
+            // حذف التفاصيل القديمة
+            $this->db->delete('return_items', ['return_id' => $id]);
+
+            // تحديث بيانات المرتجع
+            $data = [
+                'return_type' => $input['return_type'] ?? $return['return_type'],
+                'warehouse_id' => $input['warehouse_id'] ?? $return['warehouse_id'],
+                'reference_type' => $input['reference_type'] ?? $return['reference_type'],
+                'reference_id' => $input['reference_id'] ?? $return['reference_id'],
+                'return_date' => $input['return_date'] ?? $return['return_date'],
+                'return_time' => $input['return_time'] ?? $return['return_time'],
+                'reason' => $input['reason'] ?? $return['reason'],
+                'notes' => $input['notes'] ?? $return['notes'],
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            $this->db->update('returns', $data, ['id' => $id]);
+
+            // إضافة التفاصيل الجديدة
+            $totalItems = 0;
+            $totalQuantity = 0;
+            $totalCost = 0;
+            
+            foreach ($input['items'] as $item) {
+                $itemTotal = $item['quantity'] * $item['unit_cost'];
+                $totalQuantity += $item['quantity'];
+                $totalCost += $itemTotal;
+                $totalItems++;
+                
+                $this->db->insert('return_items', [
+                    'return_id' => $id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_cost' => $item['unit_cost'],
+                    'total_cost' => $itemTotal,
+                    'batch_number' => $item['batch_number'] ?? null,
+                    'serial_numbers' => $item['serial_numbers'] ?? null,
+                    'notes' => $item['notes'] ?? null
+                ]);
+
+                // إذا كان مرتجع للمورد، يجب التأكد من توفر الكمية
+                if (($input['return_type'] ?? $return['return_type']) === 'to_supplier') {
+                    $balance = $this->db->queryValue("
+                        SELECT COALESCE(quantity, 0) 
+                        FROM stock_balances 
+                        WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                    ", [
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $input['warehouse_id'] ?? $return['warehouse_id']
+                    ]);
+
+                    if ($balance < $item['quantity']) {
+                        $this->db->rollback();
+                        errorResponse("الكمية غير متوفرة للصنف (المتاح: {$balance})");
+                        return;
+                    }
+                }
+            }
+
+            // تحديث الإجماليات
+            $this->db->update('returns', [
+                'total_items' => $totalItems,
+                'total_quantity' => $totalQuantity,
+                'total_cost' => $totalCost
+            ], ['id' => $id]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_UPDATED',
+                'returns',
+                "تحديث مرتجع #{$return['return_no']}",
+                [
+                    'return_id' => $id,
+                    'return_no' => $return['return_no'],
+                    'items_count' => $totalItems
+                ],
+                'return',
+                $id
+            );
+
+            $this->db->commit();
+
+            successResponse('تم تحديث المرتجع بنجاح');
+
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log('Return update error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -505,7 +663,8 @@ class ReturnController
                     $newBalance = $currentBalance - $item['quantity'];
                     
                     if ($newBalance < 0) {
-                        errorResponse("الكمية غير كافية للصنف {$item['product_id']} (المتاح: {$currentBalance})");
+                        $this->db->rollback();
+                        errorResponse("الكمية غير كافية للصنف (المتاح: {$currentBalance})");
                         return;
                     }
                 } else {
@@ -542,13 +701,8 @@ class ReturnController
                     'balance_after' => $newBalance,
                     'movement_date' => date('Y-m-d H:i:s'),
                     'user_id' => $userId,
-                    'notes' => "مرتجع #{$return['return_no']} - {$return['return_type']}"
+                    'notes' => "مرتجع #{$return['return_no']} - {$return['return_type_label']}"
                 ]);
-
-                // تحديث كمية المرتجعة
-                $this->db->update('return_items', [
-                    'returned_quantity' => $item['quantity']
-                ], ['id' => $item['id']]);
             }
 
             // تحديث حالة المرتجع
@@ -577,12 +731,15 @@ class ReturnController
 
             $this->db->commit();
 
+            // التحقق من التنبيهات
+            $this->checkStockAlerts($return['warehouse_id']);
+
             successResponse('تم اعتماد المرتجع بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Return approve error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -649,9 +806,9 @@ class ReturnController
 
             successResponse('تم رفض المرتجع بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Return reject error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -715,9 +872,62 @@ class ReturnController
 
             successResponse('تم إلغاء المرتجع بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Return cancel error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/returns/{id}/print
+     * طباعة مرتجع
+     */
+    public function print(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            // جلب تفاصيل المرتجع
+            $items = $this->db->query("
+                SELECT 
+                    ri.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    u.name as unit_name
+                FROM return_items ri
+                INNER JOIN products p ON p.id = ri.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                WHERE ri.return_id = :return_id
+            ", ['return_id' => $id]);
+
+            // HTML للطباعة
+            $html = $this->generateReturnPrintHTML($return, $items);
+            
+            successResponse('تم جلب بيانات الطباعة', [
+                'html' => $html,
+                'return' => $return,
+                'items' => $items
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Return print error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -773,39 +983,16 @@ class ReturnController
             ]);
 
             if ($format === 'csv') {
-                header('Content-Type: text/csv; charset=utf-8');
-                header('Content-Disposition: attachment; filename="returns_' . date('Y-m-d') . '.csv"');
-                
-                $output = fopen('php://output', 'w');
-                fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-                
-                fputcsv($output, ['رقم المرتجع', 'التاريخ', 'النوع', 'المخزن', 'عدد الأصناف', 'الكمية', 'القيمة', 'السبب', 'الحالة', 'تم الإنشاء بواسطة', 'تاريخ الإنشاء']);
-                
-                foreach ($returns as $row) {
-                    fputcsv($output, [
-                        $row['return_no'],
-                        $row['return_date'],
-                        $row['return_type'],
-                        $row['warehouse'],
-                        $row['total_items'],
-                        $row['total_quantity'],
-                        $row['total_cost'],
-                        $row['reason'],
-                        $row['status'],
-                        $row['created_by'],
-                        $row['created_at']
-                    ]);
-                }
-                
-                fclose($output);
-                exit;
+                $this->exportCSV($returns);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($returns);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $returns);
             }
 
-            successResponse('تم جلب بيانات التصدير', $returns);
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Return export error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -874,7 +1061,7 @@ class ReturnController
     /**
      * التحقق من صحة بيانات المرتجع
      */
-    private function validateReturnData(array $data): void
+    private function validateReturnData(array $data, bool $isUpdate = false): void
     {
         if (empty($data['return_type'])) {
             errorResponse('نوع المرتجع مطلوب');
@@ -915,21 +1102,269 @@ class ReturnController
             return;
         }
         
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $index => $item) {
             if (empty($item['product_id'])) {
-                errorResponse('الصنف مطلوب');
+                errorResponse("الصنف مطلوب في العنصر " . ($index + 1));
                 return;
             }
             
             if (empty($item['quantity']) || $item['quantity'] <= 0) {
-                errorResponse('الكمية يجب أن تكون أكبر من صفر');
+                errorResponse("الكمية يجب أن تكون أكبر من صفر في العنصر " . ($index + 1));
                 return;
             }
             
             if (!isset($item['unit_cost']) || $item['unit_cost'] < 0) {
-                errorResponse('سعر الوحدة غير صحيح');
+                errorResponse("سعر الوحدة غير صحيح في العنصر " . ($index + 1));
+                return;
+            }
+            
+            // التحقق من وجود المنتج
+            $product = $this->db->queryValue(
+                "SELECT id FROM products WHERE id = :id AND deleted_at IS NULL",
+                ['id' => $item['product_id']]
+            );
+            
+            if (!$product) {
+                errorResponse("المنتج غير موجود في العنصر " . ($index + 1));
                 return;
             }
         }
     }
+
+    /**
+     * التحقق من تنبيهات المخزون
+     */
+    private function checkStockAlerts(int $warehouseId): void
+    {
+        // جلب الأصناف منخفضة المخزون
+        $lowStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code,
+                sb.quantity,
+                p.min_stock
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity <= p.min_stock
+              AND sb.quantity > 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($lowStockItems as $item) {
+            $this->createNotification(
+                'low_stock',
+                "تنبيه: مخزون منخفض - {$item['name']}",
+                "المنتج '{$item['name']}' في المخزن وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
+                'high',
+                $item['id'],
+                $warehouseId
+            );
+        }
+
+        // جلب الأصناف المنفذة
+        $outOfStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity = 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($outOfStockItems as $item) {
+            $this->createNotification(
+                'out_of_stock',
+                "⚠️ نفاذ المخزون - {$item['name']}",
+                "المنتج '{$item['name']}' نفد من المخزون",
+                'critical',
+                $item['id'],
+                $warehouseId
+            );
+        }
+    }
+
+    /**
+     * إنشاء تنبيه
+     */
+    private function createNotification(string $type, string $title, string $message, string $priority, int $productId, int $warehouseId): void
+    {
+        // جلب المستخدمين الذين يحتاجون التنبيه
+        $users = $this->db->query("
+            SELECT id FROM users 
+            WHERE is_active = 1 
+              AND role_id IN (SELECT id FROM roles WHERE name IN ('admin', 'warehouse_manager', 'warehouse_supervisor'))
+        ");
+
+        foreach ($users as $user) {
+            $this->db->insert('notifications', [
+                'user_id' => $user['id'],
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
+                'reference_type' => 'product',
+                'reference_id' => $productId,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="returns_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
+        
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * تصدير Excel
+     */
+    private function exportExcel(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="returns_' . date('Y-m-d') . '.xls"');
+        
+        echo '<table border="1">';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
+        echo '</tr>';
+        
+        foreach ($data as $row) {
+            echo '<tr>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
+    }
+
+    /**
+     * توليد HTML للطباعة
+     */
+    private function generateReturnPrintHTML(array $return, array $items): string
+    {
+        $html = '<!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="UTF-8">
+            <title>مرتجع #' . $return['return_no'] . '</title>
+            <style>
+                body { font-family: "Tajawal", sans-serif; padding: 40px; background: #fff; }
+                .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 20px; }
+                .header h1 { color: #667eea; margin: 0; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 8px; background: #f8f9fa; border-radius: 5px; }
+                .info-item .label { color: #666; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th { background: #667eea; color: #fff; padding: 10px; text-align: right; }
+                td { padding: 10px; border-bottom: 1px solid #ddd; }
+                .total-row { background: #f8f9fa; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }
+                .status-approved { color: #28a745; }
+                .status-draft { color: #ffc107; }
+                .status-rejected { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>إذن مرتجع</h1>
+                <p>' . $return['return_no'] . '</p>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">نوع المرتجع:</span> ' . $return['return_type_label'] . '</div>
+                <div class="info-item"><span class="label">المخزن:</span> ' . $return['warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">التاريخ:</span> ' . $return['return_date'] . '</div>
+                <div class="info-item"><span class="label">الحالة:</span> <span class="status-' . $return['status'] . '">' . $return['status_label'] . '</span></div>
+                ' . (!empty($return['reference_number']) ? '<div class="info-item"><span class="label">المرجع:</span> ' . $return['reference_number'] . '</div>' : '') . '
+                <div class="info-item"><span class="label">تم الإنشاء بواسطة:</span> ' . $return['user_name'] . '</div>
+                <div class="info-item"><span class="label">تاريخ الإنشاء:</span> ' . $return['created_at'] . '</div>
+                ' . (!empty($return['reason']) ? '<div class="info-item"><span class="label">سبب المرتجع:</span> ' . $return['reason'] . '</div>' : '') . '
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>الوحدة</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        $index = 1;
+        foreach ($items as $item) {
+            $html .= '<tr>
+                <td>' . $index++ . '</td>
+                <td>' . $item['product_code'] . '</td>
+                <td>' . $item['product_name'] . '</td>
+                <td>' . $item['quantity'] . '</td>
+                <td>' . $item['unit_name'] . '</td>
+                <td>' . number_format($item['unit_cost'], 2) . '</td>
+                <td>' . number_format($item['total_cost'], 2) . '</td>
+            </tr>';
+        }
+        
+        $html .= '
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الإجمالي</td>
+                        <td>' . number_format($return['total_cost'], 2) . '</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            ' . (!empty($return['notes']) ? '<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;"><strong>ملاحظات:</strong> ' . $return['notes'] . '</div>' : '') . '
+            
+            <div class="footer">
+                <p>نظام إدارة المخازن والمخزون المتقدم v5.0</p>
+                <p>تم الطباعة في ' . date('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+        
+        return $html;
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

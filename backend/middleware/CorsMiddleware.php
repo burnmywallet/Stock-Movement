@@ -1,13 +1,14 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/middleware/CorsMiddleware.php
-// الوصف: ميدل وير إدارة CORS
-// الإصدار: 2.0 Production Ready
-// التاريخ: 2026-08-20
+// الوصف: ميدل وير إدارة CORS - التحكم في الطلبات من نطاقات مختلفة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Middleware;
+
+use Exception;
 
 class CorsMiddleware
 {
@@ -24,25 +25,52 @@ class CorsMiddleware
     /**
      * @var array $allowedHeaders - الرؤوس المسموحة
      */
-    private $allowedHeaders = ['Authorization', 'Content-Type', 'Accept', 'X-Requested-With'];
+    private $allowedHeaders = [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'X-Requested-With',
+        'Origin',
+        'X-CSRF-Token',
+        'X-API-Key',
+        'X-Session-Token'
+    ];
     
     /**
      * @var array $exposedHeaders - الرؤوس المكشوفة
      */
-    private $exposedHeaders = ['Authorization'];
+    private $exposedHeaders = [
+        'Authorization',
+        'X-Session-Id',
+        'X-User-Id',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset'
+    ];
     
     /**
-     * @var int $maxAge - مدة التخزين المؤقت
+     * @var int $maxAge - مدة التخزين المؤقت للـ Preflight (بالثواني)
      */
-    private $maxAge = 86400;
+    private $maxAge = 86400; // 24 ساعة
+    
+    /**
+     * @var bool $allowCredentials - السماح بإرسال بيانات الاعتماد
+     */
+    private $allowCredentials = true;
+    
+    /**
+     * @var bool $debug - وضع التصحيح
+     */
+    private $debug = false;
 
     public function __construct()
     {
+        $this->debug = ($_ENV['APP_DEBUG'] ?? false) === 'true';
         $this->loadSettings();
     }
 
     /**
-     * تحميل الإعدادات
+     * تحميل الإعدادات من البيئة
      */
     private function loadSettings(): void
     {
@@ -53,29 +81,72 @@ class CorsMiddleware
         }
         
         // إضافة النطاق المحلي
-        $this->allowedOrigins[] = $_ENV['APP_URL'] ?? 'http://localhost';
-        $this->allowedOrigins[] = '*'; // للشبكة المحلية
+        $appUrl = $_ENV['APP_URL'] ?? 'http://localhost';
+        if (!in_array($appUrl, $this->allowedOrigins)) {
+            $this->allowedOrigins[] = $appUrl;
+        }
+        
+        // إضافة localhost للتصحيح
+        if ($this->debug) {
+            $this->allowedOrigins[] = 'http://localhost';
+            $this->allowedOrigins[] = 'http://localhost:8080';
+            $this->allowedOrigins[] = 'http://localhost:8081';
+            $this->allowedOrigins[] = 'http://127.0.0.1';
+            $this->allowedOrigins[] = 'http://127.0.0.1:8080';
+        }
+        
+        // السماح بجميع النطاقات في التطوير
+        if ($_ENV['APP_ENV'] ?? 'production' === 'development') {
+            $this->allowedOrigins[] = '*';
+        }
     }
 
     /**
-     * معالجة الطلب
+     * معالجة الطلب - تعيين رؤوس CORS
      */
     public function handle(): bool
     {
         // الحصول على Origin
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         
-        // التحقق من Origin
-        if ($this->isOriginAllowed($origin)) {
-            $this->setCorsHeaders($origin);
-        } else {
-            // إذا لم يكن Origin مسموحاً، استخدم القيم الافتراضية للشبكة المحلية
-            $this->setCorsHeaders('*');
+        // معالجة طلب OPTIONS (Preflight)
+        if ($requestMethod === 'OPTIONS') {
+            $this->handleOptionsRequest($origin);
+            exit;
         }
 
-        // معالجة طلب OPTIONS (Preflight)
-        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-            $this->handleOptionsRequest();
+        // تعيين رؤوس CORS للطلبات العادية
+        $this->setCorsHeaders($origin);
+        
+        // معالجة الطلبات من نطاقات غير مسموحة
+        if (!$this->isOriginAllowed($origin) && $origin !== '') {
+            if ($this->debug) {
+                // في وضع التصحيح، نسمح بجميع النطاقات مع تحذير
+                header('X-CORS-Warning: Origin not allowed - ' . $origin);
+            } else {
+                // في الإنتاج، نمنع الطلب
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Origin not allowed',
+                    'code' => 'CORS_ORIGIN_DENIED',
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]);
+                exit;
+            }
+        }
+
+        // التحقق من الطريقة
+        if (!in_array($requestMethod, $this->allowedMethods)) {
+            http_response_code(405);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Method not allowed',
+                'code' => 'CORS_METHOD_NOT_ALLOWED',
+                'allowed_methods' => $this->allowedMethods,
+                'timestamp' => date('Y-m-d H:i:s')
+            ]);
             exit;
         }
 
@@ -83,16 +154,26 @@ class CorsMiddleware
     }
 
     /**
-     * التحقق من Origin
+     * معالجة طلب OPTIONS (Preflight)
      */
-    private function isOriginAllowed(string $origin): bool
+    private function handleOptionsRequest(string $origin): void
     {
-        // السماح لجميع النطاقات في الشبكة المحلية
-        if (in_array('*', $this->allowedOrigins)) {
-            return true;
-        }
+        // تعيين رؤوس CORS
+        $this->setCorsHeaders($origin);
         
-        return in_array($origin, $this->allowedOrigins);
+        // رؤوس إضافية لـ Preflight
+        header('Access-Control-Allow-Methods: ' . implode(', ', $this->allowedMethods));
+        header('Access-Control-Allow-Headers: ' . implode(', ', $this->allowedHeaders));
+        header('Access-Control-Max-Age: ' . $this->maxAge);
+        
+        // رؤوس الأمان
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: SAMEORIGIN');
+        header('X-XSS-Protection: 1; mode=block');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        
+        http_response_code(200);
+        echo '';
     }
 
     /**
@@ -100,29 +181,58 @@ class CorsMiddleware
      */
     private function setCorsHeaders(string $origin): void
     {
-        header("Access-Control-Allow-Origin: {$origin}");
-        header("Access-Control-Allow-Methods: " . implode(', ', $this->allowedMethods));
-        header("Access-Control-Allow-Headers: " . implode(', ', $this->allowedHeaders));
-        header("Access-Control-Expose-Headers: " . implode(', ', $this->exposedHeaders));
-        header("Access-Control-Allow-Credentials: true");
-        header("Access-Control-Max-Age: {$this->maxAge}");
+        // تحديد Origin المسموح
+        if ($this->isOriginAllowed($origin) || $origin === '') {
+            $allowedOrigin = $origin ?: '*';
+        } else {
+            $allowedOrigin = in_array('*', $this->allowedOrigins) ? '*' : $this->allowedOrigins[0] ?? '*';
+        }
         
-        // إضافة رؤوس أمان إضافية
-        header("X-Content-Type-Options: nosniff");
-        header("X-Frame-Options: SAMEORIGIN");
-        header("X-XSS-Protection: 1; mode=block");
-        header("Referrer-Policy: strict-origin-when-cross-origin");
-        header("Permissions-Policy: geolocation=(), microphone=(), camera=()");
+        header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+        header('Access-Control-Allow-Methods: ' . implode(', ', $this->allowedMethods));
+        header('Access-Control-Allow-Headers: ' . implode(', ', $this->allowedHeaders));
+        header('Access-Control-Expose-Headers: ' . implode(', ', $this->exposedHeaders));
+        
+        if ($this->allowCredentials) {
+            header('Access-Control-Allow-Credentials: true');
+        }
+        
+        // رؤوس إضافية للأمان
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: SAMEORIGIN');
+        header('X-XSS-Protection: 1; mode=block');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        
+        // رؤوس الأداء
+        header('Vary: Origin');
     }
 
     /**
-     * معالجة طلب OPTIONS
+     * التحقق من Origin المسموح
      */
-    private function handleOptionsRequest(): void
+    private function isOriginAllowed(string $origin): bool
     {
-        http_response_code(200);
-        echo '';
-        exit;
+        // السماح لجميع النطاقات
+        if (in_array('*', $this->allowedOrigins)) {
+            return true;
+        }
+        
+        // التحقق المباشر
+        if (in_array($origin, $this->allowedOrigins)) {
+            return true;
+        }
+        
+        // التحقق من النطاقات الفرعية (مثل: *.example.com)
+        foreach ($this->allowedOrigins as $allowed) {
+            if (strpos($allowed, '*') !== false) {
+                $pattern = str_replace('*', '.*', preg_quote($allowed, '/'));
+                if (preg_match('/^' . $pattern . '$/', $origin)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -132,6 +242,18 @@ class CorsMiddleware
     {
         if (!in_array($origin, $this->allowedOrigins)) {
             $this->allowedOrigins[] = $origin;
+        }
+        return $this;
+    }
+
+    /**
+     * إزالة Origin مسموح
+     */
+    public function removeAllowedOrigin(string $origin): self
+    {
+        $key = array_search($origin, $this->allowedOrigins);
+        if ($key !== false) {
+            unset($this->allowedOrigins[$key]);
         }
         return $this;
     }
@@ -149,12 +271,37 @@ class CorsMiddleware
     }
 
     /**
+     * إزالة طريقة مسموحة
+     */
+    public function removeAllowedMethod(string $method): self
+    {
+        $method = strtoupper($method);
+        $key = array_search($method, $this->allowedMethods);
+        if ($key !== false) {
+            unset($this->allowedMethods[$key]);
+        }
+        return $this;
+    }
+
+    /**
      * إضافة رأس مسموح
      */
     public function addAllowedHeader(string $header): self
     {
         if (!in_array($header, $this->allowedHeaders)) {
             $this->allowedHeaders[] = $header;
+        }
+        return $this;
+    }
+
+    /**
+     * إزالة رأس مسموح
+     */
+    public function removeAllowedHeader(string $header): self
+    {
+        $key = array_search($header, $this->allowedHeaders);
+        if ($key !== false) {
+            unset($this->allowedHeaders[$key]);
         }
         return $this;
     }
@@ -171,11 +318,32 @@ class CorsMiddleware
     }
 
     /**
+     * إزالة رأس مكشوف
+     */
+    public function removeExposedHeader(string $header): self
+    {
+        $key = array_search($header, $this->exposedHeaders);
+        if ($key !== false) {
+            unset($this->exposedHeaders[$key]);
+        }
+        return $this;
+    }
+
+    /**
      * تعيين مدة التخزين المؤقت
      */
     public function setMaxAge(int $seconds): self
     {
         $this->maxAge = $seconds;
+        return $this;
+    }
+
+    /**
+     * تفعيل/تعطيل إرسال بيانات الاعتماد
+     */
+    public function setAllowCredentials(bool $allow): self
+    {
+        $this->allowCredentials = $allow;
         return $this;
     }
 
@@ -202,4 +370,71 @@ class CorsMiddleware
     {
         return $this->allowedHeaders;
     }
+
+    /**
+     * الحصول على الرؤوس المكشوفة
+     */
+    public function getExposedHeaders(): array
+    {
+        return $this->exposedHeaders;
+    }
+
+    /**
+     * التحقق من وجود Origin في القائمة
+     */
+    public function originExists(string $origin): bool
+    {
+        return $this->isOriginAllowed($origin);
+    }
+
+    /**
+     * إعادة تعيين جميع الإعدادات إلى الافتراضية
+     */
+    public function reset(): self
+    {
+        $this->allowedOrigins = [];
+        $this->allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
+        $this->allowedHeaders = [
+            'Authorization',
+            'Content-Type',
+            'Accept',
+            'X-Requested-With',
+            'Origin',
+            'X-CSRF-Token',
+            'X-API-Key',
+            'X-Session-Token'
+        ];
+        $this->exposedHeaders = [
+            'Authorization',
+            'X-Session-Id',
+            'X-User-Id',
+            'X-RateLimit-Limit',
+            'X-RateLimit-Remaining',
+            'X-RateLimit-Reset'
+        ];
+        $this->maxAge = 86400;
+        $this->allowCredentials = true;
+        $this->loadSettings();
+        return $this;
+    }
+
+    /**
+     * الحصول على معلومات CORS للتطوير
+     */
+    public function getInfo(): array
+    {
+        return [
+            'allowed_origins' => $this->allowedOrigins,
+            'allowed_methods' => $this->allowedMethods,
+            'allowed_headers' => $this->allowedHeaders,
+            'exposed_headers' => $this->exposedHeaders,
+            'max_age' => $this->maxAge,
+            'allow_credentials' => $this->allowCredentials,
+            'debug' => $this->debug
+        ];
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

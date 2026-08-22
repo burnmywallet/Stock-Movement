@@ -1,59 +1,16 @@
-# ================================================================
-# نظام إدارة المخازن والمخزون المتقدم
-# الملف: .htaccess
-# الوصف: إعدادات Apache للمجلد الرئيسي
-# الإصدار: 2.0 Production Ready
-# التاريخ: 2026-08-20
-# ================================================================
-
-# منع عرض محتويات المجلدات
-Options -Indexes
-
-# تعيين الصفحة الرئيسية
-DirectoryIndex backend/public/index.php frontend/pages/login.html
-
-# ================================================================
-# إعادة التوجيه
-# ================================================================
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # إعادة توجيه الطلبات إلى backend/public
+    # إعادة توجيه جميع طلبات API إلى index.php
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
-    
-    # إعادة توجيه الطلبات إلى frontend
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ frontend/index.html [QSA,L]
+    RewriteRule ^api/.*$ index.php [QSA,L]
 </IfModule>
 
-# ================================================================
-# حماية الملفات الحساسة
-# ================================================================
-
-<FilesMatch "\.(env|log|sql|ini|json|lock|dist)$">
-    Order allow,deny
-    Deny from all
+# منع الوصول إلى الملفات الحساسة
+<FilesMatch "\.(env|log|sql|txt|md)$">
+    Require all denied
 </FilesMatch>
 
-<FilesMatch "(^\.|composer\.|package\.)">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
-
-# ================================================================
-# رؤوس الأمان
-# ================================================================
-
-<IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
-    Header set X-Frame-Options "SAMEORIGIN"
-    Header set X-XSS-Protection "1; mode=block"
-</IfModule>
-
-# ================================================================
-# نهاية ملف .htaccess
-# ================================================================
+# منع عرض محتويات المجلدات
+Options -Indexes

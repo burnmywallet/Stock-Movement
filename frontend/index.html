@@ -3,36 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام المخازن المتقدم - البوابة الرئيسية</title>
+    <title>نظام المخازن المتقدم v5.0</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <link rel="stylesheet" href="/assets/css/rtl.css">
-    <link rel="stylesheet" href="/assets/css/responsive.css">
     <style>
         /* ================================================================
-           الصفحة الرئيسية المتطورة - نظام المخازن المتقدم
-           الإصدار: 5.0 Ultimate
-           ================================================================ */
-
+        الأنماط العامة - الصفحة الرئيسية v5.0
+        ================================================================ */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --bg-dark: #0a0e1a;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border-color: rgba(255, 255, 255, 0.05);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.3);
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         body {
             font-family: 'Tajawal', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0a0e1a;
+            background: var(--bg-dark);
+            color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
             direction: rtl;
         }
 
-        /* ================================================================
-           Animated Background
-           ================================================================ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(102,126,234,0.5); }
 
+        /* ===== خلفية متحركة ===== */
         .bg-animation {
             position: fixed;
             top: 0;
@@ -85,10 +102,7 @@
             100% { transform: translate(10px, -10px) scale(1.05); }
         }
 
-        /* ================================================================
-           Particles
-           ================================================================ */
-
+        /* ===== جزيئات ===== */
         .particles {
             position: fixed;
             top: 0;
@@ -103,7 +117,7 @@
             position: absolute;
             width: 4px;
             height: 4px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 50%;
             animation: floatParticle 20s infinite linear;
         }
@@ -128,10 +142,7 @@
             100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
         }
 
-        /* ================================================================
-           Navigation
-           ================================================================ */
-
+        /* ===== شريط التنقل ===== */
         .navbar {
             position: fixed;
             top: 0;
@@ -159,12 +170,12 @@
         }
 
         .navbar .logo i {
-            color: #667eea;
+            color: var(--primary);
             font-size: 28px;
         }
 
         .navbar .logo span {
-            background: linear-gradient(135deg, #fff, #667eea);
+            background: linear-gradient(135deg, #fff, var(--primary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -195,7 +206,7 @@
             right: 0;
             width: 0;
             height: 2px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             transition: all 0.3s ease;
         }
 
@@ -206,7 +217,7 @@
         .navbar .nav-links .btn-nav {
             padding: 8px 24px;
             border-radius: 30px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: #fff !important;
             font-weight: 700;
             border: none;
@@ -232,10 +243,7 @@
             cursor: pointer;
         }
 
-        /* ================================================================
-           Main Container
-           ================================================================ */
-
+        /* ===== الحاوية الرئيسية ===== */
         .main-container {
             position: relative;
             z-index: 1;
@@ -248,10 +256,7 @@
             justify-content: center;
         }
 
-        /* ================================================================
-           Hero Section
-           ================================================================ */
-
+        /* ===== قسم الهيرو ===== */
         .hero {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -271,7 +276,7 @@
             border: 1px solid rgba(102, 126, 234, 0.3);
             border-radius: 30px;
             font-size: 13px;
-            color: #667eea;
+            color: var(--primary);
             font-weight: 600;
             margin-bottom: 20px;
         }
@@ -288,7 +293,7 @@
         }
 
         .hero-content h1 .highlight {
-            background: linear-gradient(135deg, #667eea, #f093fb);
+            background: linear-gradient(135deg, var(--primary), #f093fb);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -309,7 +314,7 @@
         .hero-content .actions .btn-primary {
             padding: 14px 35px;
             border-radius: 14px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: #fff;
             border: none;
             font-size: 16px;
@@ -399,7 +404,7 @@
 
         .hero-image .image-wrapper .icon-big {
             font-size: 120px;
-            color: #667eea;
+            color: var(--primary);
             opacity: 0.3;
         }
 
@@ -426,102 +431,55 @@
             50% { transform: translateY(-20px) rotate(10deg); }
         }
 
-        /* ================================================================
-           System Status Cards
-           ================================================================ */
-
-        .status-section {
+        /* ===== روابط سريعة ===== */
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
             margin-bottom: 60px;
         }
 
-        .status-section .section-title {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .status-section .section-title h2 {
-            font-size: 28px;
-            font-weight: 800;
-            color: #fff;
-        }
-
-        .status-section .section-title p {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 14px;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-
-        .status-card {
+        .quick-link {
             background: rgba(255, 255, 255, 0.03);
             border-radius: 16px;
             padding: 20px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             text-align: center;
+            text-decoration: none;
             transition: all 0.3s ease;
         }
 
-        .status-card:hover {
+        .quick-link:hover {
             transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.06);
             border-color: rgba(102, 126, 234, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
-        .status-card .icon {
-            font-size: 32px;
-            margin-bottom: 10px;
+        .quick-link i {
+            font-size: 28px;
             display: block;
+            margin-bottom: 8px;
         }
 
-        .status-card .icon.green { color: #28a745; }
-        .status-card .icon.red { color: #dc3545; }
-        .status-card .icon.blue { color: #667eea; }
-        .status-card .icon.orange { color: #ffc107; }
-        .status-card .icon.purple { color: #764ba2; }
-
-        .status-card .status-label {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 13px;
-        }
-
-        .status-card .status-value {
+        .quick-link .link-title {
             color: #fff;
-            font-size: 18px;
-            font-weight: 700;
-            margin-top: 4px;
+            font-size: 14px;
+            font-weight: 600;
         }
 
-        .status-card .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 8px;
-            animation: blink 1.5s infinite;
+        .quick-link .link-desc {
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 11px;
+            margin-top: 2px;
         }
 
-        .status-card .status-dot.online { background: #28a745; }
-        .status-card .status-dot.offline { background: #dc3545; }
-        .status-card .status-dot.warning { background: #ffc107; }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        /* ================================================================
-           Developer Info
-           ================================================================ */
-
+        /* ===== المطور ===== */
         .dev-section {
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(255,255,255,0.02);
             border-radius: 20px;
             padding: 30px 35px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255,255,255,0.05);
             margin-bottom: 60px;
         }
 
@@ -597,145 +555,7 @@
             font-weight: 500;
         }
 
-        /* ================================================================
-           Info Cards
-           ================================================================ */
-
-        .info-section {
-            margin-bottom: 60px;
-        }
-
-        .info-section .section-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .info-section .section-title h2 {
-            font-size: 32px;
-            font-weight: 800;
-            color: #fff;
-            margin-bottom: 8px;
-        }
-
-        .info-section .section-title p {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 16px;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-        }
-
-        .info-card {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 20px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
-            cursor: default;
-        }
-
-        .info-card:hover {
-            transform: translateY(-10px);
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(102, 126, 234, 0.2);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .info-card .icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            background: rgba(102, 126, 234, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: #667eea;
-            margin-bottom: 16px;
-        }
-
-        .info-card h3 {
-            color: #fff;
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .info-card p {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 14px;
-            line-height: 1.7;
-        }
-
-        .info-card .card-tag {
-            display: inline-block;
-            padding: 2px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-top: 12px;
-        }
-
-        .info-card .card-tag.blue { background: rgba(102, 126, 234, 0.15); color: #667eea; }
-        .info-card .card-tag.green { background: rgba(40, 167, 69, 0.15); color: #28a745; }
-        .info-card .card-tag.purple { background: rgba(118, 75, 162, 0.15); color: #764ba2; }
-        .info-card .card-tag.orange { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
-        .info-card .card-tag.red { background: rgba(220, 53, 69, 0.15); color: #dc3545; }
-        .info-card .card-tag.cyan { background: rgba(23, 162, 184, 0.15); color: #17a2b8; }
-
-        /* ================================================================
-           Quick Links
-           ================================================================ */
-
-        .quick-links {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 15px;
-            margin-bottom: 60px;
-        }
-
-        .quick-link {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            text-align: center;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .quick-link:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(102, 126, 234, 0.2);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .quick-link i {
-            font-size: 28px;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .quick-link .link-title {
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .quick-link .link-desc {
-            color: rgba(255, 255, 255, 0.2);
-            font-size: 11px;
-            margin-top: 2px;
-        }
-
-        /* ================================================================
-           Footer
-           ================================================================ */
-
+        /* ===== التذييل ===== */
         .footer {
             text-align: center;
             padding: 30px 0 20px;
@@ -780,32 +600,47 @@
             margin-top: 10px;
         }
 
-        /* ================================================================
-           Responsive
-           ================================================================ */
+        /* ===== Toast ===== */
+        .toast-custom {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            background: rgba(102, 126, 234, 0.95);
+            color: #fff;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            animation: slideUp 0.4s ease;
+            max-width: 90%;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
+        .toast-custom.success { background: rgba(40, 167, 69, 0.95); }
+        .toast-custom.error { background: rgba(220, 53, 69, 0.95); }
+        .toast-custom.warning { background: rgba(255, 193, 7, 0.95); color: #1a2332; }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ===== استجابة ===== */
         @media (max-width: 1024px) {
             .hero {
                 grid-template-columns: 1fr;
                 text-align: center;
             }
-
-            .hero-content .actions {
-                justify-content: center;
-            }
-
-            .hero-content .stats {
-                justify-content: center;
-            }
-
-            .hero-image .image-wrapper {
-                max-width: 400px;
-            }
-
-            .navbar .nav-links {
-                display: none;
-            }
-
+            .hero-content .actions { justify-content: center; }
+            .hero-content .stats { justify-content: center; }
+            .hero-image .image-wrapper { max-width: 400px; }
+            .navbar .nav-links { display: none; }
             .navbar .nav-links.open {
                 display: flex;
                 flex-direction: column;
@@ -818,119 +653,42 @@
                 gap: 15px;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             }
-
-            .navbar .menu-toggle {
-                display: block;
-            }
-
-            .dev-section .dev-body {
-                grid-template-columns: 1fr 1fr;
-            }
+            .navbar .menu-toggle { display: block; }
         }
 
         @media (max-width: 768px) {
-            .main-container {
-                padding: 80px 20px 30px;
-            }
-
-            .hero-content h1 {
-                font-size: 32px;
-            }
-
-            .hero-content .subtitle {
-                font-size: 16px;
-            }
-
-            .hero-image .image-wrapper {
-                max-width: 300px;
-            }
-
-            .hero-image .image-wrapper .icon-big {
-                font-size: 80px;
-            }
-
-            .info-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .status-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .navbar {
-                padding: 12px 20px;
-            }
-
-            .navbar .logo {
-                font-size: 18px;
-            }
-
-            .hero-content .stats {
-                gap: 20px;
-            }
-
-            .hero-content .stats .stat-item .number {
-                font-size: 22px;
-            }
-
-            .dev-section {
-                padding: 20px;
-            }
-
-            .dev-section .dev-body {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-links {
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            }
-
-            .footer .footer-links {
-                gap: 12px;
-            }
+            .main-container { padding: 80px 20px 30px; }
+            .hero-content h1 { font-size: 32px; }
+            .hero-content .subtitle { font-size: 16px; }
+            .hero-image .image-wrapper { max-width: 300px; }
+            .hero-image .image-wrapper .icon-big { font-size: 80px; }
+            .navbar { padding: 12px 20px; }
+            .navbar .logo { font-size: 18px; }
+            .hero-content .stats { gap: 20px; }
+            .hero-content .stats .stat-item .number { font-size: 22px; }
+            .quick-links { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+            .dev-section { padding: 20px; }
+            .dev-section .dev-body { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 400px) {
-            .hero-content h1 {
-                font-size: 26px;
-            }
-
+            .hero-content h1 { font-size: 26px; }
             .hero-content .actions .btn-primary,
-            .hero-content .actions .btn-secondary {
-                padding: 12px 24px;
-                font-size: 14px;
-            }
-
-            .info-card {
-                padding: 20px;
-            }
-
-            .status-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-links {
-                grid-template-columns: 1fr 1fr;
-            }
+            .hero-content .actions .btn-secondary { padding: 12px 24px; font-size: 14px; }
+            .quick-links { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <!-- ================================================================
-    Animated Background
-    ================================================================ -->
-
+    <!-- ===== خلفية متحركة ===== -->
     <div class="bg-animation">
         <div class="gradient gradient-1"></div>
         <div class="gradient gradient-2"></div>
         <div class="gradient gradient-3"></div>
     </div>
 
-    <!-- ================================================================
-    Particles
-    ================================================================ -->
-
+    <!-- ===== جزيئات ===== -->
     <div class="particles">
         <div class="particle"></div>
         <div class="particle"></div>
@@ -946,10 +704,7 @@
         <div class="particle"></div>
     </div>
 
-    <!-- ================================================================
-    Navigation
-    ================================================================ -->
-
+    <!-- ===== شريط التنقل ===== -->
     <nav class="navbar">
         <a href="#" class="logo">
             <i class="fas fa-warehouse"></i>
@@ -958,7 +713,6 @@
 
         <div class="nav-links" id="navLinks">
             <a href="#features">المميزات</a>
-            <a href="#status">حالة النظام</a>
             <a href="#quick-links">الروابط السريعة</a>
             <a href="#developer">المطور</a>
             <a href="/frontend/pages/login.html" class="btn-nav">
@@ -971,16 +725,10 @@
         </button>
     </nav>
 
-    <!-- ================================================================
-    Main Container
-    ================================================================ -->
-
+    <!-- ===== الحاوية الرئيسية ===== -->
     <div class="main-container">
 
-        <!-- ================================================================
-        Hero Section
-        ================================================================ -->
-
+        <!-- ===== قسم الهيرو ===== -->
         <section class="hero">
             <div class="hero-content">
                 <div class="badge">
@@ -1004,26 +752,23 @@
                     <a href="#features" class="btn-secondary">
                         <i class="fas fa-play-circle"></i> اكتشف المزيد
                     </a>
-                    <a href="#developer" class="btn-secondary">
-                        <i class="fas fa-headset"></i> تواصل مع المطور
-                    </a>
                 </div>
 
                 <div class="stats">
                     <div class="stat-item">
-                        <div class="number" id="statProducts">38+</div>
+                        <div class="number" id="statProducts">0</div>
                         <div class="label">صنف</div>
                     </div>
                     <div class="stat-item">
-                        <div class="number" id="statWarehouses">5</div>
+                        <div class="number" id="statWarehouses">0</div>
                         <div class="label">مخزن</div>
                     </div>
                     <div class="stat-item">
-                        <div class="number" id="statUsers">6</div>
+                        <div class="number" id="statUsers">0</div>
                         <div class="label">مستخدم</div>
                     </div>
                     <div class="stat-item">
-                        <div class="number" id="statRating">4.8</div>
+                        <div class="number" id="statRating">5.0</div>
                         <div class="label">تقييم</div>
                     </div>
                 </div>
@@ -1042,107 +787,51 @@
             </div>
         </section>
 
-        <!-- ================================================================
-        System Status Section
-        ================================================================ -->
-
-        <section class="status-section" id="status">
-            <div class="section-title">
-                <h2>📊 حالة النظام</h2>
-                <p>معلومات فورية عن حالة الخادم وقاعدة البيانات</p>
-            </div>
-
-            <div class="status-grid" id="statusGrid">
-                <div class="status-card">
-                    <span class="icon green"><i class="fas fa-server"></i></span>
-                    <div class="status-label">حالة الخادم</div>
-                    <div class="status-value">
-                        <span class="status-dot online" id="serverDot"></span>
-                        <span id="serverStatus">متصل</span>
-                    </div>
-                </div>
-                <div class="status-card">
-                    <span class="icon blue"><i class="fas fa-database"></i></span>
-                    <div class="status-label">قاعدة البيانات</div>
-                    <div class="status-value">
-                        <span class="status-dot online" id="dbDot"></span>
-                        <span id="dbStatus">متصل</span>
-                    </div>
-                </div>
-                <div class="status-card">
-                    <span class="icon purple"><i class="fas fa-code"></i></span>
-                    <div class="status-label">إصدار النظام</div>
-                    <div class="status-value" id="systemVersion">v5.0.0</div>
-                </div>
-                <div class="status-card">
-                    <span class="icon orange"><i class="fas fa-clock"></i></span>
-                    <div class="status-label">وقت التشغيل</div>
-                    <div class="status-value" id="uptime">جاري التحميل...</div>
-                </div>
-                <div class="status-card">
-                    <span class="icon green"><i class="fas fa-users"></i></span>
-                    <div class="status-label">المستخدمين النشطين</div>
-                    <div class="status-value" id="activeUsers">0</div>
-                </div>
-                <div class="status-card">
-                    <span class="icon blue"><i class="fas fa-boxes"></i></span>
-                    <div class="status-label">إجمالي الأصناف</div>
-                    <div class="status-value" id="totalProducts">0</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================================================================
-        Quick Links
-        ================================================================ -->
-
+        <!-- ===== روابط سريعة ===== -->
         <section class="quick-links" id="quick-links">
-            <a href="/frontend/pages/warehouses.html" class="quick-link">
-                <i class="fas fa-warehouse" style="color:#667eea;"></i>
-                <div class="link-title">المخازن</div>
-                <div class="link-desc">إدارة المخازن</div>
+            <a href="/frontend/pages/dashboard.html" class="quick-link">
+                <i class="fas fa-chart-pie" style="color:#667eea;"></i>
+                <div class="link-title">لوحة التحكم</div>
+                <div class="link-desc">نظرة عامة</div>
             </a>
             <a href="/frontend/pages/products.html" class="quick-link">
                 <i class="fas fa-boxes" style="color:#28a745;"></i>
                 <div class="link-title">الأصناف</div>
                 <div class="link-desc">إدارة الأصناف</div>
             </a>
-            <a href="/frontend/pages/users.html" class="quick-link">
-                <i class="fas fa-users" style="color:#ffc107;"></i>
-                <div class="link-title">المستخدمين</div>
-                <div class="link-desc">إدارة المستخدمين</div>
+            <a href="/frontend/pages/warehouses.html" class="quick-link">
+                <i class="fas fa-warehouse" style="color:#667eea;"></i>
+                <div class="link-title">المخازن</div>
+                <div class="link-desc">إدارة المخازن</div>
             </a>
-            <a href="/frontend/pages/stock-report.html" class="quick-link">
+            <a href="/frontend/pages/receipts.html" class="quick-link">
+                <i class="fas fa-arrow-down" style="color:#28a745;"></i>
+                <div class="link-title">استلام</div>
+                <div class="link-desc">إذون استلام</div>
+            </a>
+            <a href="/frontend/pages/issues.html" class="quick-link">
+                <i class="fas fa-arrow-up" style="color:#dc3545;"></i>
+                <div class="link-title">صرف</div>
+                <div class="link-desc">إذون صرف</div>
+            </a>
+            <a href="/frontend/pages/transfers.html" class="quick-link">
+                <i class="fas fa-exchange-alt" style="color:#ffc107;"></i>
+                <div class="link-title">تحويلات</div>
+                <div class="link-desc">بين المخازن</div>
+            </a>
+            <a href="/frontend/pages/reports.html" class="quick-link">
                 <i class="fas fa-chart-bar" style="color:#17a2b8;"></i>
                 <div class="link-title">التقارير</div>
                 <div class="link-desc">تقارير متقدمة</div>
             </a>
-            <a href="#" class="quick-link" onclick="showComingSoon('الاستلام')">
-                <i class="fas fa-arrow-down" style="color:#28a745;"></i>
-                <div class="link-title">الاستلام</div>
-                <div class="link-desc">إذون استلام</div>
-            </a>
-            <a href="#" class="quick-link" onclick="showComingSoon('الصرف')">
-                <i class="fas fa-arrow-up" style="color:#dc3545;"></i>
-                <div class="link-title">الصرف</div>
-                <div class="link-desc">إذون صرف</div>
-            </a>
-            <a href="#" class="quick-link" onclick="showComingSoon('التحويل')">
-                <i class="fas fa-exchange-alt" style="color:#ffc107;"></i>
-                <div class="link-title">التحويلات</div>
-                <div class="link-desc">بين المخازن</div>
-            </a>
-            <a href="#" class="quick-link" onclick="showComingSoon('المرتجعات')">
-                <i class="fas fa-undo" style="color:#764ba2;"></i>
-                <div class="link-title">المرتجعات</div>
-                <div class="link-desc">مرتجعات متنوعة</div>
+            <a href="/frontend/pages/settings.html" class="quick-link">
+                <i class="fas fa-cog" style="color:#764ba2;"></i>
+                <div class="link-title">الإعدادات</div>
+                <div class="link-desc">إعدادات النظام</div>
             </a>
         </section>
 
-        <!-- ================================================================
-        Developer Info Section
-        ================================================================ -->
-
+        <!-- ===== المطور ===== -->
         <section class="dev-section" id="developer">
             <div class="dev-header">
                 <div class="dev-avatar">ع</div>
@@ -1193,7 +882,7 @@
                     <i class="fas fa-calendar-alt"></i>
                     <div>
                         <div class="dev-label">آخر تحديث</div>
-                        <div class="dev-value" id="lastUpdate">2026-08-21</div>
+                        <div class="dev-value" id="lastUpdate">2026-08-22</div>
                     </div>
                 </div>
                 <div class="dev-item">
@@ -1208,73 +897,12 @@
             </div>
         </section>
 
-        <!-- ================================================================
-        Info Cards Section
-        ================================================================ -->
-
-        <section class="info-section" id="features">
-            <div class="section-title">
-                <h2>✨ مميزات النظام</h2>
-                <p>جميع الأدوات التي تحتاجها لإدارة مخازنك بكفاءة</p>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-boxes"></i></div>
-                    <h3>إدارة الأصناف</h3>
-                    <p>إدارة كاملة للأصناف مع باركود، وحدات قياس، حدود دنيا وعليا، وأسعار الشراء والبيع.</p>
-                    <span class="card-tag blue">متقدم</span>
-                </div>
-
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-warehouse"></i></div>
-                    <h3>إدارة المخازن</h3>
-                    <p>إنشاء وإدارة مخازن متعددة مع تتبع الأرصدة والحركات لكل مخزن بشكل دقيق.</p>
-                    <span class="card-tag green">مطور</span>
-                </div>
-
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-arrows-alt-h"></i></div>
-                    <h3>استلام وصرف</h3>
-                    <p>إدارة عمليات الاستلام والصرف مع نظام موافقات ومراجعة للحفاظ على دقة المخزون.</p>
-                    <span class="card-tag purple">احترافي</span>
-                </div>
-
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-exchange-alt"></i></div>
-                    <h3>تحويلات</h3>
-                    <p>نقل المخزون بين المخازن بسهولة مع تتبع كامل للحركات والتواريخ.</p>
-                    <span class="card-tag orange">ذكي</span>
-                </div>
-
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-clipboard-check"></i></div>
-                    <h3>الجرد</h3>
-                    <p>جرد دوري وشامل مع إمكانية تصحيح الفروقات وتسجيل الأسباب بدقة.</p>
-                    <span class="card-tag cyan">دقيق</span>
-                </div>
-
-                <div class="info-card">
-                    <div class="icon"><i class="fas fa-chart-bar"></i></div>
-                    <h3>تقارير متقدمة</h3>
-                    <p>تقارير شاملة عن الأرصدة، الحركات، الأداء، والقيمة المالية للمخزون.</p>
-                    <span class="card-tag red">تحليلي</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================================================================
-        Footer
-        ================================================================ -->
-
+        <!-- ===== التذييل ===== -->
         <footer class="footer" id="contact">
             <div class="footer-links">
                 <a href="#features">المميزات</a>
-                <a href="#status">حالة النظام</a>
                 <a href="#quick-links">الروابط السريعة</a>
                 <a href="#developer">المطور</a>
-                <a href="#">المساعدة</a>
-                <a href="#">الدعم الفني</a>
                 <a href="mailto:abdelrahman.khamis@hotmail.com">
                     <i class="fas fa-envelope"></i> تواصل مع المطور
                 </a>
@@ -1290,15 +918,11 @@
 
     </div>
 
-    <!-- ================================================================
-    Scripts
-    ================================================================ -->
-
+    <!-- ===== جافا سكريبت ===== -->
     <script>
         // ================================================================
-        // Mobile Menu Toggle
+        // القائمة في الهواتف
         // ================================================================
-
         const menuToggle = document.getElementById('menuToggle');
         const navLinks = document.getElementById('navLinks');
 
@@ -1309,9 +933,8 @@
         });
 
         // ================================================================
-        // Smooth Scroll for Anchor Links
+        // تمرير سلس
         // ================================================================
-
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 const href = this.getAttribute('href');
@@ -1329,9 +952,8 @@
         });
 
         // ================================================================
-        // Navbar Shadow on Scroll
+        // ظل شريط التنقل عند التمرير
         // ================================================================
-
         window.addEventListener('scroll', function() {
             const navbar = document.querySelector('.navbar');
             if (window.scrollY > 50) {
@@ -1344,69 +966,31 @@
         });
 
         // ================================================================
-        // Show Coming Soon Toast
+        // جلب الإحصائيات من API
         // ================================================================
-
-        function showComingSoon(feature) {
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-                padding: 12px 24px; border-radius: 12px;
-                background: rgba(255, 193, 7, 0.9); color: #1a2332;
-                font-family: 'Tajawal', sans-serif; font-size: 14px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                animation: slideUp 0.4s ease;
-                max-width: 90%;
-            `;
-            toast.innerHTML = `⏳ ميزة "${feature}" قريباً!`;
-            document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.4s ease';
-                setTimeout(() => toast.remove(), 400);
-            }, 3000);
-        }
-
-        // ================================================================
-        // Fetch System Status
-        // ================================================================
-
-        async function fetchSystemStatus() {
+        async function fetchStats() {
             try {
-                const response = await fetch('/api/health');
+                const token = localStorage.getItem('auth_token');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const response = await fetch('/api/dashboard/stats', { headers });
                 const data = await response.json();
-                
-                if (data.success) {
-                    // Server Status
-                    document.getElementById('serverStatus').textContent = 'متصل';
-                    document.getElementById('serverDot').className = 'status-dot online';
-                    
-                    // Database Status
-                    document.getElementById('dbStatus').textContent = data.data.database === 'connected' ? 'متصل' : 'غير متصل';
-                    document.getElementById('dbDot').className = 'status-dot ' + (data.data.database === 'connected' ? 'online' : 'offline');
-                    
-                    // Uptime
-                    document.getElementById('uptime').textContent = data.data.uptime || 'جاري التحميل...';
-                    
-                    // Active Users
-                    document.getElementById('activeUsers').textContent = data.data.active_users || 0;
-                    
-                    // Total Products
-                    document.getElementById('totalProducts').textContent = data.data.total_products || 0;
+                if (data.success && data.data) {
+                    document.getElementById('statProducts').textContent = data.data.products?.total || 0;
+                    document.getElementById('statWarehouses').textContent = data.data.warehouses?.total || 0;
+                    document.getElementById('statUsers').textContent = data.data.users?.total || 0;
                 }
             } catch (error) {
-                console.error('Error fetching system status:', error);
-                document.getElementById('serverStatus').textContent = 'غير متصل';
-                document.getElementById('serverDot').className = 'status-dot offline';
-                document.getElementById('dbStatus').textContent = 'غير متصل';
-                document.getElementById('dbDot').className = 'status-dot offline';
+                console.error('Error fetching stats:', error);
+                // بيانات تجريبية إذا تعذر الاتصال
+                document.getElementById('statProducts').textContent = '38+';
+                document.getElementById('statWarehouses').textContent = '5';
+                document.getElementById('statUsers').textContent = '6';
             }
         }
 
         // ================================================================
-        // Update Last Update Time
+        // تحديث وقت آخر تحديث
         // ================================================================
-
         document.getElementById('lastUpdate').textContent = new Date().toLocaleDateString('ar-SA', {
             year: 'numeric',
             month: 'long',
@@ -1414,43 +998,21 @@
         });
 
         // ================================================================
-        // Fetch Stats for Hero Section
+        // رسالة ترحيب في الكونسول
         // ================================================================
-
-        async function fetchStats() {
-            try {
-                const response = await fetch('/dashboard');
-                const data = await response.json();
-                if (data.success && data.data && data.data.stats) {
-                    const stats = data.data.stats;
-                    document.getElementById('statProducts').textContent = stats.products || 0;
-                    document.getElementById('statWarehouses').textContent = stats.warehouses || 0;
-                    document.getElementById('statUsers').textContent = stats.users || 0;
-                }
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-            }
-        }
-
-        // ================================================================
-        // Initialize
-        // ================================================================
-
-        document.addEventListener('DOMContentLoaded', function() {
-            fetchSystemStatus();
-            fetchStats();
-            // Refresh status every 30 seconds
-            setInterval(fetchSystemStatus, 30000);
-        });
-
-        // ================================================================
-        // Console Welcome Message
-        // ================================================================
-
         console.log('%c🚀 نظام المخازن المتقدم v5.0.0', 'font-size:24px; font-weight:bold; color:#667eea;');
         console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px; color:#aaa;');
         console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px; color:#666;');
         console.log('%c📱 01286187173 | 01027191811', 'font-size:12px; color:#666;');
+
+        // ================================================================
+        // تشغيل التطبيق
+        // ================================================================
+        fetchStats();
+
+        // تحديث الإحصائيات كل 60 ثانية
+        setInterval(fetchStats, 60000);
     </script>
+
 </body>
 </html>

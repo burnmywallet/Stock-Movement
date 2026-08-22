@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/TransferController.php
-// الوصف: متحكم إدارة التحويلات بين المخازن
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة التحويلات بين المخازن - إنشاء، اعتماد، إكمال، رفض، طباعة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -13,6 +12,7 @@ use Core\Database;
 use Core\Auth;
 use Core\Audit;
 use Services\StockService;
+use Exception;
 
 class TransferController
 {
@@ -147,7 +147,16 @@ class TransferController
                         WHEN t.status = 'cancelled' THEN 'ملغي'
                         WHEN t.status = 'completed' THEN 'مكتمل'
                         ELSE t.status
-                    END as status_label
+                    END as status_label,
+                    CASE 
+                        WHEN t.status = 'completed' THEN 'success'
+                        WHEN t.status = 'approved' THEN 'primary'
+                        WHEN t.status = 'rejected' THEN 'danger'
+                        WHEN t.status = 'cancelled' THEN 'secondary'
+                        WHEN t.status = 'draft' THEN 'warning'
+                        WHEN t.status = 'submitted' THEN 'info'
+                        ELSE 'secondary'
+                    END as status_color
                 FROM transfers t
                 LEFT JOIN warehouses fw ON fw.id = t.from_warehouse_id
                 LEFT JOIN warehouses tw ON tw.id = t.to_warehouse_id
@@ -202,9 +211,9 @@ class TransferController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Transfers list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -242,6 +251,7 @@ class TransferController
                     p.name as product_name,
                     p.barcode,
                     u.name as unit_name,
+                    u.symbol as unit_symbol,
                     COALESCE(sb_from.quantity, 0) as from_balance,
                     COALESCE(sb_to.quantity, 0) as to_balance
                 FROM transfer_items ti
@@ -292,9 +302,9 @@ class TransferController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Transfer show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -388,17 +398,8 @@ class TransferController
                     'serial_numbers' => $item['serial_numbers'] ?? null,
                     'notes' => $item['notes'] ?? null
                 ]);
-            }
 
-            // تحديث إجماليات التحويل
-            $this->db->update('transfers', [
-                'total_items' => $totalItems,
-                'total_quantity' => $totalQuantity,
-                'total_cost' => $totalCost
-            ], ['id' => $transferId]);
-
-            // حجز الكمية في المخزن المصدر
-            foreach ($input['items'] as $item) {
+                // حجز الكمية في المخزن المصدر
                 $this->db->execute("
                     INSERT INTO stock_balances (product_id, warehouse_id, quantity, reserved_quantity, updated_at)
                     VALUES (:product_id, :warehouse_id, 0, :reserved_quantity, NOW())
@@ -411,6 +412,13 @@ class TransferController
                     'reserved_quantity' => $item['quantity']
                 ]);
             }
+
+            // تحديث إجماليات التحويل
+            $this->db->update('transfers', [
+                'total_items' => $totalItems,
+                'total_quantity' => $totalQuantity,
+                'total_cost' => $totalCost
+            ], ['id' => $transferId]);
 
             // تسجيل في سجل التدقيق
             $this->audit->log(
@@ -438,10 +446,10 @@ class TransferController
                 'transfer_no' => $transferNo
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Transfer create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -581,16 +589,16 @@ class TransferController
 
             successResponse('تم تحديث التحويل بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Transfer update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
     /**
      * POST /api/transfers/{id}/approve
-     * اعتماد تحويل
+     * اعتماد تحويل (تنفيذ حركات الخصم والإضافة)
      */
     public function approve(int $id): void
     {
@@ -633,6 +641,23 @@ class TransferController
             if (empty($items)) {
                 errorResponse('لا توجد أصناف في التحويل');
                 return;
+            }
+
+            // التحقق من توفر الكميات (مرة أخرى للتأكد)
+            foreach ($items as $item) {
+                $balance = $this->db->queryValue("
+                    SELECT COALESCE(quantity, 0) 
+                    FROM stock_balances 
+                    WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                ", [
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $transfer['from_warehouse_id']
+                ]);
+
+                if ($balance < $item['quantity']) {
+                    errorResponse("الكمية غير متوفرة في المخزن المصدر (المتاح: {$balance})");
+                    return;
+                }
             }
 
             // بدء المعاملة
@@ -766,10 +791,10 @@ class TransferController
 
             successResponse('تم اعتماد التحويل بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Transfer approve error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -831,9 +856,9 @@ class TransferController
 
             successResponse('تم إكمال التحويل بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Transfer complete error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -924,10 +949,10 @@ class TransferController
 
             successResponse('تم رفض التحويل بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Transfer reject error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1015,10 +1040,63 @@ class TransferController
 
             successResponse('تم إلغاء التحويل بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Transfer cancel error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/transfers/{id}/print
+     * طباعة تحويل
+     */
+    public function print(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'transfers.view')) {
+                errorResponse('ليس لديك صلاحية لعرض التحويلات', 403);
+                return;
+            }
+
+            $transfer = $this->getTransferById($id);
+            if (!$transfer) {
+                errorResponse('التحويل غير موجود');
+                return;
+            }
+
+            // جلب تفاصيل التحويل
+            $items = $this->db->query("
+                SELECT 
+                    ti.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    u.name as unit_name
+                FROM transfer_items ti
+                INNER JOIN products p ON p.id = ti.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                WHERE ti.transfer_id = :transfer_id
+            ", ['transfer_id' => $id]);
+
+            // HTML للطباعة
+            $html = $this->generateTransferPrintHTML($transfer, $items);
+            
+            successResponse('تم جلب بيانات الطباعة', [
+                'html' => $html,
+                'transfer' => $transfer,
+                'items' => $items
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Transfer print error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1070,39 +1148,16 @@ class TransferController
             ]);
 
             if ($format === 'csv') {
-                header('Content-Type: text/csv; charset=utf-8');
-                header('Content-Disposition: attachment; filename="transfers_' . date('Y-m-d') . '.csv"');
-                
-                $output = fopen('php://output', 'w');
-                fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-                
-                fputcsv($output, ['رقم التحويل', 'التاريخ', 'من مخزن', 'إلى مخزن', 'عدد الأصناف', 'الكمية', 'القيمة', 'الحالة', 'تم الإنشاء بواسطة', 'تاريخ الإنشاء', 'تاريخ التسليم']);
-                
-                foreach ($transfers as $row) {
-                    fputcsv($output, [
-                        $row['transfer_no'],
-                        $row['transfer_date'],
-                        $row['from_warehouse'],
-                        $row['to_warehouse'],
-                        $row['total_items'],
-                        $row['total_quantity'],
-                        $row['total_cost'],
-                        $row['status'],
-                        $row['created_by'],
-                        $row['created_at'],
-                        $row['delivered_date'] ?? ''
-                    ]);
-                }
-                
-                fclose($output);
-                exit;
+                $this->exportCSV($transfers);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($transfers);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $transfers);
             }
 
-            successResponse('تم جلب بيانات التصدير', $transfers);
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Transfer export error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1170,21 +1225,189 @@ class TransferController
             return;
         }
         
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $index => $item) {
             if (empty($item['product_id'])) {
-                errorResponse('الصنف مطلوب');
+                errorResponse("الصنف مطلوب في العنصر " . ($index + 1));
                 return;
             }
             
             if (empty($item['quantity']) || $item['quantity'] <= 0) {
-                errorResponse('الكمية يجب أن تكون أكبر من صفر');
+                errorResponse("الكمية يجب أن تكون أكبر من صفر في العنصر " . ($index + 1));
                 return;
             }
             
             if (!isset($item['unit_cost']) || $item['unit_cost'] < 0) {
-                errorResponse('سعر الوحدة غير صحيح');
+                errorResponse("سعر الوحدة غير صحيح في العنصر " . ($index + 1));
+                return;
+            }
+            
+            // التحقق من وجود المنتج
+            $product = $this->db->queryValue(
+                "SELECT id FROM products WHERE id = :id AND deleted_at IS NULL",
+                ['id' => $item['product_id']]
+            );
+            
+            if (!$product) {
+                errorResponse("المنتج غير موجود في العنصر " . ($index + 1));
                 return;
             }
         }
     }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="transfers_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
+        
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * تصدير Excel
+     */
+    private function exportExcel(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="transfers_' . date('Y-m-d') . '.xls"');
+        
+        echo '<table border="1">';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
+        echo '</tr>';
+        
+        foreach ($data as $row) {
+            echo '<tr>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
+    }
+
+    /**
+     * توليد HTML للطباعة
+     */
+    private function generateTransferPrintHTML(array $transfer, array $items): string
+    {
+        $html = '<!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="UTF-8">
+            <title>تحويل #' . $transfer['transfer_no'] . '</title>
+            <style>
+                body { font-family: "Tajawal", sans-serif; padding: 40px; background: #fff; }
+                .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 20px; }
+                .header h1 { color: #667eea; margin: 0; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 8px; background: #f8f9fa; border-radius: 5px; }
+                .info-item .label { color: #666; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th { background: #667eea; color: #fff; padding: 10px; text-align: right; }
+                td { padding: 10px; border-bottom: 1px solid #ddd; }
+                .total-row { background: #f8f9fa; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }
+                .status-completed { color: #28a745; }
+                .status-approved { color: #17a2b8; }
+                .status-draft { color: #ffc107; }
+                .status-rejected { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>إذن تحويل</h1>
+                <p>' . $transfer['transfer_no'] . '</p>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">من مخزن:</span> ' . $transfer['from_warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">إلى مخزن:</span> ' . $transfer['to_warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">التاريخ:</span> ' . $transfer['transfer_date'] . '</div>
+                <div class="info-item"><span class="label">الحالة:</span> <span class="status-' . $transfer['status'] . '">' . $transfer['status_label'] . '</span></div>
+                <div class="info-item"><span class="label">تم الإنشاء بواسطة:</span> ' . $transfer['user_name'] . '</div>
+                <div class="info-item"><span class="label">تاريخ الإنشاء:</span> ' . $transfer['created_at'] . '</div>
+                ' . (!empty($transfer['expected_date']) ? '<div class="info-item"><span class="label">التاريخ المتوقع:</span> ' . $transfer['expected_date'] . '</div>' : '') . '
+                ' . (!empty($transfer['delivered_date']) ? '<div class="info-item"><span class="label">تاريخ التسليم:</span> ' . $transfer['delivered_date'] . '</div>' : '') . '
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>الوحدة</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        $index = 1;
+        foreach ($items as $item) {
+            $html .= '<tr>
+                <td>' . $index++ . '</td>
+                <td>' . $item['product_code'] . '</td>
+                <td>' . $item['product_name'] . '</td>
+                <td>' . $item['quantity'] . '</td>
+                <td>' . $item['unit_name'] . '</td>
+                <td>' . number_format($item['unit_cost'], 2) . '</td>
+                <td>' . number_format($item['total_cost'], 2) . '</td>
+            </tr>';
+        }
+        
+        $html .= '
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الإجمالي</td>
+                        <td>' . number_format($transfer['total_cost'], 2) . '</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            ' . (!empty($transfer['notes']) ? '<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;"><strong>ملاحظات:</strong> ' . $transfer['notes'] . '</div>' : '') . '
+            
+            <div class="footer">
+                <p>نظام إدارة المخازن والمخزون المتقدم v5.0</p>
+                <p>تم الطباعة في ' . date('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+        
+        return $html;
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

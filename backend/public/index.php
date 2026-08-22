@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/public/index.php
 // الوصف: مدخل API الرئيسي - نقطة الدخول الوحيدة للنظام
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// التاريخ: 2026-08-22
 // ================================================================
 
 // ================================================================
@@ -12,13 +11,22 @@
 // ================================================================
 
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
+// ✅ تم الإصلاح: إخفاء الأخطاء في Production
+$isProduction = ($_ENV['APP_ENV'] ?? 'production') === 'production';
+ini_set('display_errors', $isProduction ? '0' : '1');
+ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
+
 ini_set('memory_limit', '256M');
-ini_set('max_execution_time', 300);
-ini_set('max_input_time', 300);
+ini_set('max_execution_time', '300');
+ini_set('max_input_time', '300');
 ini_set('upload_max_filesize', '50M');
 ini_set('post_max_size', '50M');
-ini_set('date.timezone', 'Asia/Riyadh');
+
+// ✅ تم الإصلاح: Timezone من .env
+$timezone = $_ENV['APP_TIMEZONE'] ?? $_ENV['timezone'] ?? 'Asia/Riyadh';
+date_default_timezone_set($timezone);
 
 // ================================================================
 // 2. تعريف الثوابت
@@ -42,9 +50,13 @@ if (file_exists($envFile)) {
         if (empty($line) || strpos($line, '#') === 0) {
             continue;
         }
-        list($key, $value) = explode('=', $line, 2);
-        $_ENV[$key] = trim($value);
-        putenv("$key=" . trim($value));
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $key = trim($parts[0]);
+            $value = trim($parts[1]);
+            $_ENV[$key] = $value;
+            putenv("$key=$value");
+        }
     }
 }
 
@@ -53,7 +65,6 @@ if (file_exists($envFile)) {
 // ================================================================
 
 spl_autoload_register(function ($class) {
-    $prefix = '';
     $base_dir = BASE_PATH . DS;
     
     // التحقق من وجود Namespace
@@ -62,7 +73,6 @@ spl_autoload_register(function ($class) {
         $className = array_pop($parts);
         $namespace = implode(DS, $parts);
         
-        // محاولة البحث في المجلدات المختلفة
         $directories = ['core', 'controllers', 'models', 'middleware', 'services', 'helpers', 'validators', 'repositories'];
         foreach ($directories as $dir) {
             $file = $base_dir . $dir . DS . $className . '.php';
@@ -72,7 +82,6 @@ spl_autoload_register(function ($class) {
             }
         }
     } else {
-        // بدون Namespace
         $directories = ['core', 'controllers', 'models', 'middleware', 'services', 'helpers', 'validators', 'repositories'];
         foreach ($directories as $dir) {
             $file = $base_dir . $dir . DS . $class . '.php';
@@ -147,36 +156,10 @@ function forbiddenResponse($message = 'ليس لديك صلاحية') {
 }
 
 /**
- * استجابة 422 (تحقق من البيانات)
- */
-function validationErrorResponse($errors, $message = 'بيانات غير صالحة') {
-    jsonResponse(false, $message, null, 422, null, $errors);
-}
-
-/**
  * تسجيل الأخطاء
  */
 function logError($message, $context = []) {
     $logFile = BASE_PATH . DS . 'logs' . DS . 'error.log';
-    $logDir = dirname($logFile);
-    
-    if (!is_dir($logDir)) {
-        mkdir($logDir, 0777, true);
-    }
-    
-    $log = date('Y-m-d H:i:s') . ' - ' . $message . ' - ' . json_encode($context, JSON_UNESCAPED_UNICODE) . PHP_EOL;
-    error_log($log, 3, $logFile);
-}
-
-/**
- * تسجيل المعلومات
- */
-function logInfo($message, $context = []) {
-    if (!($_ENV['APP_DEBUG'] ?? false)) {
-        return;
-    }
-    
-    $logFile = BASE_PATH . DS . 'logs' . DS . 'info.log';
     $logDir = dirname($logFile);
     
     if (!is_dir($logDir)) {
@@ -205,22 +188,49 @@ function getClientIP() {
     return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
 }
 
-/**
- * التحقق من طلب AJAX
- */
-function isAjaxRequest() {
-    return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-           strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+// ================================================================
+// 6. معالجة CORS (مُحدّث)
+// ================================================================
+
+// ✅ تم الإصلاح: استخدام الإعدادات من .env
+$allowedOrigins = [];
+$corsOrigins = $_ENV['CORS_ALLOWED_ORIGINS'] ?? '';
+if (!empty($corsOrigins)) {
+    $allowedOrigins = array_map('trim', explode(',', $corsOrigins));
 }
 
-// ================================================================
-// 6. معالجة CORS
-// ================================================================
+// إضافة النطاقات المحلية دائماً للتطوير
+$allowedOrigins[] = 'http://localhost';
+$allowedOrigins[] = 'http://localhost:8080';
+$allowedOrigins[] = 'http://localhost:8081';
+$allowedOrigins[] = 'http://127.0.0.1';
+$allowedOrigins[] = 'http://127.0.0.1:8080';
 
-header('Access-Control-Allow-Origin: *');
+// إزالة التكرارات
+$allowedOrigins = array_unique($allowedOrigins);
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+// التحقق من Origin
+if (in_array('*', $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: *');
+} elseif (!empty($origin) && in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    // في الإنتاج، منع الطلبات من نطاقات غير مسموحة
+    $isProduction = ($_ENV['APP_ENV'] ?? 'production') === 'production';
+    if (!$isProduction && !empty($origin)) {
+        // في التطوير، نسمح مؤقتاً
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Credentials: true');
+        header('X-CORS-Warning: Development mode - origin auto-allowed');
+    }
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
-header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Requested-With, Origin');
-header('Access-Control-Expose-Headers: Authorization');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Requested-With, Origin, X-CSRF-Token');
+header('Access-Control-Expose-Headers: Authorization, X-Session-Id, X-User-Id');
 header('Access-Control-Max-Age: 86400');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -240,7 +250,8 @@ set_exception_handler(function($e) {
         'trace' => $e->getTraceAsString()
     ]);
     
-    if ($_ENV['APP_DEBUG'] ?? false) {
+    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+    if ($isDebug) {
         errorResponse($e->getMessage(), 500, [
             'file' => $e->getFile(),
             'line' => $e->getLine(),
@@ -255,7 +266,8 @@ set_exception_handler(function($e) {
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     logError($errstr, ['file' => $errfile, 'line' => $errline, 'code' => $errno]);
     
-    if ($_ENV['APP_DEBUG'] ?? false) {
+    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+    if ($isDebug) {
         errorResponse($errstr, 500, ['file' => $errfile, 'line' => $errline]);
     }
     
@@ -271,17 +283,44 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $method = $_SERVER['REQUEST_METHOD'];
     
-    // إزالة base path
-    $basePath = $_ENV['BASE_PATH'] ?? '/inventory-system';
+    // ✅ تم الإصلاح: معالجة Base Path ديناميكياً
+    $basePath = $_ENV['BASE_PATH'] ?? '';
     if (!empty($basePath) && strpos($path, $basePath) === 0) {
         $path = substr($path, strlen($basePath));
         $path = '/' . ltrim($path, '/');
     }
     
-    logInfo("Request: {$method} {$path}", [
-        'ip' => getClientIP(),
-        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-    ]);
+    // ✅ تم الإصلاح: دعم المسارات بدون base path
+    if (empty($path) || $path === '/') {
+        $path = '/';
+    }
+    
+    // معالجة الطلبات المباشرة للملفات الثابتة
+    if (strpos($path, '/frontend/') === 0) {
+        $file = BASE_PATH . '/../frontend/' . substr($path, 10);
+        if (file_exists($file) && !is_dir($file)) {
+            $ext = pathinfo($file, PATHINFO_EXTENSION);
+            $mimeTypes = [
+                'html' => 'text/html',
+                'css' => 'text/css',
+                'js' => 'application/javascript',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'svg' => 'image/svg+xml',
+                'ico' => 'image/x-icon',
+                'json' => 'application/json',
+                'woff' => 'font/woff',
+                'woff2' => 'font/woff2',
+                'ttf' => 'font/ttf'
+            ];
+            header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
+            header('Cache-Control: public, max-age=86400');
+            readfile($file);
+            exit;
+        }
+    }
     
     // تحميل ملف التوجيه
     $routerFile = BASE_PATH . DS . 'routes' . DS . 'api.php';
@@ -305,7 +344,8 @@ try {
         'method' => $method ?? 'unknown'
     ]);
     
-    if ($_ENV['APP_DEBUG'] ?? false) {
+    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+    if ($isDebug) {
         errorResponse($e->getMessage(), 500);
     } else {
         errorResponse('حدث خطأ في معالجة الطلب', 500);
@@ -313,18 +353,5 @@ try {
 }
 
 // ================================================================
-// 9. إحصائيات الأداء
+// انتهى الملف
 // ================================================================
-
-if ($_ENV['APP_DEBUG'] ?? false) {
-    $endTime = microtime(true);
-    $executionTime = round(($endTime - START_TIME) * 1000, 2);
-    $memoryUsage = memory_get_peak_usage(true) / 1024 / 1024;
-    
-    logInfo("Performance", [
-        'execution_time' => $executionTime . 'ms',
-        'memory_usage' => round($memoryUsage, 2) . 'MB',
-        'path' => $path ?? 'unknown',
-        'method' => $method ?? 'unknown'
-    ]);
-}

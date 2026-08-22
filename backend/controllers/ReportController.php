@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
-// الملف: backend/controllers/ReportController.php
-// الوصف: متحكم التقارير المتقدمة - جميع أنواع التقارير
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// نظام إدارة المخازن والمخزون المتقدم v5.0
+// الملف: backend/controllers/ReturnController.php
+// الوصف: متحكم إدارة المرتجعات - إنشاء، اعتماد، رفض، إلغاء، طباعة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -12,8 +11,10 @@ namespace Controllers;
 use Core\Database;
 use Core\Auth;
 use Core\Audit;
+use Services\StockService;
+use Exception;
 
-class ReportController
+class ReturnController
 {
     /**
      * @var Database $db - اتصال قاعدة البيانات
@@ -29,19 +30,25 @@ class ReportController
      * @var Audit $audit - سجل التدقيق
      */
     private $audit;
+    
+    /**
+     * @var StockService $stockService - محرك المخزون
+     */
+    private $stockService;
 
     public function __construct()
     {
         $this->db = Database::getInstance();
         $this->auth = new Auth();
         $this->audit = new Audit();
+        $this->stockService = new StockService();
     }
 
     /**
-     * GET /api/reports/stock
-     * تقرير أرصدة المخازن
+     * GET /api/returns
+     * جلب قائمة المرتجعات مع فلترة وبحث
      */
-    public function stock(): void
+    public function index(): void
     {
         try {
             $userId = $_REQUEST['user_id'] ?? null;
@@ -51,464 +58,184 @@ class ReportController
                 return;
             }
 
-            // التحقق من صلاحية التقارير
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
+            if (!$this->auth->hasPermission($userId, 'returns.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المرتجعات', 403);
                 return;
             }
 
-            $warehouseId = $_GET['warehouse_id'] ?? null;
-            $categoryId = $_GET['category_id'] ?? null;
-            $status = $_GET['status'] ?? null;
+            $page = (int)($_GET['page'] ?? 1);
+            $limit = (int)($_GET['limit'] ?? 20);
+            $offset = ($page - 1) * $limit;
+            
             $search = $_GET['search'] ?? '';
-            $format = $_GET['format'] ?? 'json';
+            $status = $_GET['status'] ?? '';
+            $warehouse = $_GET['warehouse'] ?? '';
+            $type = $_GET['type'] ?? '';
+            $fromDate = $_GET['from_date'] ?? '';
+            $toDate = $_GET['to_date'] ?? '';
+            $sort = $_GET['sort'] ?? 'created_at';
+            $order = $_GET['order'] ?? 'DESC';
 
             $params = [];
-            $where = ["p.deleted_at IS NULL"];
-            
-            if ($warehouseId) {
-                $where[] = "sb.warehouse_id = :warehouse_id";
-                $params['warehouse_id'] = $warehouseId;
-            }
-            
-            if ($categoryId) {
-                $where[] = "p.category_id = :category_id";
-                $params['category_id'] = $categoryId;
-            }
+            $where = [];
             
             if (!empty($search)) {
-                $where[] = "(p.name LIKE :search OR p.code LIKE :search OR p.barcode LIKE :search)";
+                $where[] = "r.return_no LIKE :search";
                 $params['search'] = "%{$search}%";
             }
             
-            if ($status) {
-                switch ($status) {
-                    case 'low_stock':
-                        $where[] = "sb.quantity <= p.min_stock AND sb.quantity > 0";
-                        break;
-                    case 'out_of_stock':
-                        $where[] = "sb.quantity = 0";
-                        break;
-                    case 'over_stock':
-                        $where[] = "sb.quantity >= p.max_stock";
-                        break;
-                    case 'normal':
-                        $where[] = "sb.quantity > p.min_stock AND sb.quantity < p.max_stock";
-                        break;
-                }
+            if (!empty($status)) {
+                $where[] = "r.status = :status";
+                $params['status'] = $status;
             }
             
-            $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-
-            $report = $this->db->query("
-                SELECT 
-                    p.id as product_id,
-                    p.code,
-                    p.name,
-                    p.barcode,
-                    c.name as category,
-                    u.name as unit,
-                    w.id as warehouse_id,
-                    w.name as warehouse,
-                    COALESCE(sb.quantity, 0) as balance,
-                    COALESCE(sb.reserved_quantity, 0) as reserved,
-                    COALESCE(sb.quantity - sb.reserved_quantity, 0) as available,
-                    p.min_stock,
-                    p.max_stock,
-                    p.cost_price,
-                    p.selling_price,
-                    COALESCE(sb.quantity * p.cost_price, 0) as total_value,
-                    CASE 
-                        WHEN COALESCE(sb.quantity, 0) <= 0 THEN 'نفذ'
-                        WHEN COALESCE(sb.quantity, 0) <= p.min_stock THEN 'منخفض'
-                        WHEN COALESCE(sb.quantity, 0) >= p.max_stock THEN 'زائد'
-                        ELSE 'طبيعي'
-                    END as stock_status,
-                    CASE 
-                        WHEN COALESCE(sb.quantity, 0) <= 0 THEN 'danger'
-                        WHEN COALESCE(sb.quantity, 0) <= p.min_stock THEN 'warning'
-                        WHEN COALESCE(sb.quantity, 0) >= p.max_stock THEN 'info'
-                        ELSE 'success'
-                    END as status_color
-                FROM products p
-                INNER JOIN units u ON u.id = p.unit_id
-                LEFT JOIN categories c ON c.id = p.category_id
-                CROSS JOIN warehouses w
-                LEFT JOIN stock_balances sb ON sb.product_id = p.id AND sb.warehouse_id = w.id
-                {$whereClause}
-                ORDER BY p.name, w.name
-            ", $params);
-
-            // إحصائيات إضافية
-            $stats = $this->getStockStats($report);
-
-            // تصدير حسب التنسيق
-            if ($format === 'csv') {
-                $this->exportStockCSV($report);
-                return;
-            } elseif ($format === 'excel') {
-                $this->exportStockExcel($report);
-                return;
-            } elseif ($format === 'pdf') {
-                $this->exportStockPDF($report, $stats);
-                return;
-            }
-
-            successResponse('تم جلب تقرير أرصدة المخازن', [
-                'data' => $report,
-                'stats' => $stats
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Stock report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/movements
-     * تقرير حركة المخزون
-     */
-    public function movements(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            $productId = $_GET['product_id'] ?? null;
-            $warehouseId = $_GET['warehouse_id'] ?? null;
-            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
-            $toDate = $_GET['to_date'] ?? date('Y-m-d');
-            $type = $_GET['type'] ?? null;
-            $format = $_GET['format'] ?? 'json';
-
-            $params = [
-                'from_date' => $fromDate . ' 00:00:00',
-                'to_date' => $toDate . ' 23:59:59'
-            ];
-            $where = ["sm.movement_date BETWEEN :from_date AND :to_date"];
-            
-            if ($productId) {
-                $where[] = "sm.product_id = :product_id";
-                $params['product_id'] = $productId;
+            if (!empty($warehouse)) {
+                $where[] = "r.warehouse_id = :warehouse";
+                $params['warehouse'] = $warehouse;
             }
             
-            if ($warehouseId) {
-                $where[] = "sm.warehouse_id = :warehouse_id";
-                $params['warehouse_id'] = $warehouseId;
-            }
-            
-            if ($type) {
-                $where[] = "sm.movement_type = :type";
+            if (!empty($type)) {
+                $where[] = "r.return_type = :type";
                 $params['type'] = $type;
             }
             
-            $whereClause = implode(' AND ', $where);
+            if (!empty($fromDate)) {
+                $where[] = "r.return_date >= :from_date";
+                $params['from_date'] = $fromDate;
+            }
+            
+            if (!empty($toDate)) {
+                $where[] = "r.return_date <= :to_date";
+                $params['to_date'] = $toDate;
+            }
 
-            $report = $this->db->query("
+            $allowedSorts = ['id', 'return_no', 'return_date', 'total_quantity', 'total_cost', 'status', 'created_at'];
+            $sort = in_array($sort, $allowedSorts) ? $sort : 'created_at';
+            $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
+
+            // جلب المرتجعات
+            $returns = $this->db->query("
                 SELECT 
-                    sm.id,
-                    sm.movement_type,
-                    CASE sm.movement_type
-                        WHEN 'RECEIPT' THEN 'استلام'
-                        WHEN 'ISSUE' THEN 'صرف'
-                        WHEN 'TRANSFER_OUT' THEN 'تحويل خارج'
-                        WHEN 'TRANSFER_IN' THEN 'تحويل داخل'
-                        WHEN 'RETURN_IN' THEN 'مرتجع للمخزن'
-                        WHEN 'RETURN_OUT' THEN 'مرتجع من المخزن'
-                        WHEN 'ADJUSTMENT' THEN 'تسوية'
-                        WHEN 'COUNT_CORRECTION' THEN 'تصحيح جرد'
-                        ELSE sm.movement_type
-                    END as movement_label,
-                    p.code as product_code,
-                    p.name as product_name,
-                    w.name as warehouse,
-                    sm.quantity,
-                    sm.unit_cost,
-                    sm.total_cost,
-                    sm.balance_before,
-                    sm.balance_after,
-                    sm.movement_date,
-                    u.full_name as user_name,
-                    sm.reference_type,
-                    sm.reference_id,
-                    sm.notes,
+                    r.id,
+                    r.return_no,
+                    r.return_type,
                     CASE 
-                        WHEN sm.movement_type IN ('RECEIPT', 'TRANSFER_IN', 'RETURN_IN') THEN 'in'
-                        WHEN sm.movement_type IN ('ISSUE', 'TRANSFER_OUT', 'RETURN_OUT') THEN 'out'
-                        ELSE 'adjustment'
-                    END as movement_direction
-                FROM stock_movements sm
-                INNER JOIN products p ON p.id = sm.product_id
-                INNER JOIN warehouses w ON w.id = sm.warehouse_id
-                INNER JOIN users u ON u.id = sm.user_id
-                WHERE {$whereClause}
-                ORDER BY sm.movement_date DESC
+                        WHEN r.return_type = 'to_supplier' THEN 'إلى المورد'
+                        WHEN r.return_type = 'from_customer' THEN 'من العميل'
+                        WHEN r.return_type = 'internal' THEN 'داخلي'
+                        ELSE r.return_type
+                    END as return_type_label,
+                    r.warehouse_id,
+                    w.name as warehouse_name,
+                    r.reference_type,
+                    r.reference_id,
+                    r.return_date,
+                    r.return_time,
+                    r.total_items,
+                    r.total_quantity,
+                    r.total_cost,
+                    r.reason,
+                    r.status,
+                    r.user_id,
+                    u.full_name as user_name,
+                    r.approved_by,
+                    a.full_name as approved_by_name,
+                    r.approved_at,
+                    r.created_at,
+                    r.updated_at,
+                    r.notes,
+                    (SELECT COUNT(*) FROM return_items WHERE return_id = r.id) as items_count,
+                    CASE 
+                        WHEN r.status = 'draft' THEN 'مسودة'
+                        WHEN r.status = 'submitted' THEN 'مرسل'
+                        WHEN r.status = 'approved' THEN 'معتمد'
+                        WHEN r.status = 'rejected' THEN 'مرفوض'
+                        WHEN r.status = 'cancelled' THEN 'ملغي'
+                        ELSE r.status
+                    END as status_label,
+                    CASE 
+                        WHEN r.status = 'approved' THEN 'success'
+                        WHEN r.status = 'rejected' THEN 'danger'
+                        WHEN r.status = 'cancelled' THEN 'secondary'
+                        WHEN r.status = 'draft' THEN 'warning'
+                        WHEN r.status = 'submitted' THEN 'info'
+                        ELSE 'secondary'
+                    END as status_color,
+                    CASE 
+                        WHEN r.return_type = 'to_supplier' THEN 
+                            (SELECT receipt_no FROM receipts WHERE id = r.reference_id)
+                        WHEN r.return_type = 'from_customer' THEN 
+                            (SELECT issue_no FROM issues WHERE id = r.reference_id)
+                        ELSE NULL
+                    END as reference_number
+                FROM returns r
+                LEFT JOIN warehouses w ON w.id = r.warehouse_id
+                LEFT JOIN users u ON u.id = r.user_id
+                LEFT JOIN users a ON a.id = r.approved_by
+                WHERE 1=1
+                " . (!empty($where) ? 'AND ' . implode(' AND ', $where) : '') . "
+                ORDER BY r.{$sort} {$order}
+                LIMIT :limit OFFSET :offset
+            ", array_merge($params, ['limit' => $limit, 'offset' => $offset]));
+
+            // إجمالي المرتجعات
+            $total = $this->db->queryValue("
+                SELECT COUNT(*) FROM returns r
+                WHERE 1=1
+                " . (!empty($where) ? 'AND ' . implode(' AND ', $where) : '') . "
             ", $params);
 
-            // حساب إحصائيات الحركات
-            $stats = $this->getMovementStats($report);
-
-            if ($format === 'csv') {
-                $this->exportMovementsCSV($report);
-                return;
-            } elseif ($format === 'excel') {
-                $this->exportMovementsExcel($report);
-                return;
-            }
-
-            successResponse('تم جلب تقرير حركة المخزون', [
-                'data' => $report,
-                'stats' => $stats,
-                'filters' => [
-                    'from_date' => $fromDate,
-                    'to_date' => $toDate,
-                    'product_id' => $productId,
-                    'warehouse_id' => $warehouseId,
-                    'type' => $type
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Movements report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/product/{id}
-     * تقرير حركة صنف معين
-     */
-    public function product(int $id): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
-            $toDate = $_GET['to_date'] ?? date('Y-m-d');
-            $format = $_GET['format'] ?? 'json';
-
-            // معلومات المنتج
-            $product = $this->db->queryOne("
-                SELECT 
-                    p.*,
-                    c.name as category_name,
-                    u.name as unit_name,
-                    (SELECT COALESCE(SUM(sb.quantity), 0) FROM stock_balances sb WHERE sb.product_id = p.id) as total_quantity,
-                    (SELECT COALESCE(SUM(sb.quantity * p.cost_price), 0) FROM stock_balances sb WHERE sb.product_id = p.id) as total_value
-                FROM products p
-                LEFT JOIN categories c ON c.id = p.category_id
-                LEFT JOIN units u ON u.id = p.unit_id
-                WHERE p.id = :id AND p.deleted_at IS NULL
-            ", ['id' => $id]);
-
-            if (!$product) {
-                errorResponse('المنتج غير موجود');
-                return;
-            }
-
-            // حركات المنتج
-            $movements = $this->db->query("
-                SELECT 
-                    sm.*,
-                    w.name as warehouse_name,
-                    u.full_name as user_name,
-                    CASE sm.movement_type
-                        WHEN 'RECEIPT' THEN 'استلام'
-                        WHEN 'ISSUE' THEN 'صرف'
-                        WHEN 'TRANSFER_OUT' THEN 'تحويل خارج'
-                        WHEN 'TRANSFER_IN' THEN 'تحويل داخل'
-                        WHEN 'RETURN_IN' THEN 'مرتجع للمخزن'
-                        WHEN 'RETURN_OUT' THEN 'مرتجع من المخزن'
-                        WHEN 'ADJUSTMENT' THEN 'تسوية'
-                        ELSE sm.movement_type
-                    END as movement_label
-                FROM stock_movements sm
-                INNER JOIN warehouses w ON w.id = sm.warehouse_id
-                INNER JOIN users u ON u.id = sm.user_id
-                WHERE sm.product_id = :product_id
-                  AND sm.movement_date BETWEEN :from_date AND :to_date
-                ORDER BY sm.movement_date DESC
-            ", [
-                'product_id' => $id,
-                'from_date' => $fromDate . ' 00:00:00',
-                'to_date' => $toDate . ' 23:59:59'
-            ]);
-
-            // الأرصدة في المخازن
-            $balances = $this->db->query("
-                SELECT 
-                    w.id as warehouse_id,
-                    w.name as warehouse_name,
-                    COALESCE(sb.quantity, 0) as quantity,
-                    COALESCE(sb.reserved_quantity, 0) as reserved,
-                    COALESCE(sb.quantity - sb.reserved_quantity, 0) as available,
-                    COALESCE(sb.quantity * p.cost_price, 0) as total_value
-                FROM warehouses w
-                LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id AND sb.product_id = :product_id
-                WHERE w.is_active = 1
-            ", ['product_id' => $id]);
-
-            // إحصائيات الحركات
-            $stats = [
-                'total_movements' => count($movements),
-                'total_in' => array_sum(array_filter($movements, fn($m) => in_array($m['movement_type'], ['RECEIPT', 'TRANSFER_IN', 'RETURN_IN']))),
-                'total_out' => array_sum(array_filter($movements, fn($m) => in_array($m['movement_type'], ['ISSUE', 'TRANSFER_OUT', 'RETURN_OUT']))),
-                'total_adjustments' => array_sum(array_filter($movements, fn($m) => $m['movement_type'] === 'ADJUSTMENT')),
-                'first_movement' => $movements ? $movements[count($movements)-1]['movement_date'] : null,
-                'last_movement' => $movements ? $movements[0]['movement_date'] : null,
-                'average_daily' => $this->calculateAverageDaily($movements, $fromDate, $toDate)
-            ];
-
-            if ($format === 'csv') {
-                $this->exportProductCSV($product, $movements, $balances);
-                return;
-            }
-
-            successResponse('تم جلب تقرير حركة المنتج', [
-                'product' => $product,
-                'movements' => $movements,
-                'balances' => $balances,
-                'stats' => $stats
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Product report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/warehouse/{id}
-     * تقرير مخزن محدد
-     */
-    public function warehouse(int $id): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
-            $toDate = $_GET['to_date'] ?? date('Y-m-d');
-
-            $warehouse = $this->db->queryOne("
-                SELECT * FROM warehouses WHERE id = :id AND deleted_at IS NULL
-            ", ['id' => $id]);
-
-            if (!$warehouse) {
-                errorResponse('المخزن غير موجود');
-                return;
-            }
-
-            // إحصائيات المخزن
+            // إحصائيات إضافية
             $stats = $this->db->queryOne("
                 SELECT 
-                    COUNT(DISTINCT p.id) as total_products,
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
-                    COUNT(CASE WHEN sb.quantity <= 0 THEN 1 END) as out_of_stock,
-                    COUNT(CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN 1 END) as low_stock,
-                    COUNT(CASE WHEN sb.quantity >= p.max_stock THEN 1 END) as over_stock
-                FROM stock_balances sb
-                INNER JOIN products p ON p.id = sb.product_id
-                WHERE sb.warehouse_id = :warehouse_id
-            ", ['warehouse_id' => $id]);
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft,
+                    COUNT(CASE WHEN status = 'submitted' THEN 1 END) as submitted,
+                    COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+                    COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected,
+                    COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled,
+                    COUNT(CASE WHEN return_type = 'to_supplier' THEN 1 END) as to_supplier,
+                    COUNT(CASE WHEN return_type = 'from_customer' THEN 1 END) as from_customer,
+                    COUNT(CASE WHEN return_type = 'internal' THEN 1 END) as internal,
+                    COALESCE(SUM(total_cost), 0) as total_value,
+                    COALESCE(SUM(total_quantity), 0) as total_quantity
+                FROM returns
+            ");
 
-            // حركات المخزن
-            $movements = $this->db->query("
-                SELECT 
-                    DATE(movement_date) as date,
-                    COUNT(*) as total_movements,
-                    COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
-                    COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
-                    COUNT(CASE WHEN movement_type = 'TRANSFER_IN' THEN 1 END) as transfers_in,
-                    COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers_out,
-                    COUNT(CASE WHEN movement_type = 'ADJUSTMENT' THEN 1 END) as adjustments,
-                    SUM(CASE WHEN movement_type IN ('RECEIPT', 'TRANSFER_IN', 'RETURN_IN') THEN quantity ELSE 0 END) as total_in,
-                    SUM(CASE WHEN movement_type IN ('ISSUE', 'TRANSFER_OUT', 'RETURN_OUT') THEN quantity ELSE 0 END) as total_out
-                FROM stock_movements
-                WHERE warehouse_id = :warehouse_id
-                  AND movement_date BETWEEN :from_date AND :to_date
-                GROUP BY DATE(movement_date)
-                ORDER BY date ASC
-            ", [
-                'warehouse_id' => $id,
-                'from_date' => $fromDate . ' 00:00:00',
-                'to_date' => $toDate . ' 23:59:59'
-            ]);
-
-            // أكثر الأصناف تداولاً
-            $topProducts = $this->db->query("
-                SELECT 
-                    p.id,
-                    p.code,
-                    p.name,
-                    COUNT(sm.id) as movement_count,
-                    SUM(sm.quantity) as total_quantity,
-                    SUM(sm.total_cost) as total_value
-                FROM stock_movements sm
-                INNER JOIN products p ON p.id = sm.product_id
-                WHERE sm.warehouse_id = :warehouse_id
-                  AND sm.movement_date BETWEEN :from_date AND :to_date
-                GROUP BY p.id, p.code, p.name
-                ORDER BY movement_count DESC
-                LIMIT 10
-            ", [
-                'warehouse_id' => $id,
-                'from_date' => $fromDate . ' 00:00:00',
-                'to_date' => $toDate . ' 23:59:59'
-            ]);
-
-            successResponse('تم جلب تقرير المخزن', [
-                'warehouse' => $warehouse,
-                'stats' => $stats,
-                'daily_movements' => $movements,
-                'top_products' => $topProducts,
-                'period' => [
-                    'from' => $fromDate,
-                    'to' => $toDate
+            successResponse('تم جلب قائمة المرتجعات', [
+                'data' => $returns,
+                'stats' => [
+                    'total' => (int)($stats['total'] ?? 0),
+                    'draft' => (int)($stats['draft'] ?? 0),
+                    'submitted' => (int)($stats['submitted'] ?? 0),
+                    'approved' => (int)($stats['approved'] ?? 0),
+                    'rejected' => (int)($stats['rejected'] ?? 0),
+                    'cancelled' => (int)($stats['cancelled'] ?? 0),
+                    'to_supplier' => (int)($stats['to_supplier'] ?? 0),
+                    'from_customer' => (int)($stats['from_customer'] ?? 0),
+                    'internal' => (int)($stats['internal'] ?? 0),
+                    'total_value' => (float)($stats['total_value'] ?? 0),
+                    'total_quantity' => (float)($stats['total_quantity'] ?? 0)
+                ],
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => (int)$total,
+                    'pages' => ceil((int)$total / $limit)
                 ]
             ]);
 
-        } catch (\Exception $e) {
-            error_log('Warehouse report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+        } catch (Exception $e) {
+            error_log('Returns list error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * GET /api/reports/audit
-     * تقرير سجل التدقيق
+     * GET /api/returns/{id}
+     * جلب بيانات مرتجع مع تفاصيل كاملة
      */
-    public function audit(): void
+    public function show(int $id): void
     {
         try {
             $userId = $_REQUEST['user_id'] ?? null;
@@ -518,428 +245,754 @@ class ReportController
                 return;
             }
 
-            if (!$this->auth->hasPermission($userId, 'reports.view') || 
-                !$this->auth->hasPermission($userId, 'audit.view')) {
-                errorResponse('ليس لديك صلاحية لعرض سجل التدقيق', 403);
+            if (!$this->auth->hasPermission($userId, 'returns.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المرتجعات', 403);
                 return;
             }
 
-            $userIdFilter = $_GET['user_id'] ?? null;
-            $action = $_GET['action'] ?? null;
-            $module = $_GET['module'] ?? null;
-            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-7 days'));
-            $toDate = $_GET['to_date'] ?? date('Y-m-d');
-            $limit = (int)($_GET['limit'] ?? 100);
-            $format = $_GET['format'] ?? 'json';
+            $return = $this->getReturnById($id);
+            
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
 
-            $params = [
-                'from_date' => $fromDate . ' 00:00:00',
-                'to_date' => $toDate . ' 23:59:59',
-                'limit' => $limit
-            ];
-            $where = ["al.created_at BETWEEN :from_date AND :to_date"];
-            
-            if ($userIdFilter) {
-                $where[] = "al.user_id = :user_id";
-                $params['user_id'] = $userIdFilter;
-            }
-            
-            if ($action) {
-                $where[] = "al.action = :action";
-                $params['action'] = $action;
-            }
-            
-            if ($module) {
-                $where[] = "al.module = :module";
-                $params['module'] = $module;
-            }
-            
-            $whereClause = implode(' AND ', $where);
-
-            $report = $this->db->query("
+            // جلب تفاصيل المرتجع
+            $items = $this->db->query("
                 SELECT 
-                    al.id,
-                    al.user_id,
-                    al.username,
-                    u.full_name as user_full_name,
-                    al.action,
-                    al.module,
-                    al.description,
-                    al.details,
-                    al.ip_address,
+                    ri.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    p.barcode,
+                    u.name as unit_name,
+                    u.symbol as unit_symbol,
+                    COALESCE(sb.quantity, 0) as current_balance
+                FROM return_items ri
+                INNER JOIN products p ON p.id = ri.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                LEFT JOIN stock_balances sb ON sb.product_id = p.id AND sb.warehouse_id = (SELECT warehouse_id FROM returns WHERE id = :return_id)
+                WHERE ri.return_id = :return_id
+            ", ['return_id' => $id]);
+
+            // جلب سجل الموافقات والتدقيق
+            $audits = $this->db->query("
+                SELECT 
                     al.created_at,
-                    CASE 
-                        WHEN al.action = 'LOGIN_SUCCESS' THEN 'تسجيل دخول'
-                        WHEN al.action = 'LOGIN_FAILED' THEN 'محاولة دخول فاشلة'
-                        WHEN al.action = 'LOGOUT' THEN 'تسجيل خروج'
-                        WHEN al.action LIKE '%CREATE%' OR al.action LIKE '%CREATED%' THEN 'إنشاء'
-                        WHEN al.action LIKE '%UPDATE%' OR al.action LIKE '%UPDATED%' THEN 'تحديث'
-                        WHEN al.action LIKE '%DELETE%' OR al.action LIKE '%DELETED%' THEN 'حذف'
-                        ELSE al.action
-                    END as action_label,
-                    CASE 
-                        WHEN al.action = 'LOGIN_SUCCESS' THEN 'success'
-                        WHEN al.action = 'LOGIN_FAILED' THEN 'danger'
-                        WHEN al.action LIKE '%CREATE%' OR al.action LIKE '%CREATED%' THEN 'primary'
-                        WHEN al.action LIKE '%UPDATE%' OR al.action LIKE '%UPDATED%' THEN 'warning'
-                        WHEN al.action LIKE '%DELETE%' OR al.action LIKE '%DELETED%' THEN 'danger'
-                        ELSE 'secondary'
-                    END as action_type
+                    al.user_id,
+                    u.full_name as user_name,
+                    al.action,
+                    al.description,
+                    al.details
                 FROM audit_logs al
                 LEFT JOIN users u ON u.id = al.user_id
-                WHERE {$whereClause}
+                WHERE al.reference_type = 'return'
+                  AND al.reference_id = :reference_id
                 ORDER BY al.created_at DESC
-                LIMIT :limit
-            ", $params);
+            ", ['reference_id' => $id]);
 
-            // إحصائيات
-            $stats = [
-                'total_entries' => count($report),
-                'unique_users' => count(array_unique(array_column($report, 'user_id'))),
-                'unique_actions' => count(array_unique(array_column($report, 'action'))),
-                'unique_modules' => count(array_unique(array_column($report, 'module'))),
-                'by_action' => $this->groupBy($report, 'action_label'),
-                'by_module' => $this->groupBy($report, 'module'),
-                'by_user' => $this->groupBy($report, 'username')
+            // جلب سجل الحالة
+            $history = $this->db->query("
+                SELECT 
+                    status,
+                    notes,
+                    created_at,
+                    (SELECT full_name FROM users WHERE id = user_id) as user_name
+                FROM return_status_history
+                WHERE return_id = :return_id
+                ORDER BY created_at ASC
+            ", ['return_id' => $id]);
+
+            successResponse('تم جلب بيانات المرتجع', [
+                'return' => $return,
+                'items' => $items,
+                'audits' => $audits,
+                'history' => $history,
+                'summary' => [
+                    'total_items' => count($items),
+                    'total_quantity' => array_sum(array_column($items, 'quantity')),
+                    'total_cost' => array_sum(array_column($items, 'total_cost'))
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Return show error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/returns
+     * إنشاء مرتجع جديد
+     */
+    public function create(): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.create')) {
+                errorResponse('ليس لديك صلاحية لإنشاء مرتجعات', 403);
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            // التحقق من البيانات
+            $this->validateReturnData($input);
+
+            // التحقق من المرجع (للمرتجعات للمورد أو من العميل)
+            if (in_array($input['return_type'], ['to_supplier', 'from_customer'])) {
+                $referenceExists = $this->checkReferenceExists(
+                    $input['reference_type'],
+                    $input['reference_id']
+                );
+
+                if (!$referenceExists) {
+                    errorResponse('المرجع غير موجود');
+                    return;
+                }
+            }
+
+            // توليد رقم المرتجع
+            $returnNo = $this->generateReturnNumber();
+
+            // بدء المعاملة
+            $this->db->beginTransaction();
+
+            // إنشاء المرتجع
+            $data = [
+                'return_no' => $returnNo,
+                'return_type' => $input['return_type'],
+                'warehouse_id' => $input['warehouse_id'],
+                'reference_type' => $input['reference_type'] ?? null,
+                'reference_id' => $input['reference_id'] ?? null,
+                'return_date' => $input['return_date'] ?? date('Y-m-d'),
+                'return_time' => $input['return_time'] ?? date('H:i:s'),
+                'reason' => $input['reason'] ?? null,
+                'notes' => $input['notes'] ?? null,
+                'status' => 'draft',
+                'user_id' => $userId,
+                'created_at' => date('Y-m-d H:i:s')
             ];
 
+            $returnId = $this->db->insert('returns', $data);
+
+            // حفظ تفاصيل المرتجع
+            $totalItems = 0;
+            $totalQuantity = 0;
+            $totalCost = 0;
+            
+            foreach ($input['items'] as $item) {
+                $itemTotal = $item['quantity'] * $item['unit_cost'];
+                $totalQuantity += $item['quantity'];
+                $totalCost += $itemTotal;
+                $totalItems++;
+                
+                $this->db->insert('return_items', [
+                    'return_id' => $returnId,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_cost' => $item['unit_cost'],
+                    'total_cost' => $itemTotal,
+                    'batch_number' => $item['batch_number'] ?? null,
+                    'serial_numbers' => $item['serial_numbers'] ?? null,
+                    'notes' => $item['notes'] ?? null
+                ]);
+
+                // إذا كان مرتجع للمورد، يجب التأكد من توفر الكمية
+                if ($input['return_type'] === 'to_supplier') {
+                    $balance = $this->db->queryValue("
+                        SELECT COALESCE(quantity, 0) 
+                        FROM stock_balances 
+                        WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                    ", [
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $input['warehouse_id']
+                    ]);
+
+                    if ($balance < $item['quantity']) {
+                        $this->db->rollback();
+                        errorResponse("الكمية غير متوفرة للصنف (المتاح: {$balance})");
+                        return;
+                    }
+                }
+            }
+
+            // تحديث إجماليات المرتجع
+            $this->db->update('returns', [
+                'total_items' => $totalItems,
+                'total_quantity' => $totalQuantity,
+                'total_cost' => $totalCost
+            ], ['id' => $returnId]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_CREATED',
+                'returns',
+                "إنشاء مرتجع #{$returnNo}",
+                [
+                    'return_id' => $returnId,
+                    'return_no' => $returnNo,
+                    'return_type' => $input['return_type'],
+                    'items_count' => $totalItems,
+                    'total_quantity' => $totalQuantity,
+                    'total_cost' => $totalCost
+                ],
+                'return',
+                $returnId
+            );
+
+            $this->db->commit();
+
+            successResponse('تم إنشاء المرتجع بنجاح', [
+                'return_id' => $returnId,
+                'return_no' => $returnNo
+            ]);
+
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log('Return create error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * PUT /api/returns/{id}
+     * تحديث مرتجع (فقط في حالة المسودة)
+     */
+    public function update(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.edit')) {
+                errorResponse('ليس لديك صلاحية لتعديل المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            // التحقق من الحالة (فقط المسودة يمكن تعديلها)
+            if ($return['status'] !== 'draft') {
+                errorResponse('لا يمكن تعديل المرتجع بعد اعتماده أو رفضه');
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            // التحقق من البيانات
+            $this->validateReturnData($input, true);
+
+            // بدء المعاملة
+            $this->db->beginTransaction();
+
+            // حذف التفاصيل القديمة
+            $this->db->delete('return_items', ['return_id' => $id]);
+
+            // تحديث بيانات المرتجع
+            $data = [
+                'return_type' => $input['return_type'] ?? $return['return_type'],
+                'warehouse_id' => $input['warehouse_id'] ?? $return['warehouse_id'],
+                'reference_type' => $input['reference_type'] ?? $return['reference_type'],
+                'reference_id' => $input['reference_id'] ?? $return['reference_id'],
+                'return_date' => $input['return_date'] ?? $return['return_date'],
+                'return_time' => $input['return_time'] ?? $return['return_time'],
+                'reason' => $input['reason'] ?? $return['reason'],
+                'notes' => $input['notes'] ?? $return['notes'],
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            $this->db->update('returns', $data, ['id' => $id]);
+
+            // إضافة التفاصيل الجديدة
+            $totalItems = 0;
+            $totalQuantity = 0;
+            $totalCost = 0;
+            
+            foreach ($input['items'] as $item) {
+                $itemTotal = $item['quantity'] * $item['unit_cost'];
+                $totalQuantity += $item['quantity'];
+                $totalCost += $itemTotal;
+                $totalItems++;
+                
+                $this->db->insert('return_items', [
+                    'return_id' => $id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_cost' => $item['unit_cost'],
+                    'total_cost' => $itemTotal,
+                    'batch_number' => $item['batch_number'] ?? null,
+                    'serial_numbers' => $item['serial_numbers'] ?? null,
+                    'notes' => $item['notes'] ?? null
+                ]);
+
+                // إذا كان مرتجع للمورد، يجب التأكد من توفر الكمية
+                if (($input['return_type'] ?? $return['return_type']) === 'to_supplier') {
+                    $balance = $this->db->queryValue("
+                        SELECT COALESCE(quantity, 0) 
+                        FROM stock_balances 
+                        WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                    ", [
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $input['warehouse_id'] ?? $return['warehouse_id']
+                    ]);
+
+                    if ($balance < $item['quantity']) {
+                        $this->db->rollback();
+                        errorResponse("الكمية غير متوفرة للصنف (المتاح: {$balance})");
+                        return;
+                    }
+                }
+            }
+
+            // تحديث الإجماليات
+            $this->db->update('returns', [
+                'total_items' => $totalItems,
+                'total_quantity' => $totalQuantity,
+                'total_cost' => $totalCost
+            ], ['id' => $id]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_UPDATED',
+                'returns',
+                "تحديث مرتجع #{$return['return_no']}",
+                [
+                    'return_id' => $id,
+                    'return_no' => $return['return_no'],
+                    'items_count' => $totalItems
+                ],
+                'return',
+                $id
+            );
+
+            $this->db->commit();
+
+            successResponse('تم تحديث المرتجع بنجاح');
+
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log('Return update error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/returns/{id}/approve
+     * اعتماد مرتجع (تنفيذ الحركات)
+     */
+    public function approve(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.approve')) {
+                errorResponse('ليس لديك صلاحية لاعتماد المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            // التحقق من الحالة
+            if ($return['status'] === 'approved') {
+                errorResponse('المرتجع معتمد بالفعل');
+                return;
+            }
+
+            if ($return['status'] === 'rejected' || $return['status'] === 'cancelled') {
+                errorResponse('لا يمكن اعتماد مرتجع مرفوض أو ملغي');
+                return;
+            }
+
+            // جلب تفاصيل المرتجع
+            $items = $this->db->query(
+                "SELECT * FROM return_items WHERE return_id = :return_id",
+                ['return_id' => $id]
+            );
+
+            if (empty($items)) {
+                errorResponse('لا توجد أصناف في المرتجع');
+                return;
+            }
+
+            // بدء المعاملة
+            $this->db->beginTransaction();
+
+            // تنفيذ حركات المخزون حسب نوع المرتجع
+            foreach ($items as $item) {
+                // جلب الرصيد الحالي
+                $currentBalance = $this->db->queryValue("
+                    SELECT COALESCE(quantity, 0) 
+                    FROM stock_balances 
+                    WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                ", [
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $return['warehouse_id']
+                ]);
+
+                $movementType = '';
+                $newBalance = 0;
+
+                if ($return['return_type'] === 'to_supplier') {
+                    // مرتجع للمورد - خصم من المخزون
+                    $movementType = 'RETURN_OUT';
+                    $newBalance = $currentBalance - $item['quantity'];
+                    
+                    if ($newBalance < 0) {
+                        $this->db->rollback();
+                        errorResponse("الكمية غير كافية للصنف (المتاح: {$currentBalance})");
+                        return;
+                    }
+                } else {
+                    // مرتجع من العميل أو داخلي - إضافة للمخزون
+                    $movementType = 'RETURN_IN';
+                    $newBalance = $currentBalance + $item['quantity'];
+                }
+
+                // تحديث الرصيد
+                $this->db->execute("
+                    INSERT INTO stock_balances (product_id, warehouse_id, quantity, last_movement_date, updated_at)
+                    VALUES (:product_id, :warehouse_id, :quantity, NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE 
+                        quantity = :quantity,
+                        last_movement_date = NOW(),
+                        updated_at = NOW()
+                ", [
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $return['warehouse_id'],
+                    'quantity' => $newBalance
+                ]);
+
+                // تسجيل حركة المخزون
+                $this->db->insert('stock_movements', [
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $return['warehouse_id'],
+                    'movement_type' => $movementType,
+                    'reference_type' => 'return',
+                    'reference_id' => $id,
+                    'quantity' => $item['quantity'],
+                    'unit_cost' => $item['unit_cost'],
+                    'total_cost' => $item['quantity'] * $item['unit_cost'],
+                    'balance_before' => $currentBalance,
+                    'balance_after' => $newBalance,
+                    'movement_date' => date('Y-m-d H:i:s'),
+                    'user_id' => $userId,
+                    'notes' => "مرتجع #{$return['return_no']} - {$return['return_type_label']}"
+                ]);
+            }
+
+            // تحديث حالة المرتجع
+            $this->db->update('returns', [
+                'status' => 'approved',
+                'approved_by' => $userId,
+                'approved_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ], ['id' => $id]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_APPROVED',
+                'returns',
+                "اعتماد مرتجع #{$return['return_no']}",
+                [
+                    'return_id' => $id,
+                    'return_no' => $return['return_no'],
+                    'return_type' => $return['return_type'],
+                    'items_count' => count($items)
+                ],
+                'return',
+                $id
+            );
+
+            $this->db->commit();
+
+            // التحقق من التنبيهات
+            $this->checkStockAlerts($return['warehouse_id']);
+
+            successResponse('تم اعتماد المرتجع بنجاح');
+
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log('Return approve error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/returns/{id}/reject
+     * رفض مرتجع
+     */
+    public function reject(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.approve')) {
+                errorResponse('ليس لديك صلاحية لرفض المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            if ($return['status'] === 'rejected') {
+                errorResponse('المرتجع مرفوض بالفعل');
+                return;
+            }
+
+            if ($return['status'] === 'approved') {
+                errorResponse('لا يمكن رفض مرتجع معتمد');
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            // تحديث الحالة
+            $this->db->update('returns', [
+                'status' => 'rejected',
+                'rejected_by' => $userId,
+                'rejected_at' => date('Y-m-d H:i:s'),
+                'rejection_reason' => $input['reason'] ?? null,
+                'updated_at' => date('Y-m-d H:i:s')
+            ], ['id' => $id]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_REJECTED',
+                'returns',
+                "رفض مرتجع #{$return['return_no']}",
+                [
+                    'return_id' => $id,
+                    'return_no' => $return['return_no'],
+                    'reason' => $input['reason'] ?? null
+                ],
+                'return',
+                $id
+            );
+
+            successResponse('تم رفض المرتجع بنجاح');
+
+        } catch (Exception $e) {
+            error_log('Return reject error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/returns/{id}/cancel
+     * إلغاء مرتجع
+     */
+    public function cancel(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.cancel')) {
+                errorResponse('ليس لديك صلاحية لإلغاء المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            if ($return['status'] === 'cancelled') {
+                errorResponse('المرتجع ملغي بالفعل');
+                return;
+            }
+
+            if ($return['status'] === 'approved') {
+                errorResponse('لا يمكن إلغاء مرتجع معتمد');
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            // تحديث الحالة
+            $this->db->update('returns', [
+                'status' => 'cancelled',
+                'updated_at' => date('Y-m-d H:i:s')
+            ], ['id' => $id]);
+
+            // تسجيل في سجل التدقيق
+            $this->audit->log(
+                $userId,
+                'RETURN_CANCELLED',
+                'returns',
+                "إلغاء مرتجع #{$return['return_no']}",
+                [
+                    'return_id' => $id,
+                    'return_no' => $return['return_no'],
+                    'reason' => $input['reason'] ?? null
+                ],
+                'return',
+                $id
+            );
+
+            successResponse('تم إلغاء المرتجع بنجاح');
+
+        } catch (Exception $e) {
+            error_log('Return cancel error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/returns/{id}/print
+     * طباعة مرتجع
+     */
+    public function print(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المرتجعات', 403);
+                return;
+            }
+
+            $return = $this->getReturnById($id);
+            if (!$return) {
+                errorResponse('المرتجع غير موجود');
+                return;
+            }
+
+            // جلب تفاصيل المرتجع
+            $items = $this->db->query("
+                SELECT 
+                    ri.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    u.name as unit_name
+                FROM return_items ri
+                INNER JOIN products p ON p.id = ri.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                WHERE ri.return_id = :return_id
+            ", ['return_id' => $id]);
+
+            // HTML للطباعة
+            $html = $this->generateReturnPrintHTML($return, $items);
+            
+            successResponse('تم جلب بيانات الطباعة', [
+                'html' => $html,
+                'return' => $return,
+                'items' => $items
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Return print error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/returns/export
+     * تصدير المرتجعات
+     */
+    public function export(): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'returns.export')) {
+                errorResponse('ليس لديك صلاحية لتصدير المرتجعات', 403);
+                return;
+            }
+
+            $format = $_GET['format'] ?? 'csv';
+            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
+            $toDate = $_GET['to_date'] ?? date('Y-m-d');
+
+            $returns = $this->db->query("
+                SELECT 
+                    r.return_no,
+                    r.return_date,
+                    CASE 
+                        WHEN r.return_type = 'to_supplier' THEN 'إلى المورد'
+                        WHEN r.return_type = 'from_customer' THEN 'من العميل'
+                        WHEN r.return_type = 'internal' THEN 'داخلي'
+                        ELSE r.return_type
+                    END as return_type,
+                    w.name as warehouse,
+                    r.total_items,
+                    r.total_quantity,
+                    r.total_cost,
+                    r.reason,
+                    r.status,
+                    u.full_name as created_by,
+                    r.created_at
+                FROM returns r
+                LEFT JOIN warehouses w ON w.id = r.warehouse_id
+                LEFT JOIN users u ON u.id = r.user_id
+                WHERE r.return_date BETWEEN :from_date AND :to_date
+                ORDER BY r.return_date DESC
+            ", [
+                'from_date' => $fromDate,
+                'to_date' => $toDate
+            ]);
+
             if ($format === 'csv') {
-                $this->exportAuditCSV($report);
-                return;
+                $this->exportCSV($returns);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($returns);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $returns);
             }
 
-            successResponse('تم جلب تقرير سجل التدقيق', [
-                'data' => $report,
-                'stats' => $stats
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Audit report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/summary
-     * تقرير ملخص النظام
-     */
-    public function summary(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            // إحصائيات عامة
-            $general = $this->db->queryOne("
-                SELECT 
-                    (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL) as total_products,
-                    (SELECT COUNT(*) FROM warehouses WHERE deleted_at IS NULL AND is_active = 1) as total_warehouses,
-                    (SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_active = 1) as total_users,
-                    (SELECT COUNT(*) FROM suppliers WHERE deleted_at IS NULL AND is_active = 1) as total_suppliers,
-                    (SELECT COUNT(*) FROM stock_balances WHERE quantity > 0) as products_with_stock,
-                    (SELECT COUNT(*) FROM stock_balances WHERE quantity = 0) as out_of_stock,
-                    (SELECT COALESCE(SUM(quantity), 0) FROM stock_balances) as total_quantity,
-                    (SELECT COALESCE(SUM(quantity * p.cost_price), 0) FROM stock_balances sb INNER JOIN products p ON p.id = sb.product_id) as total_value
-            ");
-
-            // حركات اليوم
-            $today = $this->db->queryOne("
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
-                    COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
-                    COUNT(CASE WHEN movement_type = 'TRANSFER' THEN 1 END) as transfers,
-                    COUNT(CASE WHEN movement_type = 'ADJUSTMENT' THEN 1 END) as adjustments
-                FROM stock_movements
-                WHERE DATE(movement_date) = CURDATE()
-            ");
-
-            // حركات الأسبوع
-            $week = $this->db->queryOne("
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
-                    COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
-                    COUNT(CASE WHEN movement_type = 'TRANSFER' THEN 1 END) as transfers
-                FROM stock_movements
-                WHERE movement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ");
-
-            // الأصناف الأكثر تداولاً
-            $topProducts = $this->db->query("
-                SELECT 
-                    p.id,
-                    p.name,
-                    p.code,
-                    COUNT(sm.id) as movement_count,
-                    SUM(sm.quantity) as total_quantity
-                FROM stock_movements sm
-                INNER JOIN products p ON p.id = sm.product_id
-                WHERE sm.movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                GROUP BY p.id, p.name, p.code
-                ORDER BY movement_count DESC
-                LIMIT 10
-            ");
-
-            // المستخدمين الأكثر نشاطاً
-            $topUsers = $this->db->query("
-                SELECT 
-                    u.id,
-                    u.full_name,
-                    COUNT(al.id) as actions,
-                    COUNT(DISTINCT DATE(al.created_at)) as active_days,
-                    COUNT(DISTINCT al.module) as modules_used
-                FROM audit_logs al
-                INNER JOIN users u ON u.id = al.user_id
-                WHERE al.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                GROUP BY u.id, u.full_name
-                ORDER BY actions DESC
-                LIMIT 10
-            ");
-
-            // حالة المخزون
-            $stockStatus = $this->db->queryOne("
-                SELECT 
-                    COUNT(CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN 1 END) as low_stock,
-                    COUNT(CASE WHEN sb.quantity = 0 THEN 1 END) as out_of_stock,
-                    COUNT(CASE WHEN sb.quantity >= p.max_stock THEN 1 END) as over_stock,
-                    COUNT(CASE WHEN sb.quantity > p.min_stock AND sb.quantity < p.max_stock THEN 1 END) as normal
-                FROM stock_balances sb
-                INNER JOIN products p ON p.id = sb.product_id
-            ");
-
-            successResponse('تم جلب تقرير ملخص النظام', [
-                'general' => $general,
-                'today' => $today,
-                'week' => $week,
-                'top_products' => $topProducts,
-                'top_users' => $topUsers,
-                'stock_status' => $stockStatus,
-                'generated_at' => date('Y-m-d H:i:s')
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Summary report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/top-products
-     * تقرير الأصناف الأكثر تداولاً
-     */
-    public function topProducts(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            $period = $_GET['period'] ?? '30';
-            $limit = (int)($_GET['limit'] ?? 10);
-            $warehouseId = $_GET['warehouse_id'] ?? null;
-
-            $params = ['limit' => $limit];
-            $where = ["sm.movement_date >= DATE_SUB(NOW(), INTERVAL :period DAY)"];
-            $params['period'] = $period;
-
-            if ($warehouseId) {
-                $where[] = "sm.warehouse_id = :warehouse_id";
-                $params['warehouse_id'] = $warehouseId;
-            }
-
-            $products = $this->db->query("
-                SELECT 
-                    p.id,
-                    p.code,
-                    p.name,
-                    p.barcode,
-                    c.name as category,
-                    COUNT(sm.id) as movement_count,
-                    SUM(sm.quantity) as total_quantity,
-                    SUM(sm.total_cost) as total_value,
-                    COUNT(DISTINCT sm.warehouse_id) as warehouses_count,
-                    MIN(sm.movement_date) as first_movement,
-                    MAX(sm.movement_date) as last_movement,
-                    SUM(CASE WHEN sm.movement_type IN ('RECEIPT', 'TRANSFER_IN') THEN sm.quantity ELSE 0 END) as total_in,
-                    SUM(CASE WHEN sm.movement_type IN ('ISSUE', 'TRANSFER_OUT') THEN sm.quantity ELSE 0 END) as total_out
-                FROM stock_movements sm
-                INNER JOIN products p ON p.id = sm.product_id
-                LEFT JOIN categories c ON c.id = p.category_id
-                WHERE " . implode(' AND ', $where) . "
-                GROUP BY p.id, p.code, p.name, p.barcode, c.name
-                ORDER BY movement_count DESC
-                LIMIT :limit
-            ", $params);
-
-            successResponse('تم جلب تقرير الأصناف الأكثر تداولاً', [
-                'data' => $products,
-                'meta' => [
-                    'period' => $period . ' days',
-                    'limit' => $limit,
-                    'warehouse_id' => $warehouseId
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Top products error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/inventory-value
-     * تقرير قيمة المخزون
-     */
-    public function inventoryValue(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            // قيمة المخزون الإجمالية
-            $total = $this->db->queryOne("
-                SELECT 
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_cost,
-                    COALESCE(SUM(sb.quantity * p.selling_price), 0) as total_sale_value,
-                    COALESCE(SUM(sb.quantity * (p.selling_price - p.cost_price)), 0) as potential_profit
-                FROM stock_balances sb
-                INNER JOIN products p ON p.id = sb.product_id
-            ");
-
-            // قيمة المخزون حسب المخزن
-            $byWarehouse = $this->db->query("
-                SELECT 
-                    w.id,
-                    w.name,
-                    COUNT(DISTINCT sb.product_id) as products_count,
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
-                    ROUND(COALESCE(SUM(sb.quantity * p.cost_price), 0) * 100.0 / NULLIF((SELECT COALESCE(SUM(sb2.quantity * p2.cost_price), 0) FROM stock_balances sb2 INNER JOIN products p2 ON p2.id = sb2.product_id), 0), 2) as percentage
-                FROM warehouses w
-                LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id
-                LEFT JOIN products p ON p.id = sb.product_id
-                WHERE w.deleted_at IS NULL AND w.is_active = 1
-                GROUP BY w.id, w.name
-                ORDER BY total_value DESC
-            ");
-
-            // قيمة المخزون حسب التصنيف
-            $byCategory = $this->db->query("
-                SELECT 
-                    c.id,
-                    c.name,
-                    COUNT(DISTINCT p.id) as products_count,
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
-                    ROUND(COALESCE(SUM(sb.quantity * p.cost_price), 0) * 100.0 / NULLIF((SELECT COALESCE(SUM(sb2.quantity * p2.cost_price), 0) FROM stock_balances sb2 INNER JOIN products p2 ON p2.id = sb2.product_id), 0), 2) as percentage
-                FROM categories c
-                LEFT JOIN products p ON p.category_id = c.id
-                LEFT JOIN stock_balances sb ON sb.product_id = p.id
-                WHERE c.deleted_at IS NULL AND c.is_active = 1
-                GROUP BY c.id, c.name
-                ORDER BY total_value DESC
-            ");
-
-            successResponse('تم جلب تقرير قيمة المخزون', [
-                'total' => $total,
-                'by_warehouse' => $byWarehouse,
-                'by_category' => $byCategory,
-                'generated_at' => date('Y-m-d H:i:s')
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Inventory value error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/reports/users
-     * تقرير نشاط المستخدمين
-     */
-    public function users(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            if (!$this->auth->hasPermission($userId, 'reports.view')) {
-                errorResponse('ليس لديك صلاحية لعرض التقارير', 403);
-                return;
-            }
-
-            $period = $_GET['period'] ?? '30';
-            $limit = (int)($_GET['limit'] ?? 20);
-
-            $users = $this->db->query("
-                SELECT 
-                    u.id,
-                    u.username,
-                    u.full_name,
-                    u.email,
-                    r.name as role_name,
-                    u.is_active,
-                    u.last_login_at,
-                    COUNT(al.id) as total_actions,
-                    COUNT(DISTINCT DATE(al.created_at)) as active_days,
-                    COUNT(DISTINCT al.module) as modules_used,
-                    COUNT(DISTINCT al.action) as actions_types,
-                    MIN(al.created_at) as first_action,
-                    MAX(al.created_at) as last_action,
-                    ROUND(AVG(TIMESTAMPDIFF(HOUR, al.created_at, LEAD(al.created_at) OVER (ORDER BY al.created_at))), 2) as avg_hours_between
-                FROM users u
-                LEFT JOIN audit_logs al ON al.user_id = u.id
-                LEFT JOIN roles r ON r.id = u.role_id
-                WHERE u.deleted_at IS NULL
-                  AND al.created_at >= DATE_SUB(NOW(), INTERVAL :period DAY)
-                GROUP BY u.id, u.username, u.full_name, u.email, r.name, u.is_active, u.last_login_at
-                ORDER BY total_actions DESC
-                LIMIT :limit
-            ", ['period' => $period, 'limit' => $limit]);
-
-            successResponse('تم جلب تقرير نشاط المستخدمين', [
-                'data' => $users,
-                'meta' => [
-                    'period' => $period . ' days',
-                    'limit' => $limit
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            error_log('Users report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+        } catch (Exception $e) {
+            error_log('Return export error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -948,133 +1001,238 @@ class ReportController
     // ================================================================
 
     /**
-     * إحصائيات الأرصدة
+     * الحصول على مرتجع بالمعرف
      */
-    private function getStockStats(array $report): array
+    private function getReturnById(int $id): ?array
     {
-        $stats = [
-            'total_products' => count($report),
-            'total_quantity' => 0,
-            'total_value' => 0,
-            'out_of_stock' => 0,
-            'low_stock' => 0,
-            'over_stock' => 0,
-            'normal' => 0
-        ];
+        return $this->db->queryOne("
+            SELECT 
+                r.*,
+                w.name as warehouse_name,
+                u.full_name as user_name,
+                a.full_name as approved_by_name,
+                CASE 
+                    WHEN r.reference_type = 'receipt' THEN 
+                        (SELECT receipt_no FROM receipts WHERE id = r.reference_id)
+                    WHEN r.reference_type = 'issue' THEN 
+                        (SELECT issue_no FROM issues WHERE id = r.reference_id)
+                    ELSE NULL
+                END as reference_number
+            FROM returns r
+            LEFT JOIN warehouses w ON w.id = r.warehouse_id
+            LEFT JOIN users u ON u.id = r.user_id
+            LEFT JOIN users a ON a.id = r.approved_by
+            WHERE r.id = :id
+        ", ['id' => $id]);
+    }
 
-        foreach ($report as $item) {
-            $stats['total_quantity'] += $item['balance'];
-            $stats['total_value'] += $item['total_value'];
+    /**
+     * توليد رقم مرتجع
+     */
+    private function generateReturnNumber(): string
+    {
+        $prefix = 'RET';
+        $year = date('Y');
+        $month = date('m');
+        
+        $last = $this->db->queryValue("
+            SELECT MAX(CAST(SUBSTRING(return_no, -4) AS UNSIGNED)) 
+            FROM returns 
+            WHERE return_no LIKE :pattern
+        ", ['pattern' => "{$prefix}{$year}{$month}%"]);
+
+        $number = str_pad((int)$last + 1, 4, '0', STR_PAD_LEFT);
+        return "{$prefix}{$year}{$month}{$number}";
+    }
+
+    /**
+     * التحقق من وجود المرجع
+     */
+    private function checkReferenceExists(string $referenceType, int $referenceId): bool
+    {
+        $table = $referenceType === 'receipt' ? 'receipts' : 'issues';
+        $exists = $this->db->queryValue(
+            "SELECT id FROM {$table} WHERE id = :id",
+            ['id' => $referenceId]
+        );
+        return (bool)$exists;
+    }
+
+    /**
+     * التحقق من صحة بيانات المرتجع
+     */
+    private function validateReturnData(array $data, bool $isUpdate = false): void
+    {
+        if (empty($data['return_type'])) {
+            errorResponse('نوع المرتجع مطلوب');
+            return;
+        }
+        
+        $allowedTypes = ['to_supplier', 'from_customer', 'internal'];
+        if (!in_array($data['return_type'], $allowedTypes)) {
+            errorResponse('نوع المرتجع غير صحيح');
+            return;
+        }
+        
+        if (empty($data['warehouse_id'])) {
+            errorResponse('المخزن مطلوب');
+            return;
+        }
+        
+        if (in_array($data['return_type'], ['to_supplier', 'from_customer'])) {
+            if (empty($data['reference_type'])) {
+                errorResponse('نوع المرجع مطلوب');
+                return;
+            }
             
-            switch ($item['stock_status']) {
-                case 'نفذ':
-                    $stats['out_of_stock']++;
-                    break;
-                case 'منخفض':
-                    $stats['low_stock']++;
-                    break;
-                case 'زائد':
-                    $stats['over_stock']++;
-                    break;
-                default:
-                    $stats['normal']++;
-                    break;
+            $allowedRefTypes = ['receipt', 'issue'];
+            if (!in_array($data['reference_type'], $allowedRefTypes)) {
+                errorResponse('نوع المرجع غير صحيح');
+                return;
             }
-        }
-
-        return $stats;
-    }
-
-    /**
-     * إحصائيات الحركات
-     */
-    private function getMovementStats(array $report): array
-    {
-        $stats = [
-            'total_movements' => count($report),
-            'total_in' => 0,
-            'total_out' => 0,
-            'total_value' => 0,
-            'by_type' => []
-        ];
-
-        foreach ($report as $item) {
-            if ($item['movement_direction'] === 'in') {
-                $stats['total_in'] += $item['quantity'];
-            } elseif ($item['movement_direction'] === 'out') {
-                $stats['total_out'] += $item['quantity'];
-            }
-            $stats['total_value'] += $item['total_cost'];
             
-            $type = $item['movement_label'];
-            if (!isset($stats['by_type'][$type])) {
-                $stats['by_type'][$type] = ['count' => 0, 'quantity' => 0];
+            if (empty($data['reference_id'])) {
+                errorResponse('المرجع مطلوب');
+                return;
             }
-            $stats['by_type'][$type]['count']++;
-            $stats['by_type'][$type]['quantity'] += $item['quantity'];
         }
-
-        return $stats;
-    }
-
-    /**
-     * حساب المتوسط اليومي
-     */
-    private function calculateAverageDaily(array $movements, string $fromDate, string $toDate): float
-    {
-        if (empty($movements)) {
-            return 0;
+        
+        if (empty($data['items']) || !is_array($data['items'])) {
+            errorResponse('الأصناف مطلوبة');
+            return;
         }
-
-        $days = (strtotime($toDate) - strtotime($fromDate)) / 86400 + 1;
-        return count($movements) / max($days, 1);
-    }
-
-    /**
-     * تجميع حسب المفتاح
-     */
-    private function groupBy(array $data, string $key): array
-    {
-        $result = [];
-        foreach ($data as $item) {
-            $value = $item[$key] ?? 'غير معروف';
-            if (!isset($result[$value])) {
-                $result[$value] = 0;
+        
+        foreach ($data['items'] as $index => $item) {
+            if (empty($item['product_id'])) {
+                errorResponse("الصنف مطلوب في العنصر " . ($index + 1));
+                return;
             }
-            $result[$value]++;
+            
+            if (empty($item['quantity']) || $item['quantity'] <= 0) {
+                errorResponse("الكمية يجب أن تكون أكبر من صفر في العنصر " . ($index + 1));
+                return;
+            }
+            
+            if (!isset($item['unit_cost']) || $item['unit_cost'] < 0) {
+                errorResponse("سعر الوحدة غير صحيح في العنصر " . ($index + 1));
+                return;
+            }
+            
+            // التحقق من وجود المنتج
+            $product = $this->db->queryValue(
+                "SELECT id FROM products WHERE id = :id AND deleted_at IS NULL",
+                ['id' => $item['product_id']]
+            );
+            
+            if (!$product) {
+                errorResponse("المنتج غير موجود في العنصر " . ($index + 1));
+                return;
+            }
         }
-        arsort($result);
-        return $result;
     }
 
     /**
-     * تصدير CSV لتقرير الأرصدة
+     * التحقق من تنبيهات المخزون
      */
-    private function exportStockCSV(array $data): void
+    private function checkStockAlerts(int $warehouseId): void
     {
+        // جلب الأصناف منخفضة المخزون
+        $lowStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code,
+                sb.quantity,
+                p.min_stock
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity <= p.min_stock
+              AND sb.quantity > 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($lowStockItems as $item) {
+            $this->createNotification(
+                'low_stock',
+                "تنبيه: مخزون منخفض - {$item['name']}",
+                "المنتج '{$item['name']}' في المخزن وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
+                'high',
+                $item['id'],
+                $warehouseId
+            );
+        }
+
+        // جلب الأصناف المنفذة
+        $outOfStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity = 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($outOfStockItems as $item) {
+            $this->createNotification(
+                'out_of_stock',
+                "⚠️ نفاذ المخزون - {$item['name']}",
+                "المنتج '{$item['name']}' نفد من المخزون",
+                'critical',
+                $item['id'],
+                $warehouseId
+            );
+        }
+    }
+
+    /**
+     * إنشاء تنبيه
+     */
+    private function createNotification(string $type, string $title, string $message, string $priority, int $productId, int $warehouseId): void
+    {
+        // جلب المستخدمين الذين يحتاجون التنبيه
+        $users = $this->db->query("
+            SELECT id FROM users 
+            WHERE is_active = 1 
+              AND role_id IN (SELECT id FROM roles WHERE name IN ('admin', 'warehouse_manager', 'warehouse_supervisor'))
+        ");
+
+        foreach ($users as $user) {
+            $this->db->insert('notifications', [
+                'user_id' => $user['id'],
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
+                'reference_type' => 'product',
+                'reference_id' => $productId,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="stock_report_' . date('Y-m-d') . '.csv"');
+        header('Content-Disposition: attachment; filename="returns_' . date('Y-m-d') . '.csv"');
         
         $output = fopen('php://output', 'w');
         fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
         
-        fputcsv($output, ['الكود', 'الاسم', 'الباركود', 'التصنيف', 'المخزن', 'الكمية', 'المحجوز', 'المتاح', 'الحد الأدنى', 'الحد الأقصى', 'القيمة', 'الحالة']);
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
         
         foreach ($data as $row) {
-            fputcsv($output, [
-                $row['code'],
-                $row['name'],
-                $row['barcode'],
-                $row['category'],
-                $row['warehouse'],
-                $row['balance'],
-                $row['reserved'],
-                $row['available'],
-                $row['min_stock'],
-                $row['max_stock'],
-                $row['total_value'],
-                $row['stock_status']
-            ]);
+            fputcsv($output, $row);
         }
         
         fclose($output);
@@ -1082,32 +1240,30 @@ class ReportController
     }
 
     /**
-     * تصدير Excel لتقرير الأرصدة
+     * تصدير Excel
      */
-    private function exportStockExcel(array $data): void
+    private function exportExcel(array $data): void
     {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
         header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment; filename="stock_report_' . date('Y-m-d') . '.xls"');
+        header('Content-Disposition: attachment; filename="returns_' . date('Y-m-d') . '.xls"');
         
         echo '<table border="1">';
         echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
-        echo '<th>الكود</th><th>الاسم</th><th>الباركود</th><th>التصنيف</th><th>المخزن</th><th>الكمية</th><th>المحجوز</th><th>المتاح</th><th>الحد الأدنى</th><th>الحد الأقصى</th><th>القيمة</th><th>الحالة</th>';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
         echo '</tr>';
         
         foreach ($data as $row) {
             echo '<tr>';
-            echo '<td>' . $row['code'] . '</td>';
-            echo '<td>' . $row['name'] . '</td>';
-            echo '<td>' . $row['barcode'] . '</td>';
-            echo '<td>' . $row['category'] . '</td>';
-            echo '<td>' . $row['warehouse'] . '</td>';
-            echo '<td>' . $row['balance'] . '</td>';
-            echo '<td>' . $row['reserved'] . '</td>';
-            echo '<td>' . $row['available'] . '</td>';
-            echo '<td>' . $row['min_stock'] . '</td>';
-            echo '<td>' . $row['max_stock'] . '</td>';
-            echo '<td>' . $row['total_value'] . '</td>';
-            echo '<td>' . $row['stock_status'] . '</td>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
             echo '</tr>';
         }
         
@@ -1116,161 +1272,99 @@ class ReportController
     }
 
     /**
-     * تصدير PDF لتقرير الأرصدة (Placeholder)
+     * توليد HTML للطباعة
      */
-    private function exportStockPDF(array $data, array $stats): void
+    private function generateReturnPrintHTML(array $return, array $items): string
     {
-        // يمكن استخدام مكتبة DomPDF أو TCPDF هنا
-        successResponse('PDF generation requires external library', [
-            'data' => $data,
-            'stats' => $stats
-        ]);
-    }
-
-    /**
-     * تصدير CSV لتقرير الحركات
-     */
-    private function exportMovementsCSV(array $data): void
-    {
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="movements_report_' . date('Y-m-d') . '.csv"');
+        $html = '<!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="UTF-8">
+            <title>مرتجع #' . $return['return_no'] . '</title>
+            <style>
+                body { font-family: "Tajawal", sans-serif; padding: 40px; background: #fff; }
+                .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 20px; }
+                .header h1 { color: #667eea; margin: 0; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 8px; background: #f8f9fa; border-radius: 5px; }
+                .info-item .label { color: #666; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th { background: #667eea; color: #fff; padding: 10px; text-align: right; }
+                td { padding: 10px; border-bottom: 1px solid #ddd; }
+                .total-row { background: #f8f9fa; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }
+                .status-approved { color: #28a745; }
+                .status-draft { color: #ffc107; }
+                .status-rejected { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>إذن مرتجع</h1>
+                <p>' . $return['return_no'] . '</p>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">نوع المرتجع:</span> ' . $return['return_type_label'] . '</div>
+                <div class="info-item"><span class="label">المخزن:</span> ' . $return['warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">التاريخ:</span> ' . $return['return_date'] . '</div>
+                <div class="info-item"><span class="label">الحالة:</span> <span class="status-' . $return['status'] . '">' . $return['status_label'] . '</span></div>
+                ' . (!empty($return['reference_number']) ? '<div class="info-item"><span class="label">المرجع:</span> ' . $return['reference_number'] . '</div>' : '') . '
+                <div class="info-item"><span class="label">تم الإنشاء بواسطة:</span> ' . $return['user_name'] . '</div>
+                <div class="info-item"><span class="label">تاريخ الإنشاء:</span> ' . $return['created_at'] . '</div>
+                ' . (!empty($return['reason']) ? '<div class="info-item"><span class="label">سبب المرتجع:</span> ' . $return['reason'] . '</div>' : '') . '
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>الوحدة</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>';
         
-        $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        fputcsv($output, ['التاريخ', 'النوع', 'المنتج', 'المخزن', 'الكمية', 'سعر الوحدة', 'القيمة', 'الرصيد قبل', 'الرصيد بعد', 'المستخدم', 'المرجع']);
-        
-        foreach ($data as $row) {
-            fputcsv($output, [
-                $row['movement_date'],
-                $row['movement_label'],
-                $row['product_name'],
-                $row['warehouse'],
-                $row['quantity'],
-                $row['unit_cost'],
-                $row['total_cost'],
-                $row['balance_before'],
-                $row['balance_after'],
-                $row['user_name'],
-                $row['reference_type'] . ' #' . $row['reference_id']
-            ]);
+        $index = 1;
+        foreach ($items as $item) {
+            $html .= '<tr>
+                <td>' . $index++ . '</td>
+                <td>' . $item['product_code'] . '</td>
+                <td>' . $item['product_name'] . '</td>
+                <td>' . $item['quantity'] . '</td>
+                <td>' . $item['unit_name'] . '</td>
+                <td>' . number_format($item['unit_cost'], 2) . '</td>
+                <td>' . number_format($item['total_cost'], 2) . '</td>
+            </tr>';
         }
         
-        fclose($output);
-        exit;
-    }
-
-    /**
-     * تصدير Excel لتقرير الحركات
-     */
-    private function exportMovementsExcel(array $data): void
-    {
-        header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment; filename="movements_report_' . date('Y-m-d') . '.xls"');
+        $html .= '
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الإجمالي</td>
+                        <td>' . number_format($return['total_cost'], 2) . '</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            ' . (!empty($return['notes']) ? '<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;"><strong>ملاحظات:</strong> ' . $return['notes'] . '</div>' : '') . '
+            
+            <div class="footer">
+                <p>نظام إدارة المخازن والمخزون المتقدم v5.0</p>
+                <p>تم الطباعة في ' . date('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
         
-        echo '<table border="1">';
-        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
-        echo '<th>التاريخ</th><th>النوع</th><th>المنتج</th><th>المخزن</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>المستخدم</th><th>المرجع</th>';
-        echo '</tr>';
-        
-        foreach ($data as $row) {
-            echo '<tr>';
-            echo '<td>' . $row['movement_date'] . '</td>';
-            echo '<td>' . $row['movement_label'] . '</td>';
-            echo '<td>' . $row['product_name'] . '</td>';
-            echo '<td>' . $row['warehouse'] . '</td>';
-            echo '<td>' . $row['quantity'] . '</td>';
-            echo '<td>' . $row['unit_cost'] . '</td>';
-            echo '<td>' . $row['total_cost'] . '</td>';
-            echo '<td>' . $row['balance_before'] . '</td>';
-            echo '<td>' . $row['balance_after'] . '</td>';
-            echo '<td>' . $row['user_name'] . '</td>';
-            echo '<td>' . $row['reference_type'] . ' #' . $row['reference_id'] . '</td>';
-            echo '</tr>';
-        }
-        
-        echo '</table>';
-        exit;
-    }
-
-    /**
-     * تصدير CSV لتقرير المنتج
-     */
-    private function exportProductCSV(array $product, array $movements, array $balances): void
-    {
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="product_report_' . $product['code'] . '_' . date('Y-m-d') . '.csv"');
-        
-        $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        fputcsv($output, ['تقرير المنتج: ' . $product['name']]);
-        fputcsv($output, ['الكود', $product['code']]);
-        fputcsv($output, ['الباركود', $product['barcode']]);
-        fputcsv($output, ['التصنيف', $product['category_name']]);
-        fputcsv($output, ['الوحدة', $product['unit_name']]);
-        fputcsv($output, ['الكمية الإجمالية', $product['total_quantity']]);
-        fputcsv($output, ['']);
-        fputcsv($output, ['التفاصيل', 'المخزن', 'الكمية', 'المحجوز', 'المتاح', 'القيمة']);
-        
-        foreach ($balances as $balance) {
-            fputcsv($output, [
-                'رصيد',
-                $balance['warehouse_name'],
-                $balance['quantity'],
-                $balance['reserved'],
-                $balance['available'],
-                $balance['total_value']
-            ]);
-        }
-        
-        fputcsv($output, ['']);
-        fputcsv($output, ['التاريخ', 'النوع', 'المخزن', 'الكمية', 'سعر الوحدة', 'القيمة', 'الرصيد قبل', 'الرصيد بعد', 'المستخدم']);
-        
-        foreach ($movements as $movement) {
-            fputcsv($output, [
-                $movement['movement_date'],
-                $movement['movement_label'],
-                $movement['warehouse_name'],
-                $movement['quantity'],
-                $movement['unit_cost'],
-                $movement['total_cost'],
-                $movement['balance_before'],
-                $movement['balance_after'],
-                $movement['user_name']
-            ]);
-        }
-        
-        fclose($output);
-        exit;
-    }
-
-    /**
-     * تصدير CSV لتقرير التدقيق
-     */
-    private function exportAuditCSV(array $data): void
-    {
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="audit_report_' . date('Y-m-d') . '.csv"');
-        
-        $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        fputcsv($output, ['التاريخ', 'المستخدم', 'الإجراء', 'الوحدة', 'الوصف', 'IP', 'التفاصيل']);
-        
-        foreach ($data as $row) {
-            fputcsv($output, [
-                $row['created_at'],
-                $row['user_full_name'] ?? $row['username'] ?? 'نظام',
-                $row['action_label'],
-                $row['module'],
-                $row['description'],
-                $row['ip_address'],
-                is_array($row['details']) ? json_encode($row['details']) : $row['details']
-            ]);
-        }
-        
-        fclose($output);
-        exit;
+        return $html;
     }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

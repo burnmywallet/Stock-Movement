@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/ReceiptController.php
-// الوصف: متحكم إدارة إذون الاستلام - إنشاء، تعديل، اعتماد، رفض
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة إذون الاستلام - إنشاء، اعتماد، رفض، إلغاء، طباعة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -13,6 +12,7 @@ use Core\Database;
 use Core\Auth;
 use Core\Audit;
 use Services\StockService;
+use Exception;
 
 class ReceiptController
 {
@@ -124,9 +124,14 @@ class ReceiptController
                     s.name as supplier_name,
                     r.receipt_date,
                     r.receipt_time,
+                    r.expected_date,
+                    r.po_number,
+                    r.invoice_number,
                     r.total_items,
                     r.total_quantity,
                     r.total_cost,
+                    r.total_tax,
+                    r.total_discount,
                     r.net_total,
                     r.status,
                     r.user_id,
@@ -146,7 +151,16 @@ class ReceiptController
                         WHEN r.status = 'cancelled' THEN 'ملغي'
                         WHEN r.status = 'completed' THEN 'مكتمل'
                         ELSE r.status
-                    END as status_label
+                    END as status_label,
+                    CASE 
+                        WHEN r.status = 'approved' THEN 'success'
+                        WHEN r.status = 'rejected' THEN 'danger'
+                        WHEN r.status = 'cancelled' THEN 'secondary'
+                        WHEN r.status = 'draft' THEN 'warning'
+                        WHEN r.status = 'submitted' THEN 'info'
+                        WHEN r.status = 'completed' THEN 'primary'
+                        ELSE 'secondary'
+                    END as status_color
                 FROM receipts r
                 LEFT JOIN warehouses w ON w.id = r.warehouse_id
                 LEFT JOIN suppliers s ON s.id = r.supplier_id
@@ -201,9 +215,9 @@ class ReceiptController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Receipts list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -241,9 +255,12 @@ class ReceiptController
                     p.name as product_name,
                     p.barcode,
                     u.name as unit_name,
+                    u.symbol as unit_symbol,
                     p.min_stock,
                     p.max_stock,
-                    COALESCE(sb.quantity, 0) as current_balance
+                    COALESCE(sb.quantity, 0) as current_balance,
+                    COALESCE(sb.reserved_quantity, 0) as reserved_quantity,
+                    (ri.quantity - ri.received_quantity) as pending_quantity
                 FROM receipt_items ri
                 INNER JOIN products p ON p.id = ri.product_id
                 LEFT JOIN units u ON u.id = p.unit_id
@@ -287,13 +304,14 @@ class ReceiptController
                 'summary' => [
                     'total_items' => count($items),
                     'total_quantity' => array_sum(array_column($items, 'quantity')),
-                    'total_cost' => array_sum(array_column($items, 'total_cost'))
+                    'total_cost' => array_sum(array_column($items, 'total_cost')),
+                    'pending_quantity' => array_sum(array_column($items, 'pending_quantity'))
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Receipt show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -349,11 +367,18 @@ class ReceiptController
             $totalItems = 0;
             $totalQuantity = 0;
             $totalCost = 0;
+            $totalTax = 0;
+            $totalDiscount = 0;
             
             foreach ($input['items'] as $item) {
                 $itemTotal = $item['quantity'] * $item['unit_cost'];
+                $taxAmount = isset($item['tax_rate']) ? ($itemTotal * $item['tax_rate'] / 100) : 0;
+                $discountAmount = isset($item['discount_rate']) ? ($itemTotal * $item['discount_rate'] / 100) : 0;
+                
                 $totalQuantity += $item['quantity'];
                 $totalCost += $itemTotal;
+                $totalTax += $taxAmount;
+                $totalDiscount += $discountAmount;
                 $totalItems++;
                 
                 $this->db->insert('receipt_items', [
@@ -364,9 +389,9 @@ class ReceiptController
                     'unit_cost' => $item['unit_cost'],
                     'total_cost' => $itemTotal,
                     'tax_rate' => $item['tax_rate'] ?? 0,
-                    'tax_amount' => $item['tax_amount'] ?? 0,
+                    'tax_amount' => $taxAmount,
                     'discount_rate' => $item['discount_rate'] ?? 0,
-                    'discount_amount' => $item['discount_amount'] ?? 0,
+                    'discount_amount' => $discountAmount,
                     'batch_number' => $item['batch_number'] ?? null,
                     'expiry_date' => $item['expiry_date'] ?? null,
                     'serial_numbers' => $item['serial_numbers'] ?? null,
@@ -378,7 +403,9 @@ class ReceiptController
             $this->db->update('receipts', [
                 'total_items' => $totalItems,
                 'total_quantity' => $totalQuantity,
-                'total_cost' => $totalCost
+                'total_cost' => $totalCost,
+                'total_tax' => $totalTax,
+                'total_discount' => $totalDiscount
             ], ['id' => $receiptId]);
 
             // تسجيل في سجل التدقيق
@@ -405,10 +432,10 @@ class ReceiptController
                 'receipt_no' => $receiptNo
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Receipt create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -473,11 +500,18 @@ class ReceiptController
             $totalItems = 0;
             $totalQuantity = 0;
             $totalCost = 0;
+            $totalTax = 0;
+            $totalDiscount = 0;
             
             foreach ($input['items'] as $item) {
                 $itemTotal = $item['quantity'] * $item['unit_cost'];
+                $taxAmount = isset($item['tax_rate']) ? ($itemTotal * $item['tax_rate'] / 100) : 0;
+                $discountAmount = isset($item['discount_rate']) ? ($itemTotal * $item['discount_rate'] / 100) : 0;
+                
                 $totalQuantity += $item['quantity'];
                 $totalCost += $itemTotal;
+                $totalTax += $taxAmount;
+                $totalDiscount += $discountAmount;
                 $totalItems++;
                 
                 $this->db->insert('receipt_items', [
@@ -488,9 +522,9 @@ class ReceiptController
                     'unit_cost' => $item['unit_cost'],
                     'total_cost' => $itemTotal,
                     'tax_rate' => $item['tax_rate'] ?? 0,
-                    'tax_amount' => $item['tax_amount'] ?? 0,
+                    'tax_amount' => $taxAmount,
                     'discount_rate' => $item['discount_rate'] ?? 0,
-                    'discount_amount' => $item['discount_amount'] ?? 0,
+                    'discount_amount' => $discountAmount,
                     'batch_number' => $item['batch_number'] ?? null,
                     'expiry_date' => $item['expiry_date'] ?? null,
                     'serial_numbers' => $item['serial_numbers'] ?? null,
@@ -502,7 +536,9 @@ class ReceiptController
             $this->db->update('receipts', [
                 'total_items' => $totalItems,
                 'total_quantity' => $totalQuantity,
-                'total_cost' => $totalCost
+                'total_cost' => $totalCost,
+                'total_tax' => $totalTax,
+                'total_discount' => $totalDiscount
             ], ['id' => $id]);
 
             // تسجيل في سجل التدقيق
@@ -524,10 +560,10 @@ class ReceiptController
 
             successResponse('تم تحديث إذن الاستلام بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Receipt update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -630,6 +666,21 @@ class ReceiptController
                 $this->db->update('receipt_items', [
                     'received_quantity' => $item['quantity']
                 ], ['id' => $item['id']]);
+
+                // إذا كان الصنف يتتبع الدفعات
+                if ($item['batch_number']) {
+                    $this->db->insert('product_batches', [
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $receipt['warehouse_id'],
+                        'batch_number' => $item['batch_number'],
+                        'quantity' => $item['quantity'],
+                        'unit_cost' => $item['unit_cost'],
+                        'expiry_date' => $item['expiry_date'],
+                        'received_at' => date('Y-m-d'),
+                        'is_active' => 1,
+                        'created_at' => date('Y-m-d H:i:s')
+                    ]);
+                }
             }
 
             // تحديث حالة الإذن
@@ -657,12 +708,15 @@ class ReceiptController
 
             $this->db->commit();
 
+            // التحقق من التنبيهات
+            $this->checkStockAlerts($receipt['warehouse_id']);
+
             successResponse('تم اعتماد إذن الاستلام بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Receipt approve error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -729,9 +783,9 @@ class ReceiptController
 
             successResponse('تم رفض إذن الاستلام بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Receipt reject error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -795,9 +849,62 @@ class ReceiptController
 
             successResponse('تم إلغاء إذن الاستلام بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Receipt cancel error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/receipts/{id}/print
+     * طباعة إذن استلام
+     */
+    public function print(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'receipts.view')) {
+                errorResponse('ليس لديك صلاحية لعرض إذون الاستلام', 403);
+                return;
+            }
+
+            $receipt = $this->getReceiptById($id);
+            if (!$receipt) {
+                errorResponse('إذن الاستلام غير موجود');
+                return;
+            }
+
+            // جلب تفاصيل الإذن
+            $items = $this->db->query("
+                SELECT 
+                    ri.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    u.name as unit_name
+                FROM receipt_items ri
+                INNER JOIN products p ON p.id = ri.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                WHERE ri.receipt_id = :receipt_id
+            ", ['receipt_id' => $id]);
+
+            // HTML للطباعة
+            $html = $this->generateReceiptPrintHTML($receipt, $items);
+            
+            successResponse('تم جلب بيانات الطباعة', [
+                'html' => $html,
+                'receipt' => $receipt,
+                'items' => $items
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Receipt print error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -848,38 +955,16 @@ class ReceiptController
             ]);
 
             if ($format === 'csv') {
-                header('Content-Type: text/csv; charset=utf-8');
-                header('Content-Disposition: attachment; filename="receipts_' . date('Y-m-d') . '.csv"');
-                
-                $output = fopen('php://output', 'w');
-                fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-                
-                fputcsv($output, ['رقم الإذن', 'التاريخ', 'المخزن', 'المورد', 'عدد الأصناف', 'الكمية', 'القيمة', 'الحالة', 'تم الإنشاء بواسطة', 'تاريخ الإنشاء']);
-                
-                foreach ($receipts as $row) {
-                    fputcsv($output, [
-                        $row['receipt_no'],
-                        $row['receipt_date'],
-                        $row['warehouse'],
-                        $row['supplier'],
-                        $row['total_items'],
-                        $row['total_quantity'],
-                        $row['total_cost'],
-                        $row['status'],
-                        $row['created_by'],
-                        $row['created_at']
-                    ]);
-                }
-                
-                fclose($output);
-                exit;
+                $this->exportCSV($receipts);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($receipts);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $receipts);
             }
 
-            successResponse('تم جلب بيانات التصدير', $receipts);
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Receipt export error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -947,21 +1032,277 @@ class ReceiptController
             return;
         }
         
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $index => $item) {
             if (empty($item['product_id'])) {
-                errorResponse('الصنف مطلوب');
+                errorResponse("الصنف مطلوب في العنصر " . ($index + 1));
                 return;
             }
             
             if (empty($item['quantity']) || $item['quantity'] <= 0) {
-                errorResponse('الكمية يجب أن تكون أكبر من صفر');
+                errorResponse("الكمية يجب أن تكون أكبر من صفر في العنصر " . ($index + 1));
                 return;
             }
             
             if (!isset($item['unit_cost']) || $item['unit_cost'] < 0) {
-                errorResponse('سعر الوحدة غير صحيح');
+                errorResponse("سعر الوحدة غير صحيح في العنصر " . ($index + 1));
+                return;
+            }
+            
+            // التحقق من وجود المنتج
+            $product = $this->db->queryValue(
+                "SELECT id FROM products WHERE id = :id AND deleted_at IS NULL",
+                ['id' => $item['product_id']]
+            );
+            
+            if (!$product) {
+                errorResponse("المنتج غير موجود في العنصر " . ($index + 1));
                 return;
             }
         }
     }
+
+    /**
+     * التحقق من تنبيهات المخزون
+     */
+    private function checkStockAlerts(int $warehouseId): void
+    {
+        // جلب الأصناف منخفضة المخزون
+        $lowStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code,
+                sb.quantity,
+                p.min_stock
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity <= p.min_stock
+              AND sb.quantity > 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($lowStockItems as $item) {
+            $this->createNotification(
+                'low_stock',
+                "تنبيه: مخزون منخفض - {$item['name']}",
+                "المنتج '{$item['name']}' في المخزن وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
+                'high',
+                $item['id'],
+                $warehouseId
+            );
+        }
+
+        // جلب الأصناف المنفذة
+        $outOfStockItems = $this->db->query("
+            SELECT 
+                p.id,
+                p.name,
+                p.code
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+            WHERE sb.warehouse_id = :warehouse_id
+              AND sb.quantity = 0
+        ", ['warehouse_id' => $warehouseId]);
+
+        foreach ($outOfStockItems as $item) {
+            $this->createNotification(
+                'out_of_stock',
+                "⚠️ نفاذ المخزون - {$item['name']}",
+                "المنتج '{$item['name']}' نفد من المخزون",
+                'critical',
+                $item['id'],
+                $warehouseId
+            );
+        }
+    }
+
+    /**
+     * إنشاء تنبيه
+     */
+    private function createNotification(string $type, string $title, string $message, string $priority, int $productId, int $warehouseId): void
+    {
+        // جلب المستخدمين الذين يحتاجون التنبيه
+        $users = $this->db->query("
+            SELECT id FROM users 
+            WHERE is_active = 1 
+              AND role_id IN (SELECT id FROM roles WHERE name IN ('admin', 'warehouse_manager', 'warehouse_supervisor'))
+        ");
+
+        foreach ($users as $user) {
+            $this->db->insert('notifications', [
+                'user_id' => $user['id'],
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
+                'reference_type' => 'product',
+                'reference_id' => $productId,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="receipts_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
+        
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * تصدير Excel
+     */
+    private function exportExcel(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="receipts_' . date('Y-m-d') . '.xls"');
+        
+        echo '<table border="1">';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
+        echo '</tr>';
+        
+        foreach ($data as $row) {
+            echo '<tr>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
+    }
+
+    /**
+     * توليد HTML للطباعة
+     */
+    private function generateReceiptPrintHTML(array $receipt, array $items): string
+    {
+        $html = '<!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="UTF-8">
+            <title>إذن استلام #' . $receipt['receipt_no'] . '</title>
+            <style>
+                body { font-family: "Tajawal", sans-serif; padding: 40px; background: #fff; }
+                .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 20px; }
+                .header h1 { color: #667eea; margin: 0; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 8px; background: #f8f9fa; border-radius: 5px; }
+                .info-item .label { color: #666; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th { background: #667eea; color: #fff; padding: 10px; text-align: right; }
+                td { padding: 10px; border-bottom: 1px solid #ddd; }
+                .total-row { background: #f8f9fa; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }
+                .status-approved { color: #28a745; }
+                .status-draft { color: #ffc107; }
+                .status-rejected { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>إذن استلام</h1>
+                <p>' . $receipt['receipt_no'] . '</p>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">المخزن:</span> ' . $receipt['warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">المورد:</span> ' . $receipt['supplier_name'] . '</div>
+                <div class="info-item"><span class="label">التاريخ:</span> ' . $receipt['receipt_date'] . '</div>
+                <div class="info-item"><span class="label">الحالة:</span> <span class="status-' . $receipt['status'] . '">' . $receipt['status_label'] . '</span></div>
+                <div class="info-item"><span class="label">تم الإنشاء بواسطة:</span> ' . $receipt['user_name'] . '</div>
+                <div class="info-item"><span class="label">تاريخ الإنشاء:</span> ' . $receipt['created_at'] . '</div>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>الوحدة</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        $index = 1;
+        foreach ($items as $item) {
+            $html .= '<tr>
+                <td>' . $index++ . '</td>
+                <td>' . $item['product_code'] . '</td>
+                <td>' . $item['product_name'] . '</td>
+                <td>' . $item['quantity'] . '</td>
+                <td>' . $item['unit_name'] . '</td>
+                <td>' . number_format($item['unit_cost'], 2) . '</td>
+                <td>' . number_format($item['total_cost'], 2) . '</td>
+            </tr>';
+        }
+        
+        $html .= '
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الإجمالي</td>
+                        <td>' . number_format($receipt['total_cost'], 2) . '</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الضريبة</td>
+                        <td>' . number_format($receipt['total_tax'], 2) . '</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الخصم</td>
+                        <td>' . number_format($receipt['total_discount'], 2) . '</td>
+                    </tr>
+                    <tr class="total-row" style="font-size:16px;color:#667eea;">
+                        <td colspan="6" style="text-align:left;">صافي الإجمالي</td>
+                        <td>' . number_format($receipt['net_total'], 2) . '</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <div class="footer">
+                <p>نظام إدارة المخازن والمخزون المتقدم v5.0</p>
+                <p>تم الطباعة في ' . date('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+        
+        return $html;
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

@@ -1,0 +1,1136 @@
+==========================================
+📊 جميع الجداول والحقول - inventory_system
+==========================================
+
+📋 قائمة الجداول:
+------------------
++----------------------------+
+| Tables_in_inventory_system |
++----------------------------+
+| audit_logs                 |
+| auth_logs                  |
+| backup_logs                |
+| batch_movements            |
+| categories                 |
+| inventory_count_items      |
+| inventory_counts           |
+| issue_items                |
+| issues                     |
+| notification_settings      |
+| notifications              |
+| password_history           |
+| permissions                |
+| product_batches            |
+| product_serials            |
+| products                   |
+| receipt_items              |
+| receipts                   |
+| recipients                 |
+| return_items               |
+| returns                    |
+| role_permissions           |
+| roles                      |
+| stock_adjustment_items     |
+| stock_adjustments          |
+| stock_balances             |
+| stock_movements            |
+| suppliers                  |
+| system_settings            |
+| transfer_items             |
+| transfers                  |
+| units                      |
+| user_sessions              |
+| users                      |
+| v_inventory_stats          |
+| v_product_balances         |
+| v_recent_movements         |
+| v_user_performance         |
+| warehouses                 |
++----------------------------+
+
+📝 أسماء الحقول لكل جدول:
+==========================
+
+
+📌 جدول: audit_logs
+----------------------------------------
+الحقول:
+id, user_id, username, session_id, action, module, sub_module, description, details, old_values, new_values, ip_address, user_agent, reference_type, reference_id, is_system, created_at
+
+التفاصيل:
++----------------+---------------------+------+-----+---------------------+----------------+
+| Field          | Type                | Null | Key | Default             | Extra          |
++----------------+---------------------+------+-----+---------------------+----------------+
+| id             | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment |
+| user_id        | int(10) unsigned    | YES  | MUL | NULL                |                |
+| username       | varchar(50)         | YES  |     | NULL                |                |
+| session_id     | int(10) unsigned    | YES  | MUL | NULL                |                |
+| action         | varchar(100)        | NO   | MUL | NULL                |                |
+| module         | varchar(50)         | NO   | MUL | NULL                |                |
+| sub_module     | varchar(50)         | YES  |     | NULL                |                |
+| description    | text                | YES  |     | NULL                |                |
+| details        | longtext            | YES  |     | NULL                |                |
+| old_values     | longtext            | YES  |     | NULL                |                |
+| new_values     | longtext            | YES  |     | NULL                |                |
+| ip_address     | varchar(45)         | YES  |     | NULL                |                |
+| user_agent     | text                | YES  |     | NULL                |                |
+| reference_type | varchar(50)         | YES  | MUL | NULL                |                |
+| reference_id   | varchar(50)         | YES  |     | NULL                |                |
+| is_system      | tinyint(1)          | YES  |     | 0                   |                |
+| created_at     | timestamp           | YES  | MUL | current_timestamp() |                |
++----------------+---------------------+------+-----+---------------------+----------------+
+----------------------------------------
+
+📌 جدول: auth_logs
+----------------------------------------
+الحقول:
+id, user_id, username, action, ip_address, user_agent, details, created_at
+
+التفاصيل:
++------------+-------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+----------------+
+| Field      | Type                                                                                                                    | Null | Key | Default             | Extra          |
++------------+-------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+----------------+
+| id         | bigint(20) unsigned                                                                                                     | NO   | PRI | NULL                | auto_increment |
+| user_id    | int(10) unsigned                                                                                                        | YES  | MUL | NULL                |                |
+| username   | varchar(50)                                                                                                             | YES  |     | NULL                |                |
+| action     | enum('LOGIN_SUCCESS','LOGIN_FAILED','LOGOUT','SESSION_EXPIRED','LOCKED','UNLOCKED','PASSWORD_CHANGED','PASSWORD_RESET') | NO   | MUL | NULL                |                |
+| ip_address | varchar(45)                                                                                                             | NO   | MUL | NULL                |                |
+| user_agent | text                                                                                                                    | YES  |     | NULL                |                |
+| details    | longtext                                                                                                                | YES  |     | NULL                |                |
+| created_at | timestamp                                                                                                               | YES  | MUL | current_timestamp() |                |
++------------+-------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+----------------+
+----------------------------------------
+
+📌 جدول: backup_logs
+----------------------------------------
+الحقول:
+id, backup_type, backup_file, file_size, file_hash, status, started_at, completed_at, restored_at, restored_by, restore_details, error_message, notes, created_at
+
+التفاصيل:
++-----------------+-----------------------------------------------------------+------+-----+---------------------+----------------+
+| Field           | Type                                                      | Null | Key | Default             | Extra          |
++-----------------+-----------------------------------------------------------+------+-----+---------------------+----------------+
+| id              | bigint(20) unsigned                                       | NO   | PRI | NULL                | auto_increment |
+| backup_type     | enum('manual','automatic','pre_restore')                  | NO   | MUL | NULL                |                |
+| backup_file     | varchar(255)                                              | NO   |     | NULL                |                |
+| file_size       | bigint(20) unsigned                                       | YES  |     | 0                   |                |
+| file_hash       | varchar(64)                                               | YES  |     | NULL                |                |
+| status          | enum('pending','running','completed','failed','restored') | NO   | MUL | NULL                |                |
+| started_at      | timestamp                                                 | NO   | MUL | NULL                |                |
+| completed_at    | timestamp                                                 | YES  |     | NULL                |                |
+| restored_at     | timestamp                                                 | YES  | MUL | NULL                |                |
+| restored_by     | int(10) unsigned                                          | YES  | MUL | NULL                |                |
+| restore_details | longtext                                                  | YES  |     | NULL                |                |
+| error_message   | text                                                      | YES  |     | NULL                |                |
+| notes           | text                                                      | YES  |     | NULL                |                |
+| created_at      | timestamp                                                 | YES  |     | current_timestamp() |                |
++-----------------+-----------------------------------------------------------+------+-----+---------------------+----------------+
+----------------------------------------
+
+📌 جدول: batch_movements
+----------------------------------------
+الحقول:
+id, batch_id, product_id, warehouse_id, movement_type, reference_type, reference_id, quantity, balance_before, balance_after, movement_date, user_id, created_at
+
+التفاصيل:
++----------------+------------------------------------------------------+------+-----+---------------------+----------------+
+| Field          | Type                                                 | Null | Key | Default             | Extra          |
++----------------+------------------------------------------------------+------+-----+---------------------+----------------+
+| id             | bigint(20) unsigned                                  | NO   | PRI | NULL                | auto_increment |
+| batch_id       | bigint(20) unsigned                                  | NO   | MUL | NULL                |                |
+| product_id     | int(10) unsigned                                     | NO   | MUL | NULL                |                |
+| warehouse_id   | int(10) unsigned                                     | NO   | MUL | NULL                |                |
+| movement_type  | enum('RECEIPT','ISSUE','TRANSFER_OUT','TRANSFER_IN') | NO   |     | NULL                |                |
+| reference_type | varchar(50)                                          | NO   | MUL | NULL                |                |
+| reference_id   | bigint(20) unsigned                                  | NO   |     | NULL                |                |
+| quantity       | decimal(15,3)                                        | NO   |     | NULL                |                |
+| balance_before | decimal(15,3)                                        | NO   |     | NULL                |                |
+| balance_after  | decimal(15,3)                                        | NO   |     | NULL                |                |
+| movement_date  | datetime                                             | NO   | MUL | NULL                |                |
+| user_id        | int(10) unsigned                                     | NO   | MUL | NULL                |                |
+| created_at     | timestamp                                            | YES  |     | current_timestamp() |                |
++----------------+------------------------------------------------------+------+-----+---------------------+----------------+
+----------------------------------------
+
+📌 جدول: categories
+----------------------------------------
+الحقول:
+id, code, name, description, parent_id, icon, color, is_active, sort_order, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++-------------+------------------+------+-----+---------------------+-------------------------------+
+| Field       | Type             | Null | Key | Default             | Extra                         |
++-------------+------------------+------+-----+---------------------+-------------------------------+
+| id          | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| code        | varchar(50)      | NO   | UNI | NULL                |                               |
+| name        | varchar(100)     | NO   |     | NULL                |                               |
+| description | text             | YES  |     | NULL                |                               |
+| parent_id   | int(10) unsigned | YES  | MUL | NULL                |                               |
+| icon        | varchar(100)     | YES  |     | NULL                |                               |
+| color       | varchar(7)       | YES  |     | NULL                |                               |
+| is_active   | tinyint(1)       | YES  | MUL | 1                   |                               |
+| sort_order  | int(11)          | YES  | MUL | 0                   |                               |
+| created_at  | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at  | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at  | timestamp        | YES  | MUL | NULL                |                               |
+| created_by  | int(10) unsigned | YES  | MUL | NULL                |                               |
+| updated_by  | int(10) unsigned | YES  | MUL | NULL                |                               |
++-------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: inventory_count_items
+----------------------------------------
+الحقول:
+id, inventory_count_id, product_id, system_quantity, actual_quantity, difference, unit_cost, location, batch_number, counted_by, verified_by, notes, created_at, updated_at
+
+التفاصيل:
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+| Field              | Type                | Null | Key | Default             | Extra                         |
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+| id                 | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment                |
+| inventory_count_id | bigint(20) unsigned | NO   | MUL | NULL                |                               |
+| product_id         | int(10) unsigned    | NO   | MUL | NULL                |                               |
+| system_quantity    | decimal(15,3)       | NO   |     | NULL                |                               |
+| actual_quantity    | decimal(15,3)       | NO   |     | NULL                |                               |
+| difference         | decimal(15,3)       | YES  | MUL | NULL                | STORED GENERATED              |
+| unit_cost          | decimal(15,3)       | YES  |     | 0.000               |                               |
+| location           | varchar(100)        | YES  | MUL | NULL                |                               |
+| batch_number       | varchar(50)         | YES  |     | NULL                |                               |
+| counted_by         | int(10) unsigned    | YES  | MUL | NULL                |                               |
+| verified_by        | int(10) unsigned    | YES  | MUL | NULL                |                               |
+| notes              | text                | YES  |     | NULL                |                               |
+| created_at         | timestamp           | YES  |     | current_timestamp() |                               |
+| updated_at         | timestamp           | YES  |     | current_timestamp() | on update current_timestamp() |
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: inventory_counts
+----------------------------------------
+الحقول:
+id, count_no, warehouse_id, count_date, count_time, count_type, total_items, total_differences, status, user_id, supervisor_id, approved_by, approved_at, notes, start_time, end_time, created_at, updated_at
+
+التفاصيل:
++-------------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field             | Type                                                          | Null | Key | Default             | Extra                         |
++-------------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id                | bigint(20) unsigned                                           | NO   | PRI | NULL                | auto_increment                |
+| count_no          | varchar(50)                                                   | NO   | UNI | NULL                |                               |
+| warehouse_id      | int(10) unsigned                                              | NO   | MUL | NULL                |                               |
+| count_date        | date                                                          | NO   | MUL | NULL                |                               |
+| count_time        | time                                                          | NO   |     | NULL                |                               |
+| count_type        | enum('full','partial','cycle','spot')                         | YES  | MUL | full                |                               |
+| total_items       | int(11)                                                       | YES  |     | 0                   |                               |
+| total_differences | int(11)                                                       | YES  |     | 0                   |                               |
+| status            | enum('draft','in_progress','reviewed','approved','cancelled') | YES  | MUL | draft               |                               |
+| user_id           | int(10) unsigned                                              | NO   | MUL | NULL                |                               |
+| supervisor_id     | int(10) unsigned                                              | YES  | MUL | NULL                |                               |
+| approved_by       | int(10) unsigned                                              | YES  | MUL | NULL                |                               |
+| approved_at       | timestamp                                                     | YES  |     | NULL                |                               |
+| notes             | text                                                          | YES  |     | NULL                |                               |
+| start_time        | timestamp                                                     | YES  |     | NULL                |                               |
+| end_time          | timestamp                                                     | YES  |     | NULL                |                               |
+| created_at        | timestamp                                                     | YES  |     | current_timestamp() |                               |
+| updated_at        | timestamp                                                     | YES  |     | current_timestamp() | on update current_timestamp() |
++-------------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: issue_items
+----------------------------------------
+الحقول:
+id, issue_id, product_id, quantity, delivered_quantity, unit_cost, total_cost, batch_number, serial_numbers, notes, created_at
+
+التفاصيل:
++--------------------+---------------------+------+-----+---------------------+------------------+
+| Field              | Type                | Null | Key | Default             | Extra            |
++--------------------+---------------------+------+-----+---------------------+------------------+
+| id                 | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment   |
+| issue_id           | bigint(20) unsigned | NO   | MUL | NULL                |                  |
+| product_id         | int(10) unsigned    | NO   | MUL | NULL                |                  |
+| quantity           | decimal(15,3)       | NO   |     | NULL                |                  |
+| delivered_quantity | decimal(15,3)       | YES  |     | 0.000               |                  |
+| unit_cost          | decimal(15,3)       | NO   |     | NULL                |                  |
+| total_cost         | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| batch_number       | varchar(50)         | YES  | MUL | NULL                |                  |
+| serial_numbers     | text                | YES  |     | NULL                |                  |
+| notes              | text                | YES  |     | NULL                |                  |
+| created_at         | timestamp           | YES  |     | current_timestamp() |                  |
++--------------------+---------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: issues
+----------------------------------------
+الحقول:
+id, issue_no, warehouse_id, recipient_id, issue_date, issue_time, required_date, delivered_date, reference_number, department, project_code, total_items, total_quantity, total_cost, notes, status, user_id, approved_by, approved_at, rejected_by, rejected_at, rejection_reason, created_at, updated_at
+
+التفاصيل:
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                                                    | Null | Key | Default             | Extra                         |
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | bigint(20) unsigned                                                     | NO   | PRI | NULL                | auto_increment                |
+| issue_no         | varchar(50)                                                             | NO   | UNI | NULL                |                               |
+| warehouse_id     | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| recipient_id     | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| issue_date       | date                                                                    | NO   | MUL | NULL                |                               |
+| issue_time       | time                                                                    | NO   |     | NULL                |                               |
+| required_date    | date                                                                    | YES  |     | NULL                |                               |
+| delivered_date   | date                                                                    | YES  |     | NULL                |                               |
+| reference_number | varchar(50)                                                             | YES  |     | NULL                |                               |
+| department       | varchar(100)                                                            | YES  |     | NULL                |                               |
+| project_code     | varchar(50)                                                             | YES  | MUL | NULL                |                               |
+| total_items      | int(11)                                                                 | YES  |     | 0                   |                               |
+| total_quantity   | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| total_cost       | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| notes            | text                                                                    | YES  |     | NULL                |                               |
+| status           | enum('draft','submitted','approved','rejected','cancelled','delivered') | YES  | MUL | draft               |                               |
+| user_id          | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| approved_by      | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| approved_at      | timestamp                                                               | YES  |     | NULL                |                               |
+| rejected_by      | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| rejected_at      | timestamp                                                               | YES  |     | NULL                |                               |
+| rejection_reason | text                                                                    | YES  |     | NULL                |                               |
+| created_at       | timestamp                                                               | YES  | MUL | current_timestamp() |                               |
+| updated_at       | timestamp                                                               | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: notification_settings
+----------------------------------------
+الحقول:
+id, user_id, notification_type, is_enabled, is_email_enabled, is_sms_enabled, threshold_value, created_at, updated_at
+
+التفاصيل:
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+| Field             | Type             | Null | Key | Default             | Extra                         |
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+| id                | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| user_id           | int(10) unsigned | NO   | MUL | NULL                |                               |
+| notification_type | varchar(50)      | NO   | MUL | NULL                |                               |
+| is_enabled        | tinyint(1)       | YES  |     | 1                   |                               |
+| is_email_enabled  | tinyint(1)       | YES  |     | 0                   |                               |
+| is_sms_enabled    | tinyint(1)       | YES  |     | 0                   |                               |
+| threshold_value   | decimal(15,3)    | YES  |     | NULL                |                               |
+| created_at        | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at        | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: notifications
+----------------------------------------
+الحقول:
+id, user_id, type, title, message, is_read, read_at, is_dismissed, dismissed_at, link, priority, reference_type, reference_id, created_at, updated_at
+
+التفاصيل:
++----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field          | Type                                                                                                                                                                                                 | Null | Key | Default             | Extra                         |
++----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id             | bigint(20) unsigned                                                                                                                                                                                  | NO   | PRI | NULL                | auto_increment                |
+| user_id        | int(10) unsigned                                                                                                                                                                                     | NO   | MUL | NULL                |                               |
+| type           | enum('low_stock','out_of_stock','over_stock','expiry_alert','system_warning','transaction_alert','approval_needed','transfer_completed','receipt_completed','issue_completed','inventory_completed') | NO   |     | NULL                |                               |
+| title          | varchar(200)                                                                                                                                                                                         | NO   |     | NULL                |                               |
+| message        | text                                                                                                                                                                                                 | NO   |     | NULL                |                               |
+| is_read        | tinyint(1)                                                                                                                                                                                           | YES  | MUL | 0                   |                               |
+| read_at        | timestamp                                                                                                                                                                                            | YES  |     | NULL                |                               |
+| is_dismissed   | tinyint(1)                                                                                                                                                                                           | YES  |     | 0                   |                               |
+| dismissed_at   | timestamp                                                                                                                                                                                            | YES  |     | NULL                |                               |
+| link           | varchar(255)                                                                                                                                                                                         | YES  |     | NULL                |                               |
+| priority       | enum('low','medium','high','critical')                                                                                                                                                               | YES  | MUL | medium              |                               |
+| reference_type | varchar(50)                                                                                                                                                                                          | YES  | MUL | NULL                |                               |
+| reference_id   | bigint(20) unsigned                                                                                                                                                                                  | YES  |     | NULL                |                               |
+| created_at     | timestamp                                                                                                                                                                                            | YES  | MUL | current_timestamp() |                               |
+| updated_at     | timestamp                                                                                                                                                                                            | YES  |     | current_timestamp() | on update current_timestamp() |
++----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: password_history
+----------------------------------------
+الحقول:
+id, user_id, password_hash, changed_at, changed_by, ip_address, reason
+
+التفاصيل:
++---------------+-------------------------------------------+------+-----+---------------------+----------------+
+| Field         | Type                                      | Null | Key | Default             | Extra          |
++---------------+-------------------------------------------+------+-----+---------------------+----------------+
+| id            | bigint(20) unsigned                       | NO   | PRI | NULL                | auto_increment |
+| user_id       | int(10) unsigned                          | NO   | MUL | NULL                |                |
+| password_hash | varchar(255)                              | NO   |     | NULL                |                |
+| changed_at    | timestamp                                 | YES  | MUL | current_timestamp() |                |
+| changed_by    | int(10) unsigned                          | YES  | MUL | NULL                |                |
+| ip_address    | varchar(45)                               | YES  |     | NULL                |                |
+| reason        | enum('manual','forced','reset','expired') | YES  |     | manual              |                |
++---------------+-------------------------------------------+------+-----+---------------------+----------------+
+----------------------------------------
+
+📌 جدول: permissions
+----------------------------------------
+الحقول:
+id, name, display_name, module, sub_module, action, description, is_core, created_at, updated_at
+
+التفاصيل:
++--------------+------------------+------+-----+---------------------+-------------------------------+
+| Field        | Type             | Null | Key | Default             | Extra                         |
++--------------+------------------+------+-----+---------------------+-------------------------------+
+| id           | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| name         | varchar(100)     | NO   | UNI | NULL                |                               |
+| display_name | varchar(100)     | NO   |     | NULL                |                               |
+| module       | varchar(50)      | NO   | MUL | NULL                |                               |
+| sub_module   | varchar(50)      | YES  | MUL | NULL                |                               |
+| action       | varchar(50)      | NO   | MUL | NULL                |                               |
+| description  | text             | YES  |     | NULL                |                               |
+| is_core      | tinyint(1)       | YES  |     | 0                   |                               |
+| created_at   | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at   | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
++--------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: product_batches
+----------------------------------------
+الحقول:
+id, product_id, warehouse_id, batch_number, quantity, unit_cost, manufacture_date, expiry_date, received_at, is_active, notes, created_at, updated_at
+
+التفاصيل:
++------------------+---------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                | Null | Key | Default             | Extra                         |
++------------------+---------------------+------+-----+---------------------+-------------------------------+
+| id               | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment                |
+| product_id       | int(10) unsigned    | NO   | MUL | NULL                |                               |
+| warehouse_id     | int(10) unsigned    | NO   | MUL | NULL                |                               |
+| batch_number     | varchar(50)         | NO   | MUL | NULL                |                               |
+| quantity         | decimal(15,3)       | NO   |     | NULL                |                               |
+| unit_cost        | decimal(15,3)       | NO   |     | NULL                |                               |
+| manufacture_date | date                | YES  |     | NULL                |                               |
+| expiry_date      | date                | YES  | MUL | NULL                |                               |
+| received_at      | date                | NO   |     | NULL                |                               |
+| is_active        | tinyint(1)          | YES  | MUL | 1                   |                               |
+| notes            | text                | YES  |     | NULL                |                               |
+| created_at       | timestamp           | YES  |     | current_timestamp() |                               |
+| updated_at       | timestamp           | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+---------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: product_serials
+----------------------------------------
+الحقول:
+id, product_id, warehouse_id, serial_number, status, cost_price, sale_price, purchase_date, sale_date, warranty_end_date, notes, created_at, updated_at
+
+التفاصيل:
++-------------------+----------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field             | Type                                                           | Null | Key | Default             | Extra                         |
++-------------------+----------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id                | bigint(20) unsigned                                            | NO   | PRI | NULL                | auto_increment                |
+| product_id        | int(10) unsigned                                               | NO   | MUL | NULL                |                               |
+| warehouse_id      | int(10) unsigned                                               | NO   | MUL | NULL                |                               |
+| serial_number     | varchar(100)                                                   | NO   | UNI | NULL                |                               |
+| status            | enum('in_stock','reserved','sold','returned','damaged','lost') | YES  | MUL | in_stock            |                               |
+| cost_price        | decimal(15,3)                                                  | NO   |     | NULL                |                               |
+| sale_price        | decimal(15,3)                                                  | YES  |     | NULL                |                               |
+| purchase_date     | date                                                           | YES  |     | NULL                |                               |
+| sale_date         | date                                                           | YES  |     | NULL                |                               |
+| warranty_end_date | date                                                           | YES  | MUL | NULL                |                               |
+| notes             | text                                                           | YES  |     | NULL                |                               |
+| created_at        | timestamp                                                      | YES  |     | current_timestamp() |                               |
+| updated_at        | timestamp                                                      | YES  |     | current_timestamp() | on update current_timestamp() |
++-------------------+----------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: products
+----------------------------------------
+الحقول:
+id, code, barcode, name, description, category_id, unit_id, purchase_unit_id, sale_unit_id, min_stock, max_stock, reorder_point, reorder_quantity, cost_price, selling_price, last_purchase_price, weight, dimensions, is_active, is_serialized, is_batch_tracked, is_expirable, shelf_life_days, warranty_days, tax_rate, notes, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+| Field               | Type             | Null | Key | Default             | Extra                         |
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+| id                  | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| code                | varchar(50)      | NO   | UNI | NULL                |                               |
+| barcode             | varchar(100)     | YES  | UNI | NULL                |                               |
+| name                | varchar(200)     | NO   | MUL | NULL                |                               |
+| description         | text             | YES  |     | NULL                |                               |
+| category_id         | int(10) unsigned | YES  | MUL | NULL                |                               |
+| unit_id             | int(10) unsigned | NO   | MUL | NULL                |                               |
+| purchase_unit_id    | int(10) unsigned | YES  | MUL | NULL                |                               |
+| sale_unit_id        | int(10) unsigned | YES  | MUL | NULL                |                               |
+| min_stock           | decimal(15,3)    | YES  | MUL | 0.000               |                               |
+| max_stock           | decimal(15,3)    | YES  |     | NULL                |                               |
+| reorder_point       | decimal(15,3)    | YES  | MUL | NULL                |                               |
+| reorder_quantity    | decimal(15,3)    | YES  |     | NULL                |                               |
+| cost_price          | decimal(15,3)    | YES  |     | 0.000               |                               |
+| selling_price       | decimal(15,3)    | YES  |     | NULL                |                               |
+| last_purchase_price | decimal(15,3)    | YES  |     | NULL                |                               |
+| weight              | decimal(15,3)    | YES  |     | NULL                |                               |
+| dimensions          | varchar(100)     | YES  |     | NULL                |                               |
+| is_active           | tinyint(1)       | YES  | MUL | 1                   |                               |
+| is_serialized       | tinyint(1)       | YES  | MUL | 0                   |                               |
+| is_batch_tracked    | tinyint(1)       | YES  |     | 0                   |                               |
+| is_expirable        | tinyint(1)       | YES  | MUL | 0                   |                               |
+| shelf_life_days     | int(11)          | YES  |     | NULL                |                               |
+| warranty_days       | int(11)          | YES  |     | NULL                |                               |
+| tax_rate            | decimal(5,2)     | YES  |     | 0.00                |                               |
+| notes               | text             | YES  |     | NULL                |                               |
+| created_at          | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at          | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at          | timestamp        | YES  | MUL | NULL                |                               |
+| created_by          | int(10) unsigned | YES  | MUL | NULL                |                               |
+| updated_by          | int(10) unsigned | YES  | MUL | NULL                |                               |
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: receipt_items
+----------------------------------------
+الحقول:
+id, receipt_id, product_id, quantity, received_quantity, unit_cost, total_cost, tax_rate, tax_amount, discount_rate, discount_amount, net_cost, batch_number, expiry_date, serial_numbers, notes, created_at
+
+التفاصيل:
++-------------------+---------------------+------+-----+---------------------+------------------+
+| Field             | Type                | Null | Key | Default             | Extra            |
++-------------------+---------------------+------+-----+---------------------+------------------+
+| id                | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment   |
+| receipt_id        | bigint(20) unsigned | NO   | MUL | NULL                |                  |
+| product_id        | int(10) unsigned    | NO   | MUL | NULL                |                  |
+| quantity          | decimal(15,3)       | NO   |     | NULL                |                  |
+| received_quantity | decimal(15,3)       | YES  |     | 0.000               |                  |
+| unit_cost         | decimal(15,3)       | NO   |     | NULL                |                  |
+| total_cost        | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| tax_rate          | decimal(5,2)        | YES  |     | 0.00                |                  |
+| tax_amount        | decimal(15,3)       | YES  |     | 0.000               |                  |
+| discount_rate     | decimal(5,2)        | YES  |     | 0.00                |                  |
+| discount_amount   | decimal(15,3)       | YES  |     | 0.000               |                  |
+| net_cost          | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| batch_number      | varchar(50)         | YES  | MUL | NULL                |                  |
+| expiry_date       | date                | YES  | MUL | NULL                |                  |
+| serial_numbers    | text                | YES  |     | NULL                |                  |
+| notes             | text                | YES  |     | NULL                |                  |
+| created_at        | timestamp           | YES  |     | current_timestamp() |                  |
++-------------------+---------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: receipts
+----------------------------------------
+الحقول:
+id, receipt_no, warehouse_id, supplier_id, receipt_date, receipt_time, expected_date, delivery_date, po_number, invoice_number, total_items, total_quantity, total_cost, total_tax, total_discount, net_total, notes, status, approval_level, user_id, approved_by, approved_at, rejected_by, rejected_at, rejection_reason, created_at, updated_at
+
+التفاصيل:
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                                                    | Null | Key | Default             | Extra                         |
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | bigint(20) unsigned                                                     | NO   | PRI | NULL                | auto_increment                |
+| receipt_no       | varchar(50)                                                             | NO   | UNI | NULL                |                               |
+| warehouse_id     | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| supplier_id      | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| receipt_date     | date                                                                    | NO   | MUL | NULL                |                               |
+| receipt_time     | time                                                                    | NO   |     | NULL                |                               |
+| expected_date    | date                                                                    | YES  |     | NULL                |                               |
+| delivery_date    | date                                                                    | YES  |     | NULL                |                               |
+| po_number        | varchar(50)                                                             | YES  | MUL | NULL                |                               |
+| invoice_number   | varchar(50)                                                             | YES  |     | NULL                |                               |
+| total_items      | int(11)                                                                 | YES  |     | 0                   |                               |
+| total_quantity   | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| total_cost       | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| total_tax        | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| total_discount   | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| net_total        | decimal(15,3)                                                           | YES  |     | NULL                | STORED GENERATED              |
+| notes            | text                                                                    | YES  |     | NULL                |                               |
+| status           | enum('draft','submitted','approved','rejected','cancelled','completed') | YES  | MUL | draft               |                               |
+| approval_level   | int(11)                                                                 | YES  |     | 0                   |                               |
+| user_id          | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| approved_by      | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| approved_at      | timestamp                                                               | YES  | MUL | NULL                |                               |
+| rejected_by      | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| rejected_at      | timestamp                                                               | YES  |     | NULL                |                               |
+| rejection_reason | text                                                                    | YES  |     | NULL                |                               |
+| created_at       | timestamp                                                               | YES  | MUL | current_timestamp() |                               |
+| updated_at       | timestamp                                                               | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: recipients
+----------------------------------------
+الحقول:
+id, code, name, type, contact_person, phone, email, address, is_active, notes, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++----------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field          | Type                                                          | Null | Key | Default             | Extra                         |
++----------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id             | int(10) unsigned                                              | NO   | PRI | NULL                | auto_increment                |
+| code           | varchar(50)                                                   | NO   | UNI | NULL                |                               |
+| name           | varchar(200)                                                  | NO   |     | NULL                |                               |
+| type           | enum('internal','external','customer','department','project') | YES  | MUL | internal            |                               |
+| contact_person | varchar(100)                                                  | YES  |     | NULL                |                               |
+| phone          | varchar(20)                                                   | YES  |     | NULL                |                               |
+| email          | varchar(100)                                                  | YES  |     | NULL                |                               |
+| address        | text                                                          | YES  |     | NULL                |                               |
+| is_active      | tinyint(1)                                                    | YES  | MUL | 1                   |                               |
+| notes          | text                                                          | YES  |     | NULL                |                               |
+| created_at     | timestamp                                                     | YES  |     | current_timestamp() |                               |
+| updated_at     | timestamp                                                     | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at     | timestamp                                                     | YES  | MUL | NULL                |                               |
+| created_by     | int(10) unsigned                                              | YES  | MUL | NULL                |                               |
+| updated_by     | int(10) unsigned                                              | YES  | MUL | NULL                |                               |
++----------------+---------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: return_items
+----------------------------------------
+الحقول:
+id, return_id, product_id, quantity, unit_cost, total_cost, batch_number, serial_numbers, notes, created_at
+
+التفاصيل:
++----------------+---------------------+------+-----+---------------------+------------------+
+| Field          | Type                | Null | Key | Default             | Extra            |
++----------------+---------------------+------+-----+---------------------+------------------+
+| id             | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment   |
+| return_id      | bigint(20) unsigned | NO   | MUL | NULL                |                  |
+| product_id     | int(10) unsigned    | NO   | MUL | NULL                |                  |
+| quantity       | decimal(15,3)       | NO   |     | NULL                |                  |
+| unit_cost      | decimal(15,3)       | NO   |     | NULL                |                  |
+| total_cost     | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| batch_number   | varchar(50)         | YES  |     | NULL                |                  |
+| serial_numbers | text                | YES  |     | NULL                |                  |
+| notes          | text                | YES  |     | NULL                |                  |
+| created_at     | timestamp           | YES  |     | current_timestamp() |                  |
++----------------+---------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: returns
+----------------------------------------
+الحقول:
+id, return_no, return_type, warehouse_id, reference_type, reference_id, return_date, return_time, total_items, total_quantity, total_cost, reason, notes, status, user_id, approved_by, approved_at, rejected_by, rejected_at, rejection_reason, created_at, updated_at
+
+التفاصيل:
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                                        | Null | Key | Default             | Extra                         |
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | bigint(20) unsigned                                         | NO   | PRI | NULL                | auto_increment                |
+| return_no        | varchar(50)                                                 | NO   | UNI | NULL                |                               |
+| return_type      | enum('to_supplier','from_customer','internal')              | NO   | MUL | NULL                |                               |
+| warehouse_id     | int(10) unsigned                                            | NO   | MUL | NULL                |                               |
+| reference_type   | enum('receipt','issue','transfer')                          | NO   | MUL | NULL                |                               |
+| reference_id     | bigint(20) unsigned                                         | NO   |     | NULL                |                               |
+| return_date      | date                                                        | NO   | MUL | NULL                |                               |
+| return_time      | time                                                        | NO   |     | NULL                |                               |
+| total_items      | int(11)                                                     | YES  |     | 0                   |                               |
+| total_quantity   | decimal(15,3)                                               | YES  |     | 0.000               |                               |
+| total_cost       | decimal(15,3)                                               | YES  |     | 0.000               |                               |
+| reason           | text                                                        | YES  |     | NULL                |                               |
+| notes            | text                                                        | YES  |     | NULL                |                               |
+| status           | enum('draft','submitted','approved','rejected','cancelled') | YES  | MUL | draft               |                               |
+| user_id          | int(10) unsigned                                            | NO   | MUL | NULL                |                               |
+| approved_by      | int(10) unsigned                                            | YES  | MUL | NULL                |                               |
+| approved_at      | timestamp                                                   | YES  |     | NULL                |                               |
+| rejected_by      | int(10) unsigned                                            | YES  | MUL | NULL                |                               |
+| rejected_at      | timestamp                                                   | YES  |     | NULL                |                               |
+| rejection_reason | text                                                        | YES  |     | NULL                |                               |
+| created_at       | timestamp                                                   | YES  |     | current_timestamp() |                               |
+| updated_at       | timestamp                                                   | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: role_permissions
+----------------------------------------
+الحقول:
+role_id, permission_id, is_allowed, created_at, updated_at
+
+التفاصيل:
++---------------+------------------+------+-----+---------------------+-------------------------------+
+| Field         | Type             | Null | Key | Default             | Extra                         |
++---------------+------------------+------+-----+---------------------+-------------------------------+
+| role_id       | int(10) unsigned | NO   | PRI | NULL                |                               |
+| permission_id | int(10) unsigned | NO   | PRI | NULL                |                               |
+| is_allowed    | tinyint(1)       | YES  |     | 1                   |                               |
+| created_at    | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at    | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
++---------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: roles
+----------------------------------------
+الحقول:
+id, name, display_name, description, parent_id, level, is_system, priority, created_at, updated_at, deleted_at
+
+التفاصيل:
++--------------+---------------------+------+-----+---------------------+-------------------------------+
+| Field        | Type                | Null | Key | Default             | Extra                         |
++--------------+---------------------+------+-----+---------------------+-------------------------------+
+| id           | int(10) unsigned    | NO   | PRI | NULL                | auto_increment                |
+| name         | varchar(50)         | NO   | UNI | NULL                |                               |
+| display_name | varchar(100)        | NO   |     | NULL                |                               |
+| description  | text                | YES  |     | NULL                |                               |
+| parent_id    | int(10) unsigned    | YES  | MUL | NULL                |                               |
+| level        | tinyint(3) unsigned | YES  | MUL | 1                   |                               |
+| is_system    | tinyint(1)          | YES  |     | 0                   |                               |
+| priority     | int(11)             | YES  |     | 0                   |                               |
+| created_at   | timestamp           | YES  |     | current_timestamp() |                               |
+| updated_at   | timestamp           | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at   | timestamp           | YES  | MUL | NULL                |                               |
++--------------+---------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: stock_adjustment_items
+----------------------------------------
+الحقول:
+id, adjustment_id, product_id, quantity, unit_cost, total_cost, balance_before, balance_after, batch_number, location, notes, created_at
+
+التفاصيل:
++----------------+---------------------+------+-----+---------------------+------------------+
+| Field          | Type                | Null | Key | Default             | Extra            |
++----------------+---------------------+------+-----+---------------------+------------------+
+| id             | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment   |
+| adjustment_id  | bigint(20) unsigned | NO   | MUL | NULL                |                  |
+| product_id     | int(10) unsigned    | NO   | MUL | NULL                |                  |
+| quantity       | decimal(15,3)       | NO   |     | NULL                |                  |
+| unit_cost      | decimal(15,3)       | YES  |     | 0.000               |                  |
+| total_cost     | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| balance_before | decimal(15,3)       | NO   |     | NULL                |                  |
+| balance_after  | decimal(15,3)       | NO   |     | NULL                |                  |
+| batch_number   | varchar(50)         | YES  |     | NULL                |                  |
+| location       | varchar(100)        | YES  |     | NULL                |                  |
+| notes          | text                | YES  |     | NULL                |                  |
+| created_at     | timestamp           | YES  |     | current_timestamp() |                  |
++----------------+---------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: stock_adjustments
+----------------------------------------
+الحقول:
+id, adjustment_no, warehouse_id, adjustment_type, adjustment_date, adjustment_time, reason, total_items, total_quantity, total_value, notes, status, user_id, approved_by, approved_at, rejected_by, rejected_at, rejection_reason, created_at, updated_at
+
+التفاصيل:
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                                        | Null | Key | Default             | Extra                         |
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | bigint(20) unsigned                                         | NO   | PRI | NULL                | auto_increment                |
+| adjustment_no    | varchar(50)                                                 | NO   | UNI | NULL                |                               |
+| warehouse_id     | int(10) unsigned                                            | NO   | MUL | NULL                |                               |
+| adjustment_type  | enum('increase','decrease','write_off','write_in')          | NO   | MUL | NULL                |                               |
+| adjustment_date  | date                                                        | NO   | MUL | NULL                |                               |
+| adjustment_time  | time                                                        | NO   |     | NULL                |                               |
+| reason           | text                                                        | NO   |     | NULL                |                               |
+| total_items      | int(11)                                                     | YES  |     | 0                   |                               |
+| total_quantity   | decimal(15,3)                                               | YES  |     | 0.000               |                               |
+| total_value      | decimal(15,3)                                               | YES  |     | 0.000               |                               |
+| notes            | text                                                        | YES  |     | NULL                |                               |
+| status           | enum('draft','submitted','approved','rejected','cancelled') | YES  | MUL | draft               |                               |
+| user_id          | int(10) unsigned                                            | NO   | MUL | NULL                |                               |
+| approved_by      | int(10) unsigned                                            | YES  | MUL | NULL                |                               |
+| approved_at      | timestamp                                                   | YES  |     | NULL                |                               |
+| rejected_by      | int(10) unsigned                                            | YES  | MUL | NULL                |                               |
+| rejected_at      | timestamp                                                   | YES  |     | NULL                |                               |
+| rejection_reason | text                                                        | YES  |     | NULL                |                               |
+| created_at       | timestamp                                                   | YES  | MUL | current_timestamp() |                               |
+| updated_at       | timestamp                                                   | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+-------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: stock_balances
+----------------------------------------
+الحقول:
+id, product_id, warehouse_id, quantity, reserved_quantity, on_order_quantity, last_movement_id, last_movement_date, updated_at, created_at
+
+التفاصيل:
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+| Field              | Type                | Null | Key | Default             | Extra                         |
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+| id                 | int(10) unsigned    | NO   | PRI | NULL                | auto_increment                |
+| product_id         | int(10) unsigned    | NO   | MUL | NULL                |                               |
+| warehouse_id       | int(10) unsigned    | NO   | MUL | NULL                |                               |
+| quantity           | decimal(15,3)       | NO   | MUL | 0.000               |                               |
+| reserved_quantity  | decimal(15,3)       | YES  | MUL | 0.000               |                               |
+| on_order_quantity  | decimal(15,3)       | YES  |     | 0.000               |                               |
+| last_movement_id   | bigint(20) unsigned | YES  |     | NULL                |                               |
+| last_movement_date | timestamp           | YES  | MUL | NULL                |                               |
+| updated_at         | timestamp           | YES  |     | current_timestamp() | on update current_timestamp() |
+| created_at         | timestamp           | YES  |     | current_timestamp() |                               |
++--------------------+---------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: stock_movements
+----------------------------------------
+الحقول:
+id, product_id, warehouse_id, movement_type, reference_type, reference_id, quantity, unit_cost, total_cost, balance_before, balance_after, reserved_before, reserved_after, movement_date, user_id, notes, ip_address, user_agent, created_at
+
+التفاصيل:
++-----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+------------------+
+| Field           | Type                                                                                                                                  | Null | Key | Default             | Extra            |
++-----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+------------------+
+| id              | bigint(20) unsigned                                                                                                                   | NO   | PRI | NULL                | auto_increment   |
+| product_id      | int(10) unsigned                                                                                                                      | NO   | MUL | NULL                |                  |
+| warehouse_id    | int(10) unsigned                                                                                                                      | NO   | MUL | NULL                |                  |
+| movement_type   | enum('RECEIPT','ISSUE','TRANSFER_OUT','TRANSFER_IN','RETURN_IN','RETURN_OUT','ADJUSTMENT','COUNT_CORRECTION','RESERVATION','RELEASE') | NO   | MUL | NULL                |                  |
+| reference_type  | enum('receipt','issue','transfer','return','inventory_count','stock_adjustment','sales_order')                                        | NO   | MUL | NULL                |                  |
+| reference_id    | bigint(20) unsigned                                                                                                                   | NO   |     | NULL                |                  |
+| quantity        | decimal(15,3)                                                                                                                         | NO   |     | NULL                |                  |
+| unit_cost       | decimal(15,3)                                                                                                                         | YES  | MUL | 0.000               |                  |
+| total_cost      | decimal(15,3)                                                                                                                         | YES  |     | NULL                | STORED GENERATED |
+| balance_before  | decimal(15,3)                                                                                                                         | NO   | MUL | NULL                |                  |
+| balance_after   | decimal(15,3)                                                                                                                         | NO   |     | NULL                |                  |
+| reserved_before | decimal(15,3)                                                                                                                         | YES  |     | 0.000               |                  |
+| reserved_after  | decimal(15,3)                                                                                                                         | YES  |     | 0.000               |                  |
+| movement_date   | datetime                                                                                                                              | NO   | MUL | NULL                |                  |
+| user_id         | int(10) unsigned                                                                                                                      | NO   | MUL | NULL                |                  |
+| notes           | text                                                                                                                                  | YES  |     | NULL                |                  |
+| ip_address      | varchar(45)                                                                                                                           | YES  |     | NULL                |                  |
+| user_agent      | text                                                                                                                                  | YES  |     | NULL                |                  |
+| created_at      | timestamp                                                                                                                             | YES  |     | current_timestamp() |                  |
++-----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: suppliers
+----------------------------------------
+الحقول:
+id, code, name, contact_person, phone, mobile, email, website, address, city, country, postal_code, tax_number, commercial_register, payment_terms, credit_limit, is_active, rating, notes, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+| Field               | Type             | Null | Key | Default             | Extra                         |
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+| id                  | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| code                | varchar(50)      | NO   | UNI | NULL                |                               |
+| name                | varchar(200)     | NO   |     | NULL                |                               |
+| contact_person      | varchar(100)     | YES  |     | NULL                |                               |
+| phone               | varchar(20)      | YES  |     | NULL                |                               |
+| mobile              | varchar(20)      | YES  |     | NULL                |                               |
+| email               | varchar(100)     | YES  |     | NULL                |                               |
+| website             | varchar(255)     | YES  |     | NULL                |                               |
+| address             | text             | YES  |     | NULL                |                               |
+| city                | varchar(50)      | YES  | MUL | NULL                |                               |
+| country             | varchar(50)      | YES  |     | NULL                |                               |
+| postal_code         | varchar(20)      | YES  |     | NULL                |                               |
+| tax_number          | varchar(50)      | YES  | MUL | NULL                |                               |
+| commercial_register | varchar(50)      | YES  |     | NULL                |                               |
+| payment_terms       | text             | YES  |     | NULL                |                               |
+| credit_limit        | decimal(15,2)    | YES  |     | 0.00                |                               |
+| is_active           | tinyint(1)       | YES  | MUL | 1                   |                               |
+| rating              | tinyint(4)       | YES  | MUL | 3                   |                               |
+| notes               | text             | YES  |     | NULL                |                               |
+| created_at          | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at          | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at          | timestamp        | YES  | MUL | NULL                |                               |
+| created_by          | int(10) unsigned | YES  | MUL | NULL                |                               |
+| updated_by          | int(10) unsigned | YES  | MUL | NULL                |                               |
++---------------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: system_settings
+----------------------------------------
+الحقول:
+id, setting_key, setting_value, setting_group, setting_type, is_editable, is_encrypted, description, validation_rules, sort_order, updated_at, updated_by, created_at
+
+التفاصيل:
++------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                            | Null | Key | Default             | Extra                         |
++------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | int(10) unsigned                                | NO   | PRI | NULL                | auto_increment                |
+| setting_key      | varchar(100)                                    | NO   | UNI | NULL                |                               |
+| setting_value    | text                                            | YES  |     | NULL                |                               |
+| setting_group    | varchar(50)                                     | NO   | MUL | NULL                |                               |
+| setting_type     | enum('string','number','boolean','json','file') | YES  | MUL | string              |                               |
+| is_editable      | tinyint(1)                                      | YES  |     | 1                   |                               |
+| is_encrypted     | tinyint(1)                                      | YES  |     | 0                   |                               |
+| description      | text                                            | YES  |     | NULL                |                               |
+| validation_rules | text                                            | YES  |     | NULL                |                               |
+| sort_order       | int(11)                                         | YES  | MUL | 0                   |                               |
+| updated_at       | timestamp                                       | YES  |     | current_timestamp() | on update current_timestamp() |
+| updated_by       | int(10) unsigned                                | YES  | MUL | NULL                |                               |
+| created_at       | timestamp                                       | YES  |     | current_timestamp() |                               |
++------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: transfer_items
+----------------------------------------
+الحقول:
+id, transfer_id, product_id, quantity, unit_cost, total_cost, batch_number, serial_numbers, notes, created_at
+
+التفاصيل:
++----------------+---------------------+------+-----+---------------------+------------------+
+| Field          | Type                | Null | Key | Default             | Extra            |
++----------------+---------------------+------+-----+---------------------+------------------+
+| id             | bigint(20) unsigned | NO   | PRI | NULL                | auto_increment   |
+| transfer_id    | bigint(20) unsigned | NO   | MUL | NULL                |                  |
+| product_id     | int(10) unsigned    | NO   | MUL | NULL                |                  |
+| quantity       | decimal(15,3)       | NO   |     | NULL                |                  |
+| unit_cost      | decimal(15,3)       | NO   |     | NULL                |                  |
+| total_cost     | decimal(15,3)       | YES  |     | NULL                | STORED GENERATED |
+| batch_number   | varchar(50)         | YES  |     | NULL                |                  |
+| serial_numbers | text                | YES  |     | NULL                |                  |
+| notes          | text                | YES  |     | NULL                |                  |
+| created_at     | timestamp           | YES  |     | current_timestamp() |                  |
++----------------+---------------------+------+-----+---------------------+------------------+
+----------------------------------------
+
+📌 جدول: transfers
+----------------------------------------
+الحقول:
+id, transfer_no, from_warehouse_id, to_warehouse_id, transfer_date, transfer_time, expected_date, delivered_date, total_items, total_quantity, total_cost, notes, status, user_id, approved_by, approved_at, rejected_by, rejected_at, rejection_reason, created_at, updated_at
+
+التفاصيل:
++-------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field             | Type                                                                    | Null | Key | Default             | Extra                         |
++-------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id                | bigint(20) unsigned                                                     | NO   | PRI | NULL                | auto_increment                |
+| transfer_no       | varchar(50)                                                             | NO   | UNI | NULL                |                               |
+| from_warehouse_id | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| to_warehouse_id   | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| transfer_date     | date                                                                    | NO   | MUL | NULL                |                               |
+| transfer_time     | time                                                                    | NO   |     | NULL                |                               |
+| expected_date     | date                                                                    | YES  |     | NULL                |                               |
+| delivered_date    | date                                                                    | YES  |     | NULL                |                               |
+| total_items       | int(11)                                                                 | YES  |     | 0                   |                               |
+| total_quantity    | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| total_cost        | decimal(15,3)                                                           | YES  |     | 0.000               |                               |
+| notes             | text                                                                    | YES  |     | NULL                |                               |
+| status            | enum('draft','submitted','approved','rejected','cancelled','completed') | YES  | MUL | draft               |                               |
+| user_id           | int(10) unsigned                                                        | NO   | MUL | NULL                |                               |
+| approved_by       | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| approved_at       | timestamp                                                               | YES  |     | NULL                |                               |
+| rejected_by       | int(10) unsigned                                                        | YES  | MUL | NULL                |                               |
+| rejected_at       | timestamp                                                               | YES  |     | NULL                |                               |
+| rejection_reason  | text                                                                    | YES  |     | NULL                |                               |
+| created_at        | timestamp                                                               | YES  | MUL | current_timestamp() |                               |
+| updated_at        | timestamp                                                               | YES  |     | current_timestamp() | on update current_timestamp() |
++-------------------+-------------------------------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: units
+----------------------------------------
+الحقول:
+id, code, name, name_plural, symbol, is_base_unit, conversion_factor, base_unit_id, precision_digits, is_active, created_at, updated_at, deleted_at
+
+التفاصيل:
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+| Field             | Type             | Null | Key | Default             | Extra                         |
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+| id                | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| code              | varchar(20)      | NO   | UNI | NULL                |                               |
+| name              | varchar(50)      | NO   |     | NULL                |                               |
+| name_plural       | varchar(50)      | YES  |     | NULL                |                               |
+| symbol            | varchar(10)      | YES  |     | NULL                |                               |
+| is_base_unit      | tinyint(1)       | YES  |     | 1                   |                               |
+| conversion_factor | decimal(15,6)    | YES  |     | 1.000000            |                               |
+| base_unit_id      | int(10) unsigned | YES  | MUL | NULL                |                               |
+| precision_digits  | tinyint(4)       | YES  |     | 2                   |                               |
+| is_active         | tinyint(1)       | YES  | MUL | 1                   |                               |
+| created_at        | timestamp        | YES  |     | current_timestamp() |                               |
+| updated_at        | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at        | timestamp        | YES  | MUL | NULL                |                               |
++-------------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: user_sessions
+----------------------------------------
+الحقول:
+id, user_id, session_token, refresh_token, device_name, ip_address, user_agent, expires_at, login_at, last_activity, logout_at, is_active
+
+التفاصيل:
++---------------+------------------+------+-----+---------------------+-------------------------------+
+| Field         | Type             | Null | Key | Default             | Extra                         |
++---------------+------------------+------+-----+---------------------+-------------------------------+
+| id            | int(10) unsigned | NO   | PRI | NULL                | auto_increment                |
+| user_id       | int(10) unsigned | NO   | MUL | NULL                |                               |
+| session_token | varchar(255)     | NO   | UNI | NULL                |                               |
+| refresh_token | varchar(255)     | YES  |     | NULL                |                               |
+| device_name   | varchar(100)     | YES  |     | NULL                |                               |
+| ip_address    | varchar(45)      | NO   |     | NULL                |                               |
+| user_agent    | text             | YES  |     | NULL                |                               |
+| expires_at    | timestamp        | NO   |     | NULL                |                               |
+| login_at      | timestamp        | YES  |     | current_timestamp() |                               |
+| last_activity | timestamp        | YES  |     | current_timestamp() | on update current_timestamp() |
+| logout_at     | timestamp        | YES  |     | NULL                |                               |
+| is_active     | tinyint(1)       | YES  | MUL | 1                   |                               |
++---------------+------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: users
+----------------------------------------
+الحقول:
+id, username, email, password_hash, full_name, role_id, employee_id, department, phone, mobile, is_active, is_verified, two_factor_enabled, two_factor_secret, two_factor_backup_codes, two_factor_verified_at, preferred_login_method, language, theme, notification_preferences, security_questions, last_password_reset_request, password_reset_token, password_reset_expires, device_trusted_tokens, is_locked, locked_until, failed_login_attempts, last_login_at, last_login_ip, last_password_change, password_expiry_days, remember_token, email_verified_at, preferences, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++-----------------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
+| Field                       | Type                                   | Null | Key | Default             | Extra                         |
++-----------------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
+| id                          | int(10) unsigned                       | NO   | PRI | NULL                | auto_increment                |
+| username                    | varchar(50)                            | NO   | UNI | NULL                |                               |
+| email                       | varchar(100)                           | NO   | UNI | NULL                |                               |
+| password_hash               | varchar(255)                           | NO   |     | NULL                |                               |
+| full_name                   | varchar(100)                           | NO   |     | NULL                |                               |
+| role_id                     | int(10) unsigned                       | NO   | MUL | NULL                |                               |
+| employee_id                 | varchar(50)                            | YES  | UNI | NULL                |                               |
+| department                  | varchar(100)                           | YES  |     | NULL                |                               |
+| phone                       | varchar(20)                            | YES  |     | NULL                |                               |
+| mobile                      | varchar(20)                            | YES  |     | NULL                |                               |
+| is_active                   | tinyint(1)                             | YES  | MUL | 1                   |                               |
+| is_verified                 | tinyint(1)                             | YES  |     | 0                   |                               |
+| two_factor_enabled          | tinyint(1)                             | YES  |     | 0                   |                               |
+| two_factor_secret           | varchar(255)                           | YES  |     | NULL                |                               |
+| two_factor_backup_codes     | text                                   | YES  |     | NULL                |                               |
+| two_factor_verified_at      | timestamp                              | YES  |     | NULL                |                               |
+| preferred_login_method      | enum('username','email','employee_id') | YES  |     | username            |                               |
+| language                    | varchar(10)                            | YES  |     | ar                  |                               |
+| theme                       | varchar(20)                            | YES  |     | dark                |                               |
+| notification_preferences    | longtext                               | YES  |     | NULL                |                               |
+| security_questions          | longtext                               | YES  |     | NULL                |                               |
+| last_password_reset_request | timestamp                              | YES  |     | NULL                |                               |
+| password_reset_token        | varchar(100)                           | YES  |     | NULL                |                               |
+| password_reset_expires      | timestamp                              | YES  |     | NULL                |                               |
+| device_trusted_tokens       | longtext                               | YES  |     | NULL                |                               |
+| is_locked                   | tinyint(1)                             | YES  | MUL | 0                   |                               |
+| locked_until                | timestamp                              | YES  |     | NULL                |                               |
+| failed_login_attempts       | int(11)                                | YES  |     | 0                   |                               |
+| last_login_at               | timestamp                              | YES  | MUL | NULL                |                               |
+| last_login_ip               | varchar(45)                            | YES  |     | NULL                |                               |
+| last_password_change        | timestamp                              | YES  |     | NULL                |                               |
+| password_expiry_days        | int(11)                                | YES  |     | 90                  |                               |
+| remember_token              | varchar(100)                           | YES  |     | NULL                |                               |
+| email_verified_at           | timestamp                              | YES  |     | NULL                |                               |
+| preferences                 | longtext                               | YES  |     | NULL                |                               |
+| created_at                  | timestamp                              | YES  |     | current_timestamp() |                               |
+| updated_at                  | timestamp                              | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at                  | timestamp                              | YES  | MUL | NULL                |                               |
+| created_by                  | int(10) unsigned                       | YES  | MUL | NULL                |                               |
+| updated_by                  | int(10) unsigned                       | YES  | MUL | NULL                |                               |
++-----------------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+📌 جدول: v_inventory_stats
+----------------------------------------
+الحقول:
+warehouse_id, warehouse_name, total_products, products_in_stock, out_of_stock, low_stock, over_stock, total_quantity, total_value, low_stock_count
+
+التفاصيل:
++-------------------+------------------+------+-----+---------+-------+
+| Field             | Type             | Null | Key | Default | Extra |
++-------------------+------------------+------+-----+---------+-------+
+| warehouse_id      | int(10) unsigned | NO   |     | 0       |       |
+| warehouse_name    | varchar(100)     | NO   |     | NULL    |       |
+| total_products    | bigint(21)       | NO   |     | 0       |       |
+| products_in_stock | bigint(21)       | NO   |     | 0       |       |
+| out_of_stock      | bigint(21)       | NO   |     | 0       |       |
+| low_stock         | bigint(21)       | NO   |     | 0       |       |
+| over_stock        | bigint(21)       | NO   |     | 0       |       |
+| total_quantity    | decimal(37,3)    | YES  |     | NULL    |       |
+| total_value       | decimal(52,6)    | YES  |     | NULL    |       |
+| low_stock_count   | decimal(23,0)    | YES  |     | NULL    |       |
++-------------------+------------------+------+-----+---------+-------+
+----------------------------------------
+
+📌 جدول: v_product_balances
+----------------------------------------
+الحقول:
+product_id, code, barcode, name, description, category_name, unit_name, warehouse_id, warehouse_name, balance, reserved, available, min_stock, max_stock, reorder_point, cost_price, selling_price, stock_status, status_icon
+
+التفاصيل:
++----------------+------------------+------+-----+---------+-------+
+| Field          | Type             | Null | Key | Default | Extra |
++----------------+------------------+------+-----+---------+-------+
+| product_id     | int(10) unsigned | NO   |     | 0       |       |
+| code           | varchar(50)      | NO   |     | NULL    |       |
+| barcode        | varchar(100)     | YES  |     | NULL    |       |
+| name           | varchar(200)     | NO   |     | NULL    |       |
+| description    | text             | YES  |     | NULL    |       |
+| category_name  | varchar(100)     | YES  |     | NULL    |       |
+| unit_name      | varchar(50)      | NO   |     | NULL    |       |
+| warehouse_id   | int(10) unsigned | NO   |     | 0       |       |
+| warehouse_name | varchar(100)     | NO   |     | NULL    |       |
+| balance        | decimal(15,3)    | NO   |     | 0.000   |       |
+| reserved       | decimal(15,3)    | NO   |     | 0.000   |       |
+| available      | decimal(16,3)    | NO   |     | 0.000   |       |
+| min_stock      | decimal(15,3)    | YES  |     | 0.000   |       |
+| max_stock      | decimal(15,3)    | YES  |     | NULL    |       |
+| reorder_point  | decimal(15,3)    | YES  |     | NULL    |       |
+| cost_price     | decimal(15,3)    | YES  |     | 0.000   |       |
+| selling_price  | decimal(15,3)    | YES  |     | NULL    |       |
+| stock_status   | varchar(12)      | YES  |     | NULL    |       |
+| status_icon    | varchar(1)       | YES  |     | NULL    |       |
++----------------+------------------+------+-----+---------+-------+
+----------------------------------------
+
+📌 جدول: v_recent_movements
+----------------------------------------
+الحقول:
+id, movement_type, product_code, product_name, warehouse_name, quantity, unit_cost, total_cost, balance_before, balance_after, movement_date, user_name, reference_type, reference_id, movement_label
+
+التفاصيل:
++----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------+-------+
+| Field          | Type                                                                                                                                  | Null | Key | Default | Extra |
++----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------+-------+
+| id             | bigint(20) unsigned                                                                                                                   | NO   |     | 0       |       |
+| movement_type  | enum('RECEIPT','ISSUE','TRANSFER_OUT','TRANSFER_IN','RETURN_IN','RETURN_OUT','ADJUSTMENT','COUNT_CORRECTION','RESERVATION','RELEASE') | NO   |     | NULL    |       |
+| product_code   | varchar(50)                                                                                                                           | NO   |     | NULL    |       |
+| product_name   | varchar(200)                                                                                                                          | NO   |     | NULL    |       |
+| warehouse_name | varchar(100)                                                                                                                          | NO   |     | NULL    |       |
+| quantity       | decimal(15,3)                                                                                                                         | NO   |     | NULL    |       |
+| unit_cost      | decimal(15,3)                                                                                                                         | YES  |     | 0.000   |       |
+| total_cost     | decimal(15,3)                                                                                                                         | YES  |     | NULL    |       |
+| balance_before | decimal(15,3)                                                                                                                         | NO   |     | NULL    |       |
+| balance_after  | decimal(15,3)                                                                                                                         | NO   |     | NULL    |       |
+| movement_date  | datetime                                                                                                                              | NO   |     | NULL    |       |
+| user_name      | varchar(100)                                                                                                                          | NO   |     | NULL    |       |
+| reference_type | enum('receipt','issue','transfer','return','inventory_count','stock_adjustment','sales_order')                                        | NO   |     | NULL    |       |
+| reference_id   | bigint(20) unsigned                                                                                                                   | NO   |     | NULL    |       |
+| movement_label | varchar(16)                                                                                                                           | NO   |     |         |       |
++----------------+---------------------------------------------------------------------------------------------------------------------------------------+------+-----+---------+-------+
+----------------------------------------
+
+📌 جدول: v_user_performance
+----------------------------------------
+الحقول:
+id, username, full_name, role_name, total_movements, total_receipts, total_issues, total_transfers, active_days, first_activity, last_activity, last_login_at
+
+التفاصيل:
++-----------------+------------------+------+-----+---------+-------+
+| Field           | Type             | Null | Key | Default | Extra |
++-----------------+------------------+------+-----+---------+-------+
+| id              | int(10) unsigned | NO   |     | 0       |       |
+| username        | varchar(50)      | NO   |     | NULL    |       |
+| full_name       | varchar(100)     | NO   |     | NULL    |       |
+| role_name       | varchar(50)      | YES  |     | NULL    |       |
+| total_movements | bigint(21)       | NO   |     | 0       |       |
+| total_receipts  | bigint(21)       | NO   |     | 0       |       |
+| total_issues    | bigint(21)       | NO   |     | 0       |       |
+| total_transfers | bigint(21)       | NO   |     | 0       |       |
+| active_days     | bigint(21)       | NO   |     | 0       |       |
+| first_activity  | datetime         | YES  |     | NULL    |       |
+| last_activity   | datetime         | YES  |     | NULL    |       |
+| last_login_at   | timestamp        | YES  |     | NULL    |       |
++-----------------+------------------+------+-----+---------+-------+
+----------------------------------------
+
+📌 جدول: warehouses
+----------------------------------------
+الحقول:
+id, code, name, type, location, address, manager_id, phone, email, is_active, is_main, is_default, capacity, current_utilization, notes, created_at, updated_at, deleted_at, created_by, updated_by
+
+التفاصيل:
++---------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+| Field               | Type                                            | Null | Key | Default             | Extra                         |
++---------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+| id                  | int(10) unsigned                                | NO   | PRI | NULL                | auto_increment                |
+| code                | varchar(50)                                     | NO   | UNI | NULL                |                               |
+| name                | varchar(100)                                    | NO   |     | NULL                |                               |
+| type                | enum('main','sub','virtual','store','showroom') | YES  | MUL | main                |                               |
+| location            | varchar(200)                                    | YES  |     | NULL                |                               |
+| address             | text                                            | YES  |     | NULL                |                               |
+| manager_id          | int(10) unsigned                                | YES  | MUL | NULL                |                               |
+| phone               | varchar(20)                                     | YES  |     | NULL                |                               |
+| email               | varchar(100)                                    | YES  |     | NULL                |                               |
+| is_active           | tinyint(1)                                      | YES  | MUL | 1                   |                               |
+| is_main             | tinyint(1)                                      | YES  | MUL | 0                   |                               |
+| is_default          | tinyint(1)                                      | YES  |     | 0                   |                               |
+| capacity            | decimal(15,2)                                   | YES  |     | NULL                |                               |
+| current_utilization | decimal(15,2)                                   | YES  |     | 0.00                |                               |
+| notes               | text                                            | YES  |     | NULL                |                               |
+| created_at          | timestamp                                       | YES  |     | current_timestamp() |                               |
+| updated_at          | timestamp                                       | YES  |     | current_timestamp() | on update current_timestamp() |
+| deleted_at          | timestamp                                       | YES  | MUL | NULL                |                               |
+| created_by          | int(10) unsigned                                | YES  | MUL | NULL                |                               |
+| updated_by          | int(10) unsigned                                | YES  | MUL | NULL                |                               |
++---------------------+-------------------------------------------------+------+-----+---------------------+-------------------------------+
+----------------------------------------
+
+==========================================
+✅ تم عرض جميع الجداول والحقول
+==========================================
+                                                                                                                                                                                                                                            
+┌──(angel㉿desktop-qdu9nav)-[~/Desktop/Stock-Movement]
+└─$ 

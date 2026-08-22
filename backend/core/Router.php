@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/core/Router.php
 // الوصف: نظام التوجيه المتقدم مع دعم الميدل وير والمعلمات
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Core;
@@ -21,7 +20,7 @@ class Router
     /**
      * @var array $middleware - الميدل وير العام
      */
-    private $middleware = [];
+    private $globalMiddleware = [];
     
     /**
      * @var string $prefix - بادئة المسار الحالية
@@ -52,6 +51,24 @@ class Router
      * @var array $routeGroups - مجموعات المسارات
      */
     private $routeGroups = [];
+    
+    /**
+     * @var string|null $currentGroup - المجموعة الحالية
+     */
+    private $currentGroup = null;
+    
+    /**
+     * @var bool $isDebug - وضع التصحيح
+     */
+    private $isDebug = false;
+
+    /**
+     * Constructor
+     */
+    public function __construct()
+    {
+        $this->isDebug = ($_ENV['APP_DEBUG'] ?? false) === 'true';
+    }
 
     /**
      * إضافة مسار جديد
@@ -67,6 +84,7 @@ class Router
         
         // دمج الميدل وير
         $middleware = array_merge(
+            $this->globalMiddleware,
             $this->groupMiddleware,
             $options['middleware'] ?? []
         );
@@ -83,7 +101,8 @@ class Router
             'handler' => $handler,
             'middleware' => $middleware,
             'options' => $options,
-            'name' => $options['name'] ?? null
+            'name' => $options['name'] ?? null,
+            'group' => $this->currentGroup
         ];
         
         $this->routes[] = $route;
@@ -159,24 +178,30 @@ class Router
     {
         $previousPrefix = $this->prefix;
         $previousGroupMiddleware = $this->groupMiddleware;
+        $previousGroup = $this->currentGroup;
         
         $this->prefix = $previousPrefix . $prefix;
         $this->groupMiddleware = array_merge(
             $previousGroupMiddleware,
             $middleware
         );
+        $this->currentGroup = $prefix;
         
         // تسجيل المجموعة
         $groupId = count($this->routeGroups);
         $this->routeGroups[$groupId] = [
             'prefix' => $this->prefix,
-            'middleware' => $this->groupMiddleware
+            'middleware' => $this->groupMiddleware,
+            'name' => $prefix
         ];
         
+        // تنفيذ callback مع $this
         $callback($this);
         
+        // استعادة الحالة السابقة
         $this->prefix = $previousPrefix;
         $this->groupMiddleware = $previousGroupMiddleware;
+        $this->currentGroup = $previousGroup;
         
         return $this;
     }
@@ -204,7 +229,18 @@ class Router
             return null;
         }
         
+        // تسجيل الطلب في وضع التصحيح
+        if ($this->isDebug) {
+            logInfo("Routing: {$method} {$path}", [
+                'ip' => getClientIP(),
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ]);
+        }
+        
         // البحث عن مسار مطابق
+        $matchedRoute = null;
+        $matchedParams = [];
+        
         foreach ($this->routes as $route) {
             if ($route['method'] !== $method && $route['method'] !== 'ANY') {
                 continue;
@@ -213,24 +249,34 @@ class Router
             // مطابقة المسار مع المعلمات
             if (preg_match($route['pattern'], $path, $matches)) {
                 // استخراج المعلمات
-                $this->routeParams = $this->extractParams($route, $matches);
-                
-                // تنفيذ الميدل وير العام
-                $this->executeMiddleware();
-                
-                // تنفيذ ميدل وير المسار
-                foreach ($route['middleware'] as $middleware) {
-                    $this->executeMiddleware($middleware);
-                }
-                
-                // تنفيذ المعالج
-                return $this->executeHandler($route['handler']);
+                $params = $this->extractParams($route, $matches);
+                $matchedRoute = $route;
+                $matchedParams = $params;
+                break;
             }
         }
         
-        // لم يتم العثور على مسار
-        $this->sendNotFoundResponse();
-        return null;
+        if (!$matchedRoute) {
+            $this->sendNotFoundResponse($path);
+            return null;
+        }
+        
+        // تخزين معلمات المسار
+        $this->routeParams = $matchedParams;
+        
+        // تنفيذ الميدل وير العام
+        $this->executeGlobalMiddleware();
+        
+        // تنفيذ ميدل وير المسار
+        foreach ($matchedRoute['middleware'] as $middleware) {
+            $result = $this->executeMiddleware($middleware);
+            if ($result === false) {
+                return null;
+            }
+        }
+        
+        // تنفيذ المعالج
+        return $this->executeHandler($matchedRoute['handler']);
     }
 
     /**
@@ -276,27 +322,52 @@ class Router
     /**
      * تنفيذ الميدل وير
      */
-    private function executeMiddleware(string|callable|null $middleware = null): void
+    private function executeMiddleware(string|callable $middleware): bool
     {
-        if (is_null($middleware)) {
-            // تنفيذ جميع الميدل وير العام
-            foreach ($this->middleware as $mw) {
-                $this->executeMiddleware($mw);
-            }
-            return;
-        }
-        
-        if (is_string($middleware)) {
-            // إنشاء كائن الميدل وير
-            $mwClass = "\\Middleware\\{$middleware}";
-            if (class_exists($mwClass)) {
-                $mw = new $mwClass();
-                if (method_exists($mw, 'handle')) {
-                    $mw->handle($this->routeParams);
+        try {
+            if (is_string($middleware)) {
+                // التحقق من وجود الكلاس
+                $mwClass = "\\Middleware\\{$middleware}";
+                if (class_exists($mwClass)) {
+                    $mw = new $mwClass();
+                    if (method_exists($mw, 'handle')) {
+                        return $mw->handle($this->routeParams);
+                    }
                 }
+                
+                // محاولة البحث عن الكلاس بدون Namespace
+                if (class_exists($middleware)) {
+                    $mw = new $middleware();
+                    if (method_exists($mw, 'handle')) {
+                        return $mw->handle($this->routeParams);
+                    }
+                }
+                
+                throw new Exception("Middleware '{$middleware}' not found");
+                
+            } elseif (is_callable($middleware)) {
+                return $middleware($this->routeParams) !== false;
             }
-        } elseif (is_callable($middleware)) {
-            $middleware($this->routeParams);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            if ($this->isDebug) {
+                errorResponse('Middleware Error: ' . $e->getMessage(), 500);
+            } else {
+                errorResponse('حدث خطأ في المصادقة', 500);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * تنفيذ الميدل وير العام
+     */
+    private function executeGlobalMiddleware(): void
+    {
+        foreach ($this->globalMiddleware as $middleware) {
+            $this->executeMiddleware($middleware);
         }
     }
 
@@ -305,26 +376,49 @@ class Router
      */
     private function executeHandler(callable|array $handler): mixed
     {
-        if (is_array($handler)) {
-            $controller = $handler[0];
-            $method = $handler[1];
-            
-            // إنشاء كائن المتحكم
-            if (is_string($controller)) {
-                $controllerClass = "\\Controllers\\{$controller}";
-                if (class_exists($controllerClass)) {
+        try {
+            if (is_array($handler)) {
+                $controller = $handler[0];
+                $method = $handler[1];
+                
+                // إنشاء كائن المتحكم
+                if (is_string($controller)) {
+                    $controllerClass = "\\Controllers\\{$controller}";
+                    if (!class_exists($controllerClass)) {
+                        // محاولة بدون Namespace
+                        if (class_exists($controller)) {
+                            $controllerClass = $controller;
+                        } else {
+                            throw new Exception("Controller '{$controller}' not found");
+                        }
+                    }
                     $controller = new $controllerClass();
                 }
+                
+                if (is_object($controller) && method_exists($controller, $method)) {
+                    // تمرير المعلمات كـ array
+                    $params = array_values($this->routeParams);
+                    return $controller->$method(...$params);
+                } else {
+                    throw new Exception("Method '{$method}' not found in controller");
+                }
+                
+            } elseif (is_callable($handler)) {
+                // تمرير المعلمات
+                $params = array_values($this->routeParams);
+                return $handler(...$params);
             }
             
-            if (is_object($controller) && method_exists($controller, $method)) {
-                return $controller->$method(...array_values($this->routeParams));
+            throw new Exception('Invalid handler type');
+            
+        } catch (Exception $e) {
+            if ($this->isDebug) {
+                errorResponse('Handler Error: ' . $e->getMessage(), 500);
+            } else {
+                errorResponse('حدث خطأ في معالجة الطلب', 500);
             }
-        } elseif (is_callable($handler)) {
-            return $handler(...array_values($this->routeParams));
+            return null;
         }
-        
-        throw new Exception('Invalid handler');
     }
 
     /**
@@ -332,7 +426,7 @@ class Router
      */
     public function middleware(array $middleware): self
     {
-        $this->middleware = array_merge($this->middleware, $middleware);
+        $this->globalMiddleware = array_merge($this->globalMiddleware, $middleware);
         return $this;
     }
 
@@ -367,7 +461,27 @@ class Router
             $url = str_replace("{{$key}}", $value, $url);
         }
         
+        // إزالة أي معلمات متبقية
+        $url = preg_replace('/\{[a-zA-Z0-9_]+\}/', '', $url);
+        $url = preg_replace('/\/+/', '/', $url);
+        
         return $url;
+    }
+
+    /**
+     * الحصول على جميع المسارات
+     */
+    public function getRoutes(): array
+    {
+        return $this->routes;
+    }
+
+    /**
+     * الحصول على جميع المسارات المسماة
+     */
+    public function getNamedRoutes(): array
+    {
+        return $this->namedRoutes;
     }
 
     /**
@@ -377,33 +491,43 @@ class Router
     {
         header('HTTP/1.1 200 OK');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS');
-        header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Requested-With');
+        header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Requested-With, Origin');
         header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Max-Age: 86400');
         exit;
     }
 
     /**
      * إرسال استجابة 404
      */
-    private function sendNotFoundResponse(): void
+    private function sendNotFoundResponse(string $path): void
     {
         header('HTTP/1.1 404 Not Found');
         header('Content-Type: application/json');
-        echo json_encode([
-            'success' => false,
-            'message' => 'المسار غير موجود',
-            'code' => 'ROUTE_NOT_FOUND',
-            'timestamp' => date('Y-m-d H:i:s')
-        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        
+        if ($this->isDebug) {
+            $response = [
+                'success' => false,
+                'message' => 'المسار غير موجود',
+                'code' => 'ROUTE_NOT_FOUND',
+                'path' => $path,
+                'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
+                'available_routes' => array_map(function($route) {
+                    return $route['method'] . ' ' . $route['path'];
+                }, $this->routes),
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        } else {
+            $response = [
+                'success' => false,
+                'message' => 'المسار غير موجود',
+                'code' => 'ROUTE_NOT_FOUND',
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        }
+        
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         exit;
-    }
-
-    /**
-     * الحصول على جميع المسارات المسجلة
-     */
-    public function getRoutes(): array
-    {
-        return $this->routes;
     }
 
     /**
@@ -436,11 +560,122 @@ class Router
                     'name' => $route['name'],
                     'path' => $route['path'],
                     'method' => $route['method'],
-                    'params' => $this->extractParams($route, $matches)
+                    'params' => $this->extractParams($route, $matches),
+                    'group' => $route['group']
                 ];
             }
         }
         
         return null;
     }
+
+    /**
+     * التحقق من وجود مسار
+     */
+    public function hasRoute(string $path, string $method = 'GET'): bool
+    {
+        $method = strtoupper($method);
+        foreach ($this->routes as $route) {
+            if (($route['method'] === $method || $route['method'] === 'ANY') && 
+                preg_match($route['pattern'], $path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * الحصول على المسارات حسب المجموعة
+     */
+    public function getRoutesByGroup(string $group): array
+    {
+        return array_filter($this->routes, function($route) use ($group) {
+            return $route['group'] === $group;
+        });
+    }
+
+    /**
+     * الحصول على إحصائيات المسارات
+     */
+    public function getStats(): array
+    {
+        $stats = [
+            'total' => count($this->routes),
+            'by_method' => [],
+            'by_group' => [],
+            'named' => count($this->namedRoutes)
+        ];
+        
+        foreach ($this->routes as $route) {
+            $method = $route['method'];
+            if (!isset($stats['by_method'][$method])) {
+                $stats['by_method'][$method] = 0;
+            }
+            $stats['by_method'][$method]++;
+            
+            if ($route['group']) {
+                if (!isset($stats['by_group'][$route['group']])) {
+                    $stats['by_group'][$route['group']] = 0;
+                }
+                $stats['by_group'][$route['group']]++;
+            }
+        }
+        
+        return $stats;
+    }
+
+    /**
+     * إنشاء مجموعة من المسارات (Shortcut)
+     */
+    public function resource(string $prefix, string $controller): self
+    {
+        $this->group($prefix, [], function($router) use ($controller, $prefix) {
+            // Index - GET /api/{prefix}
+            $router->get('', [$controller, 'index']);
+            
+            // Create - POST /api/{prefix}
+            $router->post('', [$controller, 'create']);
+            
+            // Show - GET /api/{prefix}/{id}
+            $router->get('/{id}', [$controller, 'show']);
+            
+            // Update - PUT /api/{prefix}/{id}
+            $router->put('/{id}', [$controller, 'update']);
+            
+            // Delete - DELETE /api/{prefix}/{id}
+            $router->delete('/{id}', [$controller, 'delete']);
+        });
+        
+        return $this;
+    }
+
+    /**
+     * إنشاء API Resource (مع صلاحيات)
+     */
+    public function apiResource(string $prefix, string $controller, array $permissions = []): self
+    {
+        $middleware = !empty($permissions) ? ['AuthMiddleware', 'PermissionMiddleware'] : ['AuthMiddleware'];
+        
+        $this->group($prefix, $middleware, function($router) use ($controller, $permissions) {
+            $router->get('', [$controller, 'index']);
+            $router->post('', [$controller, 'create']);
+            $router->get('/{id}', [$controller, 'show']);
+            $router->put('/{id}', [$controller, 'update']);
+            $router->delete('/{id}', [$controller, 'delete']);
+        }, ['permissions' => $permissions]);
+        
+        return $this;
+    }
+
+    /**
+     * تسجيل مجموعة من المسارات لـ CRUD
+     */
+    public function crud(string $prefix, string $controller): self
+    {
+        return $this->resource($prefix, $controller);
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

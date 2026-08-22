@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/UserController.php
-// الوصف: متحكم إدارة المستخدمين - CRUD كامل مع صلاحيات متقدمة
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة المستخدمين المتقدم - CRUD، صلاحيات، قفل/فتح، سجل النشاط
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -12,6 +11,7 @@ namespace Controllers;
 use Core\Database;
 use Core\Auth;
 use Core\Audit;
+use Exception;
 
 class UserController
 {
@@ -109,6 +109,7 @@ class UserController
                     u.department,
                     u.phone,
                     u.mobile,
+                    u.avatar,
                     u.role_id,
                     r.name as role_name,
                     r.display_name as role_display,
@@ -121,11 +122,20 @@ class UserController
                     u.last_login_ip,
                     u.last_password_change,
                     u.password_expiry_days,
+                    u.language,
+                    u.theme,
                     u.created_at,
                     u.updated_at,
                     u.deleted_at,
                     (SELECT COUNT(*) FROM user_sessions WHERE user_id = u.id AND is_active = 1) as active_sessions,
-                    (SELECT COUNT(*) FROM audit_logs WHERE user_id = u.id AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as activities_7d
+                    (SELECT COUNT(*) FROM audit_logs WHERE user_id = u.id AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as activities_7d,
+                    CASE 
+                        WHEN u.is_locked = 1 THEN 'مقفل'
+                        WHEN u.is_active = 0 THEN 'غير نشط'
+                        WHEN u.last_login_at IS NULL THEN 'لم يسجل دخول'
+                        WHEN DATEDIFF(NOW(), u.last_login_at) > 30 THEN 'غير نشط منذ فترة'
+                        ELSE 'نشط'
+                    END as user_status_label
                 FROM users u
                 INNER JOIN roles r ON r.id = u.role_id
                 WHERE " . implode(' AND ', $where) . "
@@ -153,6 +163,11 @@ class UserController
                 WHERE deleted_at IS NULL
             ");
 
+            // جلب قائمة الأدوار لعرضها في الفلتر
+            $roles = $this->db->query("
+                SELECT id, name, display_name FROM roles WHERE deleted_at IS NULL ORDER BY name
+            ");
+
             successResponse('تم جلب قائمة المستخدمين', [
                 'data' => $users,
                 'stats' => [
@@ -164,6 +179,7 @@ class UserController
                     'roles_count' => (int)($stats['roles_count'] ?? 0),
                     'departments_count' => (int)($stats['departments_count'] ?? 0)
                 ],
+                'roles' => $roles,
                 'pagination' => [
                     'page' => $page,
                     'limit' => $limit,
@@ -172,9 +188,9 @@ class UserController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Users list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -206,7 +222,7 @@ class UserController
             }
 
             // جلب الصلاحيات
-            $permissions = $this->auth->getUserPermissions($id);
+            $permissions = $this->auth->getUserPermissionsHierarchical($id);
             
             // جلب الجلسات النشطة
             $sessions = $this->db->query("
@@ -255,17 +271,41 @@ class UserController
                 LIMIT 10
             ", ['user_id' => $id]);
 
+            // إحصائيات المستخدم
+            $stats = $this->db->queryOne("
+                SELECT 
+                    COUNT(DISTINCT al.id) as total_actions,
+                    COUNT(DISTINCT DATE(al.created_at)) as active_days,
+                    COUNT(DISTINCT al.module) as modules_used,
+                    MAX(al.created_at) as last_action,
+                    COUNT(DISTINCT sm.id) as total_movements,
+                    SUM(sm.quantity) as total_quantity,
+                    COUNT(DISTINCT sm.warehouse_id) as warehouses_used
+                FROM audit_logs al
+                LEFT JOIN stock_movements sm ON sm.user_id = al.user_id
+                WHERE al.user_id = :user_id
+            ", ['user_id' => $id]);
+
             successResponse('تم جلب بيانات المستخدم', [
                 'user' => $user,
                 'permissions' => $permissions,
                 'sessions' => $sessions,
                 'recent_activities' => $activities,
-                'password_history' => $passwordHistory
+                'password_history' => $passwordHistory,
+                'stats' => [
+                    'total_actions' => (int)($stats['total_actions'] ?? 0),
+                    'active_days' => (int)($stats['active_days'] ?? 0),
+                    'modules_used' => (int)($stats['modules_used'] ?? 0),
+                    'last_action' => $stats['last_action'] ?? null,
+                    'total_movements' => (int)($stats['total_movements'] ?? 0),
+                    'total_quantity' => (float)($stats['total_quantity'] ?? 0),
+                    'warehouses_used' => (int)($stats['warehouses_used'] ?? 0)
+                ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -291,7 +331,7 @@ class UserController
             }
 
             // جلب الصلاحيات
-            $permissions = $this->auth->getUserPermissions($userId);
+            $permissions = $this->auth->getUserPermissionsHierarchical($userId);
             
             // جلب الجلسات النشطة
             $sessions = $this->db->query("
@@ -316,9 +356,9 @@ class UserController
                 'active_sessions' => $sessions
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Me error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -358,6 +398,17 @@ class UserController
                 return;
             }
 
+            // التحقق من وجود الدور
+            $role = $this->db->queryValue(
+                "SELECT id FROM roles WHERE id = :id",
+                ['id' => $input['role_id']]
+            );
+            
+            if (!$role) {
+                errorResponse('الدور غير موجود');
+                return;
+            }
+
             // إنشاء المستخدم
             $data = [
                 'username' => $input['username'],
@@ -371,6 +422,8 @@ class UserController
                 'mobile' => $input['mobile'] ?? null,
                 'is_active' => $input['is_active'] ?? 1,
                 'is_verified' => $input['is_verified'] ?? 0,
+                'language' => $input['language'] ?? 'ar',
+                'theme' => $input['theme'] ?? 'dark',
                 'created_by' => $userId,
                 'created_at' => date('Y-m-d H:i:s')
             ];
@@ -390,9 +443,9 @@ class UserController
 
             successResponse('تم إنشاء المستخدم بنجاح', ['user_id' => $newUserId]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -451,6 +504,19 @@ class UserController
                 }
             }
 
+            // التحقق من وجود الدور
+            if (isset($input['role_id'])) {
+                $role = $this->db->queryValue(
+                    "SELECT id FROM roles WHERE id = :id",
+                    ['id' => $input['role_id']]
+                );
+                
+                if (!$role) {
+                    errorResponse('الدور غير موجود');
+                    return;
+                }
+            }
+
             // تحديث البيانات
             $data = [
                 'username' => $input['username'] ?? $user['username'],
@@ -463,6 +529,8 @@ class UserController
                 'mobile' => $input['mobile'] ?? $user['mobile'],
                 'is_active' => $input['is_active'] ?? $user['is_active'],
                 'is_verified' => $input['is_verified'] ?? $user['is_verified'],
+                'language' => $input['language'] ?? $user['language'],
+                'theme' => $input['theme'] ?? $user['theme'],
                 'updated_by' => $userId,
                 'updated_at' => date('Y-m-d H:i:s')
             ];
@@ -488,9 +556,9 @@ class UserController
 
             successResponse('تم تحديث بيانات المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -560,9 +628,9 @@ class UserController
 
             successResponse('تم حذف المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User delete error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -616,9 +684,9 @@ class UserController
 
             successResponse('تم استعادة المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User restore error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -688,9 +756,9 @@ class UserController
 
             successResponse('تم قفل المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User lock error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -743,9 +811,9 @@ class UserController
 
             successResponse('تم فتح قفل المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User unlock error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -846,9 +914,9 @@ class UserController
 
             successResponse('تم تحديث صلاحيات المستخدم بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User permissions error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -878,9 +946,16 @@ class UserController
                 return;
             }
 
-            $permissions = $this->auth->getUserPermissions($id);
+            $permissions = $this->auth->getUserPermissionsHierarchical($id);
             $allPermissions = $this->db->query("
-                SELECT id, name, display_name, module, description
+                SELECT 
+                    id, 
+                    name, 
+                    display_name, 
+                    module, 
+                    sub_module,
+                    action,
+                    description
                 FROM permissions
                 ORDER BY module, name
             ");
@@ -895,76 +970,9 @@ class UserController
                 'all_permissions' => $allPermissions
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Get permissions error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * POST /api/users/{id}/change-password
-     * تغيير كلمة المرور (للمستخدم العادي)
-     */
-    public function changePassword(int $id): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            // التحقق من أن المستخدم يغير كلمة مروره الخاصة أو لديه صلاحية
-            if ($id != $userId && !$this->auth->hasPermission($userId, 'users.edit')) {
-                errorResponse('ليس لديك صلاحية لتغيير كلمة مرور الآخرين', 403);
-                return;
-            }
-
-            $input = json_decode(file_get_contents('php://input'), true);
-            
-            $currentPassword = $input['current_password'] ?? '';
-            $newPassword = $input['new_password'] ?? '';
-            $confirmPassword = $input['confirm_password'] ?? '';
-
-            // التحقق من البيانات
-            if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
-                errorResponse('يرجى ملء جميع الحقول');
-                return;
-            }
-
-            if ($newPassword !== $confirmPassword) {
-                errorResponse('كلمة المرور الجديدة وتأكيدها غير متطابقين');
-                return;
-            }
-
-            if (strlen($newPassword) < 8) {
-                errorResponse('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
-                return;
-            }
-
-            // تغيير كلمة المرور
-            $result = $this->auth->changePassword($id, $currentPassword, $newPassword);
-
-            if ($result['success']) {
-                $this->audit->log(
-                    $userId,
-                    'PASSWORD_CHANGED',
-                    'users',
-                    "تغيير كلمة المرور",
-                    ['user_id' => $id],
-                    'user',
-                    $id
-                );
-                successResponse('تم تغيير كلمة المرور بنجاح. سيتم تسجيل الخروج من جميع الأجهزة');
-                return;
-            }
-
-            errorResponse($result['message']);
-
-        } catch (\Exception $e) {
-            error_log('Change password error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1038,9 +1046,9 @@ class UserController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User activities error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1090,9 +1098,72 @@ class UserController
 
             successResponse('تم جلب جلسات المستخدم', $sessions);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('User sessions error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/users/export
+     * تصدير المستخدمين
+     */
+    public function export(): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية التصدير
+            if (!$this->auth->hasPermission($userId, 'users.export')) {
+                errorResponse('ليس لديك صلاحية لتصدير المستخدمين', 403);
+                return;
+            }
+
+            $format = $_GET['format'] ?? 'csv';
+            $role = $_GET['role'] ?? '';
+
+            $params = [];
+            $where = ["deleted_at IS NULL"];
+            
+            if (!empty($role)) {
+                $where[] = "role_id = :role";
+                $params['role'] = $role;
+            }
+
+            $users = $this->db->query("
+                SELECT 
+                    username,
+                    full_name,
+                    email,
+                    employee_id,
+                    department,
+                    phone,
+                    mobile,
+                    is_active,
+                    is_verified,
+                    last_login_at,
+                    created_at
+                FROM users
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY full_name
+            ", $params);
+
+            if ($format === 'csv') {
+                $this->exportCSV($users);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($users);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $users);
+            }
+
+        } catch (Exception $e) {
+            error_log('User export error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1116,6 +1187,65 @@ class UserController
             INNER JOIN roles r ON r.id = u.role_id
             WHERE u.id = :id
         ", ['id' => $id]);
+    }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="users_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
+        
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * تصدير Excel
+     */
+    private function exportExcel(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="users_' . date('Y-m-d') . '.xls"');
+        
+        echo '<table border="1">';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
+        echo '</tr>';
+        
+        foreach ($data as $row) {
+            echo '<tr>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
     }
 
     /**
@@ -1143,6 +1273,26 @@ class UserController
                 errorResponse('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
                 return;
             }
+            
+            if (!preg_match('/[A-Z]/', $data['password'])) {
+                errorResponse('كلمة المرور يجب أن تحتوي على حرف كبير');
+                return;
+            }
+            
+            if (!preg_match('/[a-z]/', $data['password'])) {
+                errorResponse('كلمة المرور يجب أن تحتوي على حرف صغير');
+                return;
+            }
+            
+            if (!preg_match('/[0-9]/', $data['password'])) {
+                errorResponse('كلمة المرور يجب أن تحتوي على رقم');
+                return;
+            }
+            
+            if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', $data['password'])) {
+                errorResponse('كلمة المرور يجب أن تحتوي على رمز خاص');
+                return;
+            }
         }
         
         if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
@@ -1165,15 +1315,13 @@ class UserController
             return;
         }
         
-        // التحقق من وجود الدور
-        $role = $this->db->queryValue(
-            "SELECT id FROM roles WHERE id = :id",
-            ['id' => $data['role_id']]
-        );
-        
-        if (!$role) {
-            errorResponse('الدور غير موجود');
+        if (!is_numeric($data['role_id'])) {
+            errorResponse('الدور غير صحيح');
             return;
         }
     }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
     <style>
-        /* نفس أنماط warehouses.html */
+        /* ================================================================
+        أنماط مشتركة مع Dashboard
+        ================================================================ */
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Tajawal','Segoe UI',sans-serif;background:#0a0e1a;min-height:100vh;direction:rtl;overflow-x:hidden}
         
@@ -172,36 +174,134 @@
         (function() {
             'use strict';
 
+            // ================================================================
+            // التحقق من حالة تسجيل الدخول
+            // ================================================================
             const token = localStorage.getItem('auth_token');
-            if (!token) { window.location.href = '/frontend/pages/login.html'; return; }
+            if (!token) { 
+                window.location.href = '/frontend/pages/login.html'; 
+                return; 
+            }
 
+            // ================================================================
+            // تحميل معلومات المستخدم
+            // ================================================================
             try {
                 const userData = JSON.parse(localStorage.getItem('user') || '{}');
                 document.getElementById('userName').textContent = userData.name || 'مدير النظام';
                 document.getElementById('userRole').textContent = userData.role === 'admin' ? 'مدير' : 'مستخدم';
                 document.getElementById('userAvatar').textContent = (userData.name || 'م')[0];
-            } catch (e) {}
-
-            let products = [
-                { id: 1, name: 'مادة خام A', warehouse_id: 1, quantity: 100, unit: 'كجم', price: 50, category: 'مواد خام' },
-                { id: 2, name: 'منتج نهائي B', warehouse_id: 1, quantity: 50, unit: 'قطعة', price: 150, category: 'منتجات' },
-                { id: 3, name: 'مادة مساعدة C', warehouse_id: 2, quantity: 15, unit: 'لتر', price: 25, category: 'مواد مساعدة' },
-                { id: 4, name: 'منتج نهائي D', warehouse_id: 3, quantity: 200, unit: 'قطعة', price: 75, category: 'منتجات' },
-                { id: 5, name: 'مادة خام E', warehouse_id: 1, quantity: 8, unit: 'كجم', price: 120, category: 'مواد خام' }
-            ];
-
-            let warehouses = [
-                { id: 1, name: 'المخزن الرئيسي' },
-                { id: 2, name: 'مخزن المواد الخام' },
-                { id: 3, name: 'مخزن المنتجات النهائية' }
-            ];
-
-            function loadData() {
-                document.getElementById('productBadge').textContent = products.length;
-                document.getElementById('warehouseBadge').textContent = warehouses.length;
-                renderTable();
+            } catch (e) {
+                console.warn('No user data found');
             }
 
+            // ================================================================
+            // تحديد مسار API الصحيح (نفس حل dashboard)
+            // ================================================================
+            function getApiBaseUrl() {
+                const currentPath = window.location.pathname;
+                
+                if (currentPath.includes('/pages/')) {
+                    return '../../api';
+                }
+                
+                if (currentPath.includes('/frontend/')) {
+                    return '../api';
+                }
+                
+                if (currentPath.includes('/Stock-Movement/')) {
+                    return '/Stock-Movement/api';
+                }
+                
+                return '/api';
+            }
+
+            const API_BASE_URL = getApiBaseUrl();
+            console.log('%c🔗 مسار API: ' + API_BASE_URL, 'font-size:14px;color:#28a745;');
+
+            // ================================================================
+            // دالة الاتصال بقاعدة البيانات
+            // ================================================================
+            async function apiRequest(endpoint, method = 'GET', data = null) {
+                const url = API_BASE_URL + '/api.php?path=' + endpoint;
+                console.log('📡 طلب إلى:', url);
+                
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    }
+                };
+                
+                if (data && method !== 'GET') {
+                    options.body = JSON.stringify(data);
+                }
+                
+                try {
+                    const response = await fetch(url, options);
+                    const result = await response.json();
+                    console.log('📥 استجابة:', result);
+                    
+                    if (!result.success) {
+                        throw new Error(result.message || 'حدث خطأ في الطلب');
+                    }
+                    
+                    return result;
+                } catch (error) {
+                    console.error('❌ خطأ في API:', error);
+                    throw new Error('فشل الاتصال بالخادم: ' + error.message);
+                }
+            }
+
+            // ================================================================
+            // متغيرات البيانات
+            // ================================================================
+            let products = [];
+            let warehouses = [];
+
+            // ================================================================
+            // تحميل البيانات من قاعدة البيانات
+            // ================================================================
+            async function loadData() {
+                try {
+                    // جلب الأصناف والمخازن من قاعدة البيانات
+                    const [productsRes, warehousesRes] = await Promise.all([
+                        apiRequest('products'),
+                        apiRequest('warehouses')
+                    ]);
+                    
+                    products = productsRes.data || [];
+                    warehouses = warehousesRes.data || [];
+                    
+                    console.log('✅ تم تحميل الأصناف:', products.length);
+                    console.log('✅ تم تحميل المخازن:', warehouses.length);
+                    
+                    document.getElementById('productBadge').textContent = products.length;
+                    document.getElementById('warehouseBadge').textContent = warehouses.length;
+                    renderTable();
+                    
+                } catch (error) {
+                    console.error('❌ خطأ في تحميل البيانات:', error);
+                    showToast('❌ خطأ في تحميل البيانات: ' + error.message, 'error');
+                    
+                    // عرض رسالة خطأ في الجدول
+                    const tbody = document.getElementById('productsTableBody');
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">
+                                <i class="fas fa-database" style="font-size:32px;display:block;margin-bottom:10px;color:#dc3545;"></i>
+                                ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // ================================================================
+            // عرض الجدول
+            // ================================================================
             function renderTable() {
                 const tbody = document.getElementById('productsTableBody');
                 const search = document.getElementById('searchInput').value.toLowerCase();
@@ -245,19 +345,9 @@
                 }).join('');
             }
 
-            // Modal
-            const modal = document.getElementById('productModal');
-            document.getElementById('addProductBtn').addEventListener('click', () => {
-                document.getElementById('modalTitle').textContent = 'إضافة صنف جديد';
-                document.getElementById('submitBtn').textContent = 'إضافة الصنف';
-                document.getElementById('editId').value = '';
-                document.getElementById('productForm').reset();
-                populateWarehouseSelect();
-                modal.classList.add('show');
-            });
-            document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
-
+            // ================================================================
+            // تعبئة قائمة المخازن في المودال
+            // ================================================================
             function populateWarehouseSelect() {
                 const select = document.getElementById('prodWarehouse');
                 select.innerHTML = '';
@@ -269,25 +359,51 @@
                 });
             }
 
-            window.editProduct = function(id) {
-                const p = products.find(p => p.id === id);
-                if (p) {
-                    document.getElementById('modalTitle').textContent = 'تعديل الصنف';
-                    document.getElementById('submitBtn').textContent = 'تحديث الصنف';
-                    document.getElementById('editId').value = id;
-                    document.getElementById('prodName').value = p.name || '';
-                    document.getElementById('prodQuantity').value = p.quantity || 0;
-                    document.getElementById('prodUnit').value = p.unit || '';
-                    document.getElementById('prodPrice').value = p.price || 0;
-                    document.getElementById('prodCategory').value = p.category || 'مواد خام';
-                    populateWarehouseSelect();
-                    document.getElementById('prodWarehouse').value = p.warehouse_id || '';
-                    modal.classList.add('show');
+            // ================================================================
+            // إضافة / تعديل صنف
+            // ================================================================
+            const modal = document.getElementById('productModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const submitBtn = document.getElementById('submitBtn');
+            const editId = document.getElementById('editId');
+
+            document.getElementById('addProductBtn').addEventListener('click', () => {
+                modalTitle.textContent = 'إضافة صنف جديد';
+                submitBtn.textContent = 'إضافة الصنف';
+                editId.value = '';
+                document.getElementById('productForm').reset();
+                populateWarehouseSelect();
+                modal.classList.add('show');
+            });
+
+            document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+            window.editProduct = async function(id) {
+                try {
+                    const res = await apiRequest('products/' + id);
+                    const p = res.data;
+                    if (p) {
+                        modalTitle.textContent = 'تعديل الصنف';
+                        submitBtn.textContent = 'تحديث الصنف';
+                        editId.value = id;
+                        document.getElementById('prodName').value = p.name || '';
+                        document.getElementById('prodQuantity').value = p.quantity || 0;
+                        document.getElementById('prodUnit').value = p.unit || '';
+                        document.getElementById('prodPrice').value = p.price || 0;
+                        document.getElementById('prodCategory').value = p.category || 'مواد خام';
+                        populateWarehouseSelect();
+                        document.getElementById('prodWarehouse').value = p.warehouse_id || '';
+                        modal.classList.add('show');
+                    }
+                } catch (error) {
+                    showToast('❌ خطأ في تحميل بيانات الصنف: ' + error.message, 'error');
                 }
             };
 
-            document.getElementById('productForm').addEventListener('submit', function(e) {
+            document.getElementById('productForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                
                 const id = document.getElementById('editId').value;
                 const data = {
                     name: document.getElementById('prodName').value.trim(),
@@ -297,52 +413,92 @@
                     unit: document.getElementById('prodUnit').value.trim(),
                     price: parseFloat(document.getElementById('prodPrice').value) || 0
                 };
-                if (!data.name) { showToast('⚠️ يرجى إدخال اسم الصنف', 'warning'); return; }
                 
-                if (id) {
-                    const index = products.findIndex(p => p.id === parseInt(id));
-                    if (index !== -1) {
-                        products[index] = { ...products[index], ...data };
-                        showToast('✅ تم تحديث الصنف', 'success');
-                    }
-                } else {
-                    const newId = Math.max(...products.map(p => p.id)) + 1;
-                    products.push({ id: newId, ...data });
-                    showToast('✅ تم إضافة الصنف', 'success');
+                if (!data.name) { 
+                    showToast('⚠️ يرجى إدخال اسم الصنف', 'warning'); 
+                    return; 
                 }
-                modal.classList.remove('show');
-                loadData();
+                
+                try {
+                    if (id) {
+                        await apiRequest('products/' + id, 'PUT', data);
+                        showToast('✅ تم تحديث الصنف بنجاح', 'success');
+                    } else {
+                        await apiRequest('products', 'POST', data);
+                        showToast('✅ تم إضافة الصنف بنجاح', 'success');
+                    }
+                    modal.classList.remove('show');
+                    await loadData();
+                } catch (error) {
+                    showToast('❌ خطأ: ' + error.message, 'error');
+                }
             });
 
-            window.deleteProduct = function(id) {
+            // ================================================================
+            // حذف صنف
+            // ================================================================
+            window.deleteProduct = async function(id) {
                 const p = products.find(p => p.id === id);
                 if (!p) return;
+                
                 if (confirm(`هل أنت متأكد من حذف الصنف "${p.name}"؟`)) {
-                    products = products.filter(p => p.id !== id);
-                    showToast('🗑️ تم حذف الصنف', 'success');
-                    loadData();
+                    try {
+                        await apiRequest('products/' + id, 'DELETE');
+                        showToast('🗑️ تم حذف الصنف بنجاح', 'success');
+                        await loadData();
+                    } catch (error) {
+                        showToast('❌ خطأ في الحذف: ' + error.message, 'error');
+                    }
                 }
             };
 
+            // ================================================================
+            // البحث والفلترة
+            // ================================================================
             document.getElementById('searchInput').addEventListener('input', renderTable);
             document.getElementById('categoryFilter').addEventListener('change', renderTable);
             document.getElementById('statusFilter').addEventListener('change', renderTable);
 
+            // ================================================================
+            // Toast
+            // ================================================================
             function showToast(message, type = 'info') {
                 const existing = document.querySelector('.custom-toast');
                 if (existing) existing.remove();
+                
                 const toast = document.createElement('div');
                 toast.className = `custom-toast ${type}`;
-                const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+                const icons = { 
+                    success: 'fa-check-circle', 
+                    error: 'fa-exclamation-circle', 
+                    warning: 'fa-exclamation-triangle', 
+                    info: 'fa-info-circle' 
+                };
                 toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
                 document.body.appendChild(toast);
-                setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s ease'; setTimeout(() => toast.remove(), 400); }, 3500);
+                setTimeout(() => { 
+                    toast.style.opacity = '0'; 
+                    toast.style.transition = 'opacity 0.4s ease'; 
+                    setTimeout(() => toast.remove(), 400); 
+                }, 3500);
             }
 
+            // ================================================================
+            // Sidebar Toggle
+            // ================================================================
             const sidebar = document.getElementById('sidebar');
-            document.getElementById('sidebarToggle').addEventListener('click', function() { sidebar.classList.toggle('open'); this.querySelector('i').classList.toggle('fa-bars'); this.querySelector('i').classList.toggle('fa-times'); });
-            document.getElementById('mobileSidebarToggle').addEventListener('click', function() { sidebar.classList.toggle('open'); });
+            document.getElementById('sidebarToggle').addEventListener('click', function() { 
+                sidebar.classList.toggle('open'); 
+                this.querySelector('i').classList.toggle('fa-bars'); 
+                this.querySelector('i').classList.toggle('fa-times'); 
+            });
+            document.getElementById('mobileSidebarToggle').addEventListener('click', function() { 
+                sidebar.classList.toggle('open'); 
+            });
 
+            // ================================================================
+            // Logout
+            // ================================================================
             document.getElementById('logoutBtn').addEventListener('click', function(e) {
                 e.preventDefault();
                 if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
@@ -352,8 +508,12 @@
                 }
             });
 
+            // ================================================================
+            // تشغيل التطبيق
+            // ================================================================
             loadData();
             console.log('%c📦 إدارة الأصناف - نظام المخازن v5.0', 'font-size:20px;font-weight:bold;color:#28a745;');
+
         })();
     </script>
 

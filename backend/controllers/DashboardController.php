@@ -1,105 +1,105 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/DashboardController.php
-// الوصف: متحكم لوحة التحكم - الإحصائيات والرسوم البيانية
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم لوحة التحكم - مع بيانات المخازن للرسم البياني وإشعارات
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
 
 use Core\Database;
-use Core\Auth;
-use Core\Audit;
+use Core\Session;
+use Exception;
 
 class DashboardController
 {
     /**
-     * @var Database $db - اتصال قاعدة البيانات
+     * @var Database $db
      */
     private $db;
     
     /**
-     * @var Auth $auth - نظام المصادقة
+     * @var Session $session
      */
-    private $auth;
-    
-    /**
-     * @var Audit $audit - سجل التدقيق
-     */
-    private $audit;
+    private $session;
 
     public function __construct()
     {
         $this->db = Database::getInstance();
-        $this->auth = new Auth();
-        $this->audit = new Audit();
+        $this->session = new Session();
     }
 
     /**
+     * ============================================================
      * GET /api/dashboard
      * جلب جميع بيانات لوحة التحكم
+     * ============================================================
      */
     public function index(): void
     {
         try {
-            $userId = $_REQUEST['user_id'] ?? null;
+            $userId = $this->validateToken();
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
                 return;
             }
 
-            $stats = $this->getStats($userId);
+            $stats = $this->getStats();
             $charts = $this->getChartData();
-            $recentActivities = $this->getRecentActivities();
-            $alerts = $this->getAlerts($userId);
+            $activities = $this->getRecentActivities();
+            $notifications = $this->getNotifications($userId);
             
             successResponse('تم جلب بيانات لوحة التحكم', [
                 'stats' => $stats,
                 'charts' => $charts,
-                'recent_activities' => $recentActivities,
-                'alerts' => $alerts
+                'recent_activities' => $activities,
+                'notifications' => $notifications,
+                'updated_at' => date('Y-m-d H:i:s')
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Dashboard error: ' . $e->getMessage());
-            errorResponse('حدث خطأ في جلب بيانات لوحة التحكم: ' . $e->getMessage());
+            errorResponse('حدث خطأ في جلب بيانات لوحة التحكم: ' . $e->getMessage(), 500);
         }
     }
 
     /**
+     * ============================================================
      * GET /api/dashboard/stats
      * جلب الإحصائيات فقط
+     * ============================================================
      */
     public function stats(): void
     {
         try {
-            $userId = $_REQUEST['user_id'] ?? null;
+            $userId = $this->validateToken();
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
                 return;
             }
 
-            $stats = $this->getStats($userId);
+            $stats = $this->getStats();
             successResponse('تم جلب الإحصائيات', $stats);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Dashboard stats error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ في جلب الإحصائيات: ' . $e->getMessage(), 500);
         }
     }
 
     /**
+     * ============================================================
      * GET /api/dashboard/charts
      * جلب بيانات الرسوم البيانية
+     * ============================================================
      */
     public function charts(): void
     {
         try {
-            $userId = $_REQUEST['user_id'] ?? null;
+            $userId = $this->validateToken();
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
@@ -109,43 +109,22 @@ class DashboardController
             $charts = $this->getChartData();
             successResponse('تم جلب بيانات الرسوم البيانية', $charts);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Dashboard charts error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * GET /api/dashboard/alerts
-     * جلب التنبيهات
-     */
-    public function alerts(): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            $alerts = $this->getAlerts($userId);
-            successResponse('تم جلب التنبيهات', $alerts);
-
-        } catch (\Exception $e) {
-            error_log('Dashboard alerts error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
+     * ============================================================
      * GET /api/dashboard/activities
      * جلب آخر الأنشطة
+     * ============================================================
      */
     public function activities(): void
     {
         try {
-            $userId = $_REQUEST['user_id'] ?? null;
+            $userId = $this->validateToken();
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
@@ -155,598 +134,403 @@ class DashboardController
             $activities = $this->getRecentActivities();
             successResponse('تم جلب آخر الأنشطة', $activities);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Dashboard activities error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * GET /api/dashboard/status
-     * جلب حالة النظام
+     * ============================================================
+     * GET /api/dashboard/notifications
+     * جلب الإشعارات فقط
+     * ============================================================
      */
-    public function status(): void
+    public function notifications(): void
     {
         try {
-            $status = [
-                'server' => [
-                    'status' => 'online',
-                    'php_version' => PHP_VERSION,
-                    'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
-                    'memory_usage' => round(memory_get_usage(true) / 1024 / 1024, 2) . ' MB',
-                    'uptime' => $this->getServerUptime()
-                ],
-                'database' => [
-                    'status' => $this->checkDatabaseConnection() ? 'online' : 'offline',
-                    'connections' => $this->getDatabaseConnections(),
-                    'size' => $this->getDatabaseSize()
-                ],
-                'system' => [
-                    'version' => VERSION,
-                    'environment' => $_ENV['APP_ENV'] ?? 'production',
-                    'timezone' => date_default_timezone_get(),
-                    'current_time' => date('Y-m-d H:i:s')
-                ]
-            ];
+            $userId = $this->validateToken();
             
-            successResponse('تم جلب حالة النظام', $status);
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
 
-        } catch (\Exception $e) {
-            error_log('Dashboard status error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            $notifications = $this->getNotifications($userId);
+            successResponse('تم جلب الإشعارات', $notifications);
+
+        } catch (Exception $e) {
+            error_log('Dashboard notifications error: ' . $e->getMessage());
+            errorResponse('حدث خطأ في جلب الإشعارات: ' . $e->getMessage(), 500);
         }
     }
 
-    // ================================================================
-    // دوال جلب البيانات
-    // ================================================================
+    /**
+     * ============================================================
+     * POST /api/dashboard/notifications/read
+     * تعيين إشعار كمقروء
+     * ============================================================
+     */
+    public function markNotificationRead(): void
+    {
+        try {
+            $userId = $this->validateToken();
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+            $notificationId = $input['notification_id'] ?? null;
+
+            if (!$notificationId) {
+                errorResponse('معرف الإشعار مطلوب');
+                return;
+            }
+
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare("
+                UPDATE notifications 
+                SET is_read = 1, read_at = NOW() 
+                WHERE id = ? AND user_id = ?
+            ");
+            $stmt->execute([$notificationId, $userId]);
+
+            successResponse('تم تعيين الإشعار كمقروء');
+
+        } catch (Exception $e) {
+            error_log('Mark notification read error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
 
     /**
-     * الحصول على الإحصائيات
+     * ============================================================
+     * POST /api/dashboard/notifications/read-all
+     * تعيين جميع الإشعارات كمقروءة
+     * ============================================================
      */
-    private function getStats(int $userId): array
+    public function markAllNotificationsRead(): void
     {
+        try {
+            $userId = $this->validateToken();
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare("
+                UPDATE notifications 
+                SET is_read = 1, read_at = NOW() 
+                WHERE user_id = ? AND is_read = 0
+            ");
+            $stmt->execute([$userId]);
+
+            successResponse('تم تعيين جميع الإشعارات كمقروءة');
+
+        } catch (Exception $e) {
+            error_log('Mark all notifications read error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * ============================================================
+     * التحقق من التوكن وإرجاع معرف المستخدم
+     * ============================================================
+     */
+    private function validateToken(): ?int
+    {
+        $headers = getallheaders();
+        $authHeader = $headers['Authorization'] ?? '';
+        $token = str_replace('Bearer ', '', $authHeader);
+
+        if (empty($token)) {
+            return null;
+        }
+
+        $decoded = base64_decode($token);
+        $parts = explode(':', $decoded);
+        $userId = $parts[0] ?? 0;
+
+        if (!$userId) {
+            return null;
+        }
+
+        try {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare("SELECT id, is_active, deleted_at FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+
+            if (!$user || !$user['is_active'] || $user['deleted_at'] !== null) {
+                return null;
+            }
+
+            return (int)$userId;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * ============================================================
+     * الحصول على الإحصائيات (مع بيانات المخازن للرسم البياني)
+     * ============================================================
+     */
+    private function getStats(): array
+    {
+        $pdo = $this->db->getConnection();
         $stats = [];
 
-        // إجمالي الأصناف
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as total, 
-                    COUNT(CASE WHEN is_active = 1 THEN 1 END) as active,
-                    COUNT(CASE WHEN is_active = 0 THEN 1 END) as inactive
-             FROM products WHERE deleted_at IS NULL"
-        );
-        $stats['products'] = [
-            'total' => (int)($result['total'] ?? 0),
-            'active' => (int)($result['active'] ?? 0),
-            'inactive' => (int)($result['inactive'] ?? 0)
-        ];
+        // 1. إجمالي الأصناف
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM products WHERE deleted_at IS NULL");
+        $stats['products'] = ['total' => (int)$stmt->fetch()['total']];
 
-        // إجمالي المخازن
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as total, 
-                    COUNT(CASE WHEN is_active = 1 THEN 1 END) as active 
-             FROM warehouses WHERE deleted_at IS NULL"
-        );
-        $stats['warehouses'] = [
-            'total' => (int)($result['total'] ?? 0),
-            'active' => (int)($result['active'] ?? 0)
-        ];
+        // 2. إجمالي المخازن
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM warehouses WHERE deleted_at IS NULL AND is_active = 1");
+        $stats['warehouses'] = ['total' => (int)$stmt->fetch()['total']];
 
-        // إجمالي المستخدمين
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as total, 
-                    COUNT(CASE WHEN is_active = 1 THEN 1 END) as active,
-                    COUNT(CASE WHEN is_locked = 1 THEN 1 END) as locked
-             FROM users WHERE deleted_at IS NULL"
-        );
-        $stats['users'] = [
-            'total' => (int)($result['total'] ?? 0),
-            'active' => (int)($result['active'] ?? 0),
-            'locked' => (int)($result['locked'] ?? 0)
-        ];
+        // 3. إجمالي المستخدمين
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE deleted_at IS NULL AND is_active = 1");
+        $stats['users'] = ['total' => (int)$stmt->fetch()['total']];
 
-        // إجمالي الموردين
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as total FROM suppliers WHERE deleted_at IS NULL AND is_active = 1"
-        );
-        $stats['suppliers'] = (int)($result['total'] ?? 0);
-
-        // حركات اليوم
-        $result = $this->db->queryOne(
-            "SELECT 
-                COUNT(*) as total,
-                COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
-                COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
-                COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers,
-                COUNT(CASE WHEN movement_type = 'RETURN_IN' THEN 1 END) as returns_in,
-                COUNT(CASE WHEN movement_type = 'ADJUSTMENT' THEN 1 END) as adjustments
-             FROM stock_movements 
-             WHERE DATE(movement_date) = CURDATE()"
-        );
-        $stats['today_movements'] = [
-            'total' => (int)($result['total'] ?? 0),
-            'receipts' => (int)($result['receipts'] ?? 0),
-            'issues' => (int)($result['issues'] ?? 0),
-            'transfers' => (int)($result['transfers'] ?? 0),
-            'returns_in' => (int)($result['returns_in'] ?? 0),
-            'adjustments' => (int)($result['adjustments'] ?? 0)
-        ];
-
-        // حركات الأسبوع
-        $movementsWeekly = $this->db->query(
-            "SELECT 
-                DATE(movement_date) as date,
+        // 4. حركات اليوم
+        $stmt = $pdo->query("
+            SELECT 
                 COUNT(*) as total,
                 COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
                 COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
                 COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers
-             FROM stock_movements 
-             WHERE movement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-             GROUP BY DATE(movement_date)
-             ORDER BY date ASC"
-        );
-        $stats['movements_weekly'] = $movementsWeekly;
-
-        // قيمة المخزون
-        $result = $this->db->queryOne(
-            "SELECT 
-                COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
-                COALESCE(SUM(sb.reserved_quantity), 0) as reserved_quantity
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id"
-        );
-        $stats['inventory'] = [
-            'total_quantity' => (float)($result['total_quantity'] ?? 0),
-            'total_value' => (float)($result['total_value'] ?? 0),
-            'reserved_quantity' => (float)($result['reserved_quantity'] ?? 0)
+            FROM stock_movements 
+            WHERE DATE(movement_date) = CURDATE()
+        ");
+        $row = $stmt->fetch();
+        $stats['today_movements'] = [
+            'total' => (int)($row['total'] ?? 0),
+            'receipts' => (int)($row['receipts'] ?? 0),
+            'issues' => (int)($row['issues'] ?? 0),
+            'transfers' => (int)($row['transfers'] ?? 0)
         ];
 
-        // حالة المخزون
-        $result = $this->db->queryOne(
-            "SELECT 
+        // 5. حالة المخزون
+        $stmt = $pdo->query("
+            SELECT 
                 COUNT(CASE WHEN sb.quantity <= 0 THEN 1 END) as out_of_stock,
                 COUNT(CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN 1 END) as low_stock,
-                COUNT(CASE WHEN sb.quantity >= p.max_stock AND p.max_stock IS NOT NULL THEN 1 END) as over_stock,
-                COUNT(CASE WHEN sb.quantity > p.min_stock AND (sb.quantity < p.max_stock OR p.max_stock IS NULL) THEN 1 END) as normal
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id"
-        );
+                COUNT(CASE WHEN sb.quantity >= p.max_stock AND p.max_stock IS NOT NULL THEN 1 END) as over_stock
+            FROM stock_balances sb
+            INNER JOIN products p ON p.id = sb.product_id
+        ");
+        $row = $stmt->fetch();
         $stats['stock_status'] = [
-            'out_of_stock' => (int)($result['out_of_stock'] ?? 0),
-            'low_stock' => (int)($result['low_stock'] ?? 0),
-            'over_stock' => (int)($result['over_stock'] ?? 0),
-            'normal' => (int)($result['normal'] ?? 0)
+            'out_of_stock' => (int)($row['out_of_stock'] ?? 0),
+            'low_stock' => (int)($row['low_stock'] ?? 0),
+            'over_stock' => (int)($row['over_stock'] ?? 0)
         ];
 
-        // الأصناف المنخفضة (تفاصيل)
-        $lowStockItems = $this->db->query(
-            "SELECT 
-                p.id, p.code, p.name,
-                w.id as warehouse_id, w.name as warehouse_name,
-                sb.quantity, p.min_stock,
-                (p.min_stock - sb.quantity) as shortage
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id
-             INNER JOIN warehouses w ON w.id = sb.warehouse_id
-             WHERE sb.quantity <= p.min_stock AND sb.quantity > 0
-             ORDER BY (sb.quantity / p.min_stock) ASC
-             LIMIT 10"
-        );
-        $stats['low_stock_items'] = $lowStockItems;
-
-        // الأصناف المنفذة (تفاصيل)
-        $outOfStockItems = $this->db->query(
-            "SELECT 
-                p.id, p.code, p.name,
-                w.id as warehouse_id, w.name as warehouse_name
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id
-             INNER JOIN warehouses w ON w.id = sb.warehouse_id
-             WHERE sb.quantity = 0
-             LIMIT 10"
-        );
-        $stats['out_of_stock_items'] = $outOfStockItems;
-
-        // الجلسات النشطة
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as active_sessions 
-             FROM user_sessions 
-             WHERE is_active = 1 AND expires_at > NOW()"
-        );
-        $stats['active_sessions'] = (int)($result['active_sessions'] ?? 0);
-
-        // التنبيهات غير المقروءة للمستخدم
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as unread 
-             FROM notifications 
-             WHERE user_id = :user_id AND is_read = 0",
-            ['user_id' => $userId]
-        );
-        $stats['unread_notifications'] = (int)($result['unread'] ?? 0);
-
-        // إجمالي التنبيهات
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as total_notifications FROM notifications WHERE user_id = :user_id",
-            ['user_id' => $userId]
-        );
-        $stats['total_notifications'] = (int)($result['total_notifications'] ?? 0);
-
-        // الموردين النشطين
-        $result = $this->db->queryOne(
-            "SELECT COUNT(*) as active_suppliers FROM suppliers WHERE is_active = 1 AND deleted_at IS NULL"
-        );
-        $stats['active_suppliers'] = (int)($result['active_suppliers'] ?? 0);
+        // ✅ 6. بيانات المخازن للرسم البياني (الأهم)
+        $warehouseBalances = $pdo->query("
+            SELECT 
+                w.id,
+                w.name,
+                COALESCE(SUM(sb.quantity), 0) as total_quantity,
+                COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value
+            FROM warehouses w
+            LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id
+            LEFT JOIN products p ON p.id = sb.product_id
+            WHERE w.deleted_at IS NULL AND w.is_active = 1
+            GROUP BY w.id, w.name
+            ORDER BY total_value DESC
+        ");
+        $stats['warehouse_balances'] = $warehouseBalances->fetchAll();
 
         return $stats;
     }
 
     /**
+     * ============================================================
      * الحصول على بيانات الرسوم البيانية
+     * ============================================================
      */
     private function getChartData(): array
     {
+        $pdo = $this->db->getConnection();
         $charts = [];
 
-        // حركات آخر 30 يوم
-        $movements = $this->db->query(
-            "SELECT 
+        // 1. حركات آخر 7 أيام
+        $stmt = $pdo->query("
+            SELECT 
+                DATE(movement_date) as date,
+                DAYNAME(movement_date) as day_name,
+                COUNT(*) as total,
+                COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
+                COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
+                COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers
+            FROM stock_movements 
+            WHERE movement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY DATE(movement_date)
+            ORDER BY date ASC
+        ");
+        $charts['weekly_movements'] = $stmt->fetchAll();
+
+        // 2. حركات آخر 30 يوم
+        $stmt = $pdo->query("
+            SELECT 
                 DATE(movement_date) as date,
                 COUNT(*) as total,
                 COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
                 COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
-                COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers,
-                COUNT(CASE WHEN movement_type = 'RETURN_IN' THEN 1 END) as returns_in
-             FROM stock_movements 
-             WHERE movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-             GROUP BY DATE(movement_date)
-             ORDER BY date ASC"
-        );
-        $charts['movements_30days'] = $movements;
-
-        // الأصناف الأكثر تداولاً
-        $topProducts = $this->db->query(
-            "SELECT 
-                p.id,
-                p.code,
-                p.name,
-                COUNT(sm.id) as movement_count,
-                SUM(sm.quantity) as total_quantity,
-                SUM(sm.total_cost) as total_value
-             FROM stock_movements sm
-             INNER JOIN products p ON p.id = sm.product_id
-             WHERE sm.movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-             GROUP BY p.id, p.code, p.name
-             ORDER BY movement_count DESC
-             LIMIT 10"
-        );
-        $charts['top_products'] = $topProducts;
-
-        // توزيع المخزون حسب التصنيف
-        $categoryDistribution = $this->db->query(
-            "SELECT 
-                c.id,
-                c.name as category,
-                COUNT(DISTINCT p.id) as product_count,
-                COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value
-             FROM categories c
-             INNER JOIN products p ON p.category_id = c.id
-             INNER JOIN stock_balances sb ON sb.product_id = p.id
-             WHERE p.deleted_at IS NULL
-               AND c.is_active = 1
-             GROUP BY c.id, c.name
-             ORDER BY total_value DESC
-             LIMIT 10"
-        );
-        $charts['category_distribution'] = $categoryDistribution;
-
-        // نشاط المستخدمين
-        $userActivity = $this->db->query(
-            "SELECT 
-                u.id,
-                u.full_name,
-                COUNT(sm.id) as movements,
-                COUNT(DISTINCT DATE(sm.movement_date)) as active_days,
-                COUNT(DISTINCT sm.warehouse_id) as warehouses_used
-             FROM users u
-             INNER JOIN stock_movements sm ON sm.user_id = u.id
-             WHERE sm.movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-               AND u.is_active = 1
-             GROUP BY u.id, u.full_name
-             ORDER BY movements DESC
-             LIMIT 10"
-        );
-        $charts['user_activity'] = $userActivity;
-
-        // حركات اليوم حسب الساعة
-        $hourlyMovements = $this->db->query(
-            "SELECT 
-                HOUR(movement_date) as hour,
-                COUNT(*) as total,
-                COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
-                COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues
-             FROM stock_movements 
-             WHERE DATE(movement_date) = CURDATE()
-             GROUP BY HOUR(movement_date)
-             ORDER BY hour ASC"
-        );
-        $charts['hourly_movements'] = $hourlyMovements;
-
-        // قيمة المخزون حسب المخزن
-        $warehouseValue = $this->db->query(
-            "SELECT 
-                w.id,
-                w.name,
-                COUNT(DISTINCT sb.product_id) as product_count,
-                COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value
-             FROM warehouses w
-             INNER JOIN stock_balances sb ON sb.warehouse_id = w.id
-             INNER JOIN products p ON p.id = sb.product_id
-             WHERE w.deleted_at IS NULL
-               AND w.is_active = 1
-             GROUP BY w.id, w.name
-             ORDER BY total_value DESC"
-        );
-        $charts['warehouse_value'] = $warehouseValue;
+                COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers
+            FROM stock_movements 
+            WHERE movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY DATE(movement_date)
+            ORDER BY date ASC
+        ");
+        $charts['monthly_movements'] = $stmt->fetchAll();
 
         return $charts;
     }
 
     /**
+     * ============================================================
      * الحصول على آخر الأنشطة
+     * ============================================================
      */
     private function getRecentActivities(): array
     {
-        return $this->db->query(
-            "SELECT 
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->query("
+            SELECT 
                 al.id,
                 al.user_id,
                 al.username,
-                u.full_name as user_full_name,
                 al.action,
                 al.module,
                 al.description,
-                al.created_at,
                 al.ip_address,
+                al.created_at,
+                u.full_name as user_name
+            FROM audit_logs al
+            LEFT JOIN users u ON u.id = al.user_id
+            WHERE al.user_id IS NOT NULL
+            ORDER BY al.created_at DESC
+            LIMIT 10
+        ");
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * ============================================================
+     * الحصول على الإشعارات
+     * ============================================================
+     */
+    private function getNotifications(int $userId): array
+    {
+        $pdo = $this->db->getConnection();
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                id,
+                type,
+                title,
+                message,
+                is_read,
+                priority,
+                reference_type,
+                reference_id,
+                link,
+                created_at,
                 CASE 
-                    WHEN al.action = 'LOGIN_SUCCESS' THEN 'success'
-                    WHEN al.action = 'LOGIN_FAILED' THEN 'danger'
-                    WHEN al.action = 'LOGOUT' THEN 'info'
-                    WHEN al.action LIKE '%CREATE%' OR al.action LIKE '%CREATED%' THEN 'primary'
-                    WHEN al.action LIKE '%UPDATE%' OR al.action LIKE '%UPDATED%' THEN 'warning'
-                    WHEN al.action LIKE '%DELETE%' OR al.action LIKE '%DELETED%' THEN 'danger'
+                    WHEN priority = 'critical' THEN 'danger'
+                    WHEN priority = 'high' THEN 'warning'
+                    WHEN priority = 'medium' THEN 'info'
+                    WHEN priority = 'low' THEN 'success'
                     ELSE 'secondary'
-                END as type,
+                END as priority_color,
                 CASE 
-                    WHEN al.action = 'LOGIN_SUCCESS' THEN 'تسجيل دخول'
-                    WHEN al.action = 'LOGIN_FAILED' THEN 'محاولة دخول فاشلة'
-                    WHEN al.action = 'LOGOUT' THEN 'تسجيل خروج'
-                    WHEN al.action LIKE '%CREATE%' OR al.action LIKE '%CREATED%' THEN 'إنشاء'
-                    WHEN al.action LIKE '%UPDATE%' OR al.action LIKE '%UPDATED%' THEN 'تحديث'
-                    WHEN al.action LIKE '%DELETE%' OR al.action LIKE '%DELETED%' THEN 'حذف'
-                    ELSE al.action
-                END as action_label
-             FROM audit_logs al
-             LEFT JOIN users u ON u.id = al.user_id
-             WHERE al.user_id IS NOT NULL
-             ORDER BY al.created_at DESC
-             LIMIT 20"
-        );
+                    WHEN type = 'low_stock' THEN 'fa-exclamation-triangle'
+                    WHEN type = 'out_of_stock' THEN 'fa-times-circle'
+                    WHEN type = 'over_stock' THEN 'fa-arrow-up'
+                    WHEN type = 'expiry_alert' THEN 'fa-clock'
+                    WHEN type = 'system_warning' THEN 'fa-exclamation-circle'
+                    WHEN type = 'transaction_alert' THEN 'fa-exchange-alt'
+                    WHEN type = 'approval_needed' THEN 'fa-check-circle'
+                    WHEN type = 'transfer_completed' THEN 'fa-check'
+                    WHEN type = 'receipt_completed' THEN 'fa-arrow-down'
+                    WHEN type = 'issue_completed' THEN 'fa-arrow-up'
+                    WHEN type = 'inventory_completed' THEN 'fa-clipboard-check'
+                    ELSE 'fa-bell'
+                END as icon,
+                CASE 
+                    WHEN type = 'low_stock' THEN 'warning'
+                    WHEN type = 'out_of_stock' THEN 'danger'
+                    WHEN type = 'over_stock' THEN 'info'
+                    WHEN type = 'expiry_alert' THEN 'warning'
+                    WHEN type = 'system_warning' THEN 'danger'
+                    WHEN type = 'transaction_alert' THEN 'info'
+                    WHEN type = 'approval_needed' THEN 'primary'
+                    WHEN type = 'transfer_completed' THEN 'success'
+                    WHEN type = 'receipt_completed' THEN 'success'
+                    WHEN type = 'issue_completed' THEN 'success'
+                    WHEN type = 'inventory_completed' THEN 'success'
+                    ELSE 'info'
+                END as type_class
+            FROM notifications 
+            WHERE user_id = ?
+            ORDER BY is_read ASC, priority DESC, created_at DESC
+            LIMIT 20
+        ");
+        $stmt->execute([$userId]);
+        $notifications = $stmt->fetchAll();
+
+        // تنسيق الوقت
+        foreach ($notifications as &$notif) {
+            $notif['time_ago'] = $this->timeAgo($notif['created_at']);
+            $notif['is_read'] = (bool)$notif['is_read'];
+        }
+
+        return $notifications;
     }
 
     /**
-     * الحصول على التنبيهات
+     * ============================================================
+     * حساب الوقت المنقضي
+     * ============================================================
      */
-    private function getAlerts(int $userId): array
+    private function timeAgo(string $datetime): string
     {
-        $alerts = [];
-
-        // تنبيهات المخزون المنخفض
-        $lowStock = $this->db->query(
-            "SELECT 
-                p.id,
-                p.code,
-                p.name,
-                w.name as warehouse,
-                sb.quantity,
-                p.min_stock,
-                (p.min_stock - sb.quantity) as shortage
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id
-             INNER JOIN warehouses w ON w.id = sb.warehouse_id
-             WHERE sb.quantity <= p.min_stock
-               AND sb.quantity > 0
-               AND p.is_active = 1
-             ORDER BY (sb.quantity / p.min_stock) ASC
-             LIMIT 10"
-        );
+        $timestamp = strtotime($datetime);
+        $diff = time() - $timestamp;
         
-        foreach ($lowStock as $item) {
-            $alerts[] = [
-                'type' => 'warning',
-                'priority' => 'high',
-                'title' => 'مخزون منخفض',
-                'message' => "المنتج '{$item['name']}' في مخزن '{$item['warehouse']}' وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
-                'link' => "/products/{$item['id']}",
-                'reference_type' => 'product',
-                'reference_id' => $item['id'],
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-        }
-
-        // تنبيهات المخزون الصفر
-        $outOfStock = $this->db->query(
-            "SELECT 
-                p.id,
-                p.code,
-                p.name,
-                w.name as warehouse
-             FROM stock_balances sb
-             INNER JOIN products p ON p.id = sb.product_id
-             INNER JOIN warehouses w ON w.id = sb.warehouse_id
-             WHERE sb.quantity = 0
-               AND p.is_active = 1
-             LIMIT 10"
-        );
+        $units = [
+            31536000 => 'سنة',
+            2592000 => 'شهر',
+            604800 => 'أسبوع',
+            86400 => 'يوم',
+            3600 => 'ساعة',
+            60 => 'دقيقة',
+            1 => 'ثانية'
+        ];
         
-        foreach ($outOfStock as $item) {
-            $alerts[] = [
-                'type' => 'danger',
-                'priority' => 'critical',
-                'title' => '⚠️ نفاذ المخزون',
-                'message' => "المنتج '{$item['name']}' في مخزن '{$item['warehouse']}' نفد من المخزون",
-                'link' => "/products/{$item['id']}",
-                'reference_type' => 'product',
-                'reference_id' => $item['id'],
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-        }
-
-        // تنبيهات انتهاء الصلاحية
-        $expired = $this->db->query(
-            "SELECT 
-                p.id,
-                p.code,
-                p.name,
-                pb.expiry_date,
-                DATEDIFF(pb.expiry_date, CURDATE()) as days_left
-             FROM product_batches pb
-             INNER JOIN products p ON p.id = pb.product_id
-             WHERE pb.expiry_date IS NOT NULL
-               AND pb.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-               AND pb.quantity > 0
-             ORDER BY pb.expiry_date ASC
-             LIMIT 10"
-        );
-        
-        foreach ($expired as $item) {
-            $status = $item['days_left'] < 0 ? 'انتهت الصلاحية' : "تنتهي خلال {$item['days_left']} يوم";
-            $alerts[] = [
-                'type' => $item['days_left'] < 0 ? 'danger' : 'warning',
-                'priority' => $item['days_left'] < 0 ? 'critical' : 'high',
-                'title' => '⚠️ انتهاء الصلاحية',
-                'message' => "المنتج '{$item['name']}' - {$status}",
-                'link' => "/products/{$item['id']}",
-                'reference_type' => 'product',
-                'reference_id' => $item['id'],
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-        }
-
-        // تنبيهات من قاعدة البيانات
-        $dbAlerts = $this->db->query(
-            "SELECT * FROM notifications 
-             WHERE user_id = :user_id AND is_read = 0
-             ORDER BY priority DESC, created_at DESC
-             LIMIT 5",
-            ['user_id' => $userId]
-        );
-        
-        foreach ($dbAlerts as $alert) {
-            $alerts[] = [
-                'type' => $this->getAlertType($alert['priority']),
-                'priority' => $alert['priority'],
-                'title' => $alert['title'],
-                'message' => $alert['message'],
-                'link' => $alert['link'] ?? null,
-                'reference_type' => $alert['reference_type'] ?? null,
-                'reference_id' => $alert['reference_id'] ?? null,
-                'created_at' => $alert['created_at']
-            ];
-        }
-
-        // ترتيب التنبيهات حسب الأولوية
-        usort($alerts, function($a, $b) {
-            $priority = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
-            return ($priority[$a['priority']] ?? 4) - ($priority[$b['priority']] ?? 4);
-        });
-
-        return array_slice($alerts, 0, 20);
-    }
-
-    /**
-     * الحصول على نوع التنبيه حسب الأولوية
-     */
-    private function getAlertType(string $priority): string
-    {
-        switch ($priority) {
-            case 'critical':
-                return 'danger';
-            case 'high':
-                return 'warning';
-            case 'medium':
-                return 'info';
-            case 'low':
-                return 'success';
-            default:
-                return 'info';
-        }
-    }
-
-    /**
-     * التحقق من اتصال قاعدة البيانات
-     */
-    private function checkDatabaseConnection(): bool
-    {
-        try {
-            $this->db->queryOne("SELECT 1");
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
-
-    /**
-     * الحصول على عدد اتصالات قاعدة البيانات
-     */
-    private function getDatabaseConnections(): int
-    {
-        try {
-            $result = $this->db->queryOne("SHOW STATUS LIKE 'Threads_connected'");
-            return (int)($result['Value'] ?? 0);
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * الحصول على حجم قاعدة البيانات
-     */
-    private function getDatabaseSize(): string
-    {
-        try {
-            $result = $this->db->queryOne(
-                "SELECT SUM(data_length + index_length) / 1024 / 1024 as size_mb
-                 FROM information_schema.tables 
-                 WHERE table_schema = :database",
-                ['database' => DB_NAME]
-            );
-            $size = (float)($result['size_mb'] ?? 0);
-            if ($size > 1024) {
-                return round($size / 1024, 2) . ' GB';
+        foreach ($units as $seconds => $unit) {
+            if ($diff >= $seconds) {
+                $count = floor($diff / $seconds);
+                $text = $count . ' ' . $unit;
+                if ($count > 1) {
+                    $text .= $unit === 'سنة' ? 'ات' : ($unit === 'شهر' ? 'ور' : ($unit === 'أسبوع' ? 'وع' : ($unit === 'يوم' ? 'اً' : ($unit === 'ساعة' ? 'ات' : ($unit === 'دقيقة' ? 'ق' : 'ات')))));
+                }
+                return $text . ' ago';
             }
-            return round($size, 2) . ' MB';
-        } catch (\Exception $e) {
-            return 'غير معروف';
-        }
-    }
-
-    /**
-     * الحصول على وقت تشغيل الخادم
-     */
-    private function getServerUptime(): string
-    {
-        if (PHP_OS_FAMILY === 'Windows') {
-            return 'غير معروف (Windows)';
         }
         
-        try {
-            $uptime = shell_exec('uptime -p');
-            return trim($uptime) ?: 'غير معروف';
-        } catch (\Exception $e) {
-            return 'غير معروف';
-        }
+        return 'الآن';
     }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/WarehouseController.php
-// الوصف: متحكم إدارة المخازن - CRUD كامل مع هيكل شجري
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة المخازن - CRUD كامل مع هيكل شجري وعرض مجمع وتفصيلي
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -12,6 +11,7 @@ namespace Controllers;
 use Core\Database;
 use Core\Auth;
 use Core\Audit;
+use Exception;
 
 class WarehouseController
 {
@@ -51,27 +51,68 @@ class WarehouseController
                 return;
             }
 
+            // التحقق من صلاحية العرض
+            if (!$this->auth->hasPermission($userId, 'warehouses.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المخازن', 403);
+                return;
+            }
+
             $view = $_GET['view'] ?? 'list'; // list, tree, cards, hierarchical
+            $search = $_GET['search'] ?? '';
+            $status = $_GET['status'] ?? '';
             
+            // بناء شروط البحث
+            $params = [];
+            $where = ["w.deleted_at IS NULL"];
+            
+            if (!empty($search)) {
+                $where[] = "(w.name LIKE :search OR w.code LIKE :search)";
+                $params['search'] = "%{$search}%";
+            }
+            
+            if ($status === 'active') {
+                $where[] = "w.is_active = 1";
+            } elseif ($status === 'inactive') {
+                $where[] = "w.is_active = 0";
+            }
+            
+            $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
             // جلب جميع المخازن
             $warehouses = $this->db->query("
                 SELECT 
-                    w.*,
+                    w.id,
+                    w.code,
+                    w.name,
+                    w.type,
+                    w.parent_id,
+                    w.location,
+                    w.address,
+                    w.manager_id,
                     u.full_name as manager_name,
                     u.username as manager_username,
-                    COUNT(DISTINCT sb.product_id) as products_count,
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
-                    COALESCE(SUM(sb.reserved_quantity), 0) as total_reserved,
-                    (SELECT COUNT(*) FROM warehouses WHERE parent_id = w.id AND deleted_at IS NULL) as sub_count
+                    w.phone,
+                    w.email,
+                    w.is_active,
+                    w.is_main,
+                    w.is_default,
+                    w.capacity,
+                    w.current_utilization,
+                    w.notes,
+                    w.created_at,
+                    w.updated_at,
+                    (SELECT COUNT(*) FROM warehouses WHERE parent_id = w.id AND deleted_at IS NULL) as sub_count,
+                    (SELECT COUNT(DISTINCT sb.product_id) FROM stock_balances sb WHERE sb.warehouse_id = w.id) as products_count,
+                    (SELECT COALESCE(SUM(sb.quantity), 0) FROM stock_balances sb WHERE sb.warehouse_id = w.id) as total_quantity,
+                    (SELECT COALESCE(SUM(sb.quantity * p.cost_price), 0) FROM stock_balances sb 
+                     INNER JOIN products p ON p.id = sb.product_id 
+                     WHERE sb.warehouse_id = w.id) as total_value,
+                    (SELECT COALESCE(SUM(sb.reserved_quantity), 0) FROM stock_balances sb WHERE sb.warehouse_id = w.id) as total_reserved
                 FROM warehouses w
                 LEFT JOIN users u ON u.id = w.manager_id
-                LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id
-                LEFT JOIN products p ON p.id = sb.product_id
-                WHERE w.deleted_at IS NULL
-                GROUP BY w.id
+                {$whereClause}
                 ORDER BY w.is_main DESC, w.parent_id ASC, w.name
-            ");
+            ", $params);
 
             // بناء الهيكل الشجري
             $tree = [];
@@ -128,9 +169,9 @@ class WarehouseController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouses list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -145,6 +186,12 @@ class WarehouseController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية العرض
+            if (!$this->auth->hasPermission($userId, 'warehouses.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المخازن', 403);
                 return;
             }
 
@@ -164,7 +211,7 @@ class WarehouseController
                     type,
                     location,
                     is_active,
-                    (SELECT COUNT(*) FROM stock_balances WHERE warehouse_id = w.id) as products_count
+                    (SELECT COUNT(*) FROM stock_balances WHERE warehouse_id = w.id AND quantity > 0) as products_count
                 FROM warehouses w
                 WHERE parent_id = :parent_id AND deleted_at IS NULL
                 ORDER BY name
@@ -253,17 +300,23 @@ class WarehouseController
                 'audits' => $audits,
                 'stats' => [
                     'total_products' => count($products),
-                    'out_of_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'out_of_stock')),
-                    'low_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'low_stock')),
-                    'over_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'over_stock')),
+                    'out_of_stock' => count(array_filter($products, function($p) {
+                        return $p['stock_status'] === 'out_of_stock';
+                    })),
+                    'low_stock' => count(array_filter($products, function($p) {
+                        return $p['stock_status'] === 'low_stock';
+                    })),
+                    'over_stock' => count(array_filter($products, function($p) {
+                        return $p['stock_status'] === 'over_stock';
+                    })),
                     'total_quantity' => array_sum(array_column($products, 'quantity')),
                     'total_value' => array_sum(array_column($products, 'total_value'))
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -278,6 +331,12 @@ class WarehouseController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية الإنشاء
+            if (!$this->auth->hasPermission($userId, 'warehouses.create')) {
+                errorResponse('ليس لديك صلاحية لإنشاء مخازن', 403);
                 return;
             }
 
@@ -368,9 +427,9 @@ class WarehouseController
 
             successResponse('تم إنشاء المخزن بنجاح', ['warehouse_id' => $warehouseId]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -385,6 +444,12 @@ class WarehouseController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية التحديث
+            if (!$this->auth->hasPermission($userId, 'warehouses.edit')) {
+                errorResponse('ليس لديك صلاحية لتحديث المخازن', 403);
                 return;
             }
 
@@ -484,9 +549,9 @@ class WarehouseController
 
             successResponse('تم تحديث بيانات المخزن بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -501,6 +566,12 @@ class WarehouseController
             
             if (!$userId) {
                 errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية الحذف
+            if (!$this->auth->hasPermission($userId, 'warehouses.delete')) {
+                errorResponse('ليس لديك صلاحية لحذف المخازن', 403);
                 return;
             }
 
@@ -565,9 +636,263 @@ class WarehouseController
 
             successResponse('تم حذف المخزن بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse delete error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/warehouses/{id}/summary
+     * عرض مخزن مجمع (Summary)
+     */
+    public function summary(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية العرض
+            if (!$this->auth->hasPermission($userId, 'warehouses.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المخازن', 403);
+                return;
+            }
+
+            $warehouse = $this->getWarehouseById($id);
+            if (!$warehouse) {
+                errorResponse('المخزن غير موجود');
+                return;
+            }
+
+            // إحصائيات المخزن
+            $stats = $this->db->queryOne("
+                SELECT 
+                    COUNT(DISTINCT p.id) as total_products,
+                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
+                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
+                    COALESCE(SUM(sb.reserved_quantity), 0) as total_reserved,
+                    COUNT(DISTINCT CASE WHEN sb.quantity <= 0 THEN p.id END) as out_of_stock,
+                    COUNT(DISTINCT CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN p.id END) as low_stock,
+                    COUNT(DISTINCT CASE WHEN sb.quantity >= p.max_stock THEN p.id END) as over_stock,
+                    COUNT(DISTINCT CASE WHEN sb.quantity > p.min_stock AND (sb.quantity < p.max_stock OR p.max_stock IS NULL) THEN p.id END) as normal,
+                    SUM(CASE WHEN sb.quantity <= 0 THEN 1 ELSE 0 END) as out_of_stock_count,
+                    SUM(CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN 1 ELSE 0 END) as low_stock_count,
+                    SUM(CASE WHEN sb.quantity >= p.max_stock THEN 1 ELSE 0 END) as over_stock_count
+                FROM stock_balances sb
+                INNER JOIN products p ON p.id = sb.product_id
+                WHERE sb.warehouse_id = :warehouse_id
+            ", ['warehouse_id' => $id]);
+
+            // حركات اليوم
+            $todayMovements = $this->db->queryOne("
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
+                    COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
+                    COUNT(CASE WHEN movement_type = 'TRANSFER_IN' THEN 1 END) as transfers_in,
+                    COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers_out,
+                    COUNT(CASE WHEN movement_type = 'ADJUSTMENT' THEN 1 END) as adjustments
+                FROM stock_movements
+                WHERE warehouse_id = :warehouse_id
+                  AND DATE(movement_date) = CURDATE()
+            ", ['warehouse_id' => $id]);
+
+            // حركات الأسبوع
+            $weekMovements = $this->db->queryOne("
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN movement_type = 'RECEIPT' THEN 1 END) as receipts,
+                    COUNT(CASE WHEN movement_type = 'ISSUE' THEN 1 END) as issues,
+                    COUNT(CASE WHEN movement_type = 'TRANSFER_IN' THEN 1 END) as transfers_in,
+                    COUNT(CASE WHEN movement_type = 'TRANSFER_OUT' THEN 1 END) as transfers_out
+                FROM stock_movements
+                WHERE warehouse_id = :warehouse_id
+                  AND movement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ", ['warehouse_id' => $id]);
+
+            // أكثر الأصناف تداولاً
+            $topProducts = $this->db->query("
+                SELECT 
+                    p.id,
+                    p.code,
+                    p.name,
+                    COUNT(sm.id) as movement_count,
+                    SUM(sm.quantity) as total_quantity,
+                    SUM(sm.total_cost) as total_value
+                FROM stock_movements sm
+                INNER JOIN products p ON p.id = sm.product_id
+                WHERE sm.warehouse_id = :warehouse_id
+                  AND sm.movement_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                GROUP BY p.id, p.code, p.name
+                ORDER BY movement_count DESC
+                LIMIT 10
+            ", ['warehouse_id' => $id]);
+
+            successResponse('تم جلب ملخص المخزن', [
+                'warehouse' => $warehouse,
+                'stats' => $stats,
+                'today_movements' => $todayMovements,
+                'week_movements' => $weekMovements,
+                'top_products' => $topProducts
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Warehouse summary error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/warehouses/{id}/detailed
+     * عرض مخزن تفصيلي
+     */
+    public function detailed(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية العرض
+            if (!$this->auth->hasPermission($userId, 'warehouses.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المخازن', 403);
+                return;
+            }
+
+            $warehouse = $this->getWarehouseById($id);
+            if (!$warehouse) {
+                errorResponse('المخزن غير موجود');
+                return;
+            }
+
+            $search = $_GET['search'] ?? '';
+            $category = $_GET['category'] ?? '';
+            $status = $_GET['status'] ?? '';
+            $page = (int)($_GET['page'] ?? 1);
+            $limit = (int)($_GET['limit'] ?? 50);
+            $offset = ($page - 1) * $limit;
+
+            $params = ['warehouse_id' => $id];
+            $where = [];
+
+            if (!empty($search)) {
+                $where[] = "(p.name LIKE :search OR p.code LIKE :search OR p.barcode LIKE :search)";
+                $params['search'] = "%{$search}%";
+            }
+
+            if (!empty($category)) {
+                $where[] = "p.category_id = :category";
+                $params['category'] = $category;
+            }
+
+            if ($status === 'low_stock') {
+                $where[] = "sb.quantity <= p.min_stock AND sb.quantity > 0";
+            } elseif ($status === 'out_of_stock') {
+                $where[] = "sb.quantity = 0";
+            } elseif ($status === 'over_stock') {
+                $where[] = "sb.quantity >= p.max_stock";
+            }
+
+            $whereClause = !empty($where) ? 'AND ' . implode(' AND ', $where) : '';
+
+            // جلب المنتجات مع التفاصيل
+            $products = $this->db->query("
+                SELECT 
+                    p.id,
+                    p.code,
+                    p.barcode,
+                    p.name,
+                    p.description,
+                    c.name as category_name,
+                    u.name as unit_name,
+                    COALESCE(sb.quantity, 0) as quantity,
+                    COALESCE(sb.reserved_quantity, 0) as reserved_quantity,
+                    COALESCE(sb.quantity - sb.reserved_quantity, 0) as available_quantity,
+                    p.min_stock,
+                    p.max_stock,
+                    p.reorder_point,
+                    p.cost_price,
+                    p.selling_price,
+                    COALESCE(sb.quantity * p.cost_price, 0) as total_value,
+                    p.is_active,
+                    CASE 
+                        WHEN COALESCE(sb.quantity, 0) <= 0 THEN 'نفذ'
+                        WHEN COALESCE(sb.quantity, 0) <= p.min_stock THEN 'منخفض'
+                        WHEN COALESCE(sb.quantity, 0) >= p.max_stock THEN 'زائد'
+                        ELSE 'طبيعي'
+                    END as stock_status,
+                    CASE 
+                        WHEN COALESCE(sb.quantity, 0) <= 0 THEN 'danger'
+                        WHEN COALESCE(sb.quantity, 0) <= p.min_stock THEN 'warning'
+                        WHEN COALESCE(sb.quantity, 0) >= p.max_stock THEN 'info'
+                        ELSE 'success'
+                    END as status_color,
+                    (p.min_stock - COALESCE(sb.quantity, 0)) as shortage,
+                    sb.last_movement_date
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                LEFT JOIN stock_balances sb ON sb.product_id = p.id AND sb.warehouse_id = :warehouse_id
+                WHERE p.is_active = 1 AND p.deleted_at IS NULL
+                {$whereClause}
+                ORDER BY stock_status DESC, p.name
+                LIMIT :limit OFFSET :offset
+            ", array_merge($params, ['limit' => $limit, 'offset' => $offset]));
+
+            // إجمالي المنتجات
+            $total = $this->db->queryValue("
+                SELECT COUNT(*) FROM products p
+                LEFT JOIN stock_balances sb ON sb.product_id = p.id AND sb.warehouse_id = :warehouse_id
+                WHERE p.is_active = 1 AND p.deleted_at IS NULL
+                {$whereClause}
+            ", $params);
+
+            // إحصائيات
+            $stats = $this->db->queryOne("
+                SELECT 
+                    COUNT(*) as total_products,
+                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
+                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value,
+                    COALESCE(SUM(sb.reserved_quantity), 0) as total_reserved,
+                    COUNT(CASE WHEN sb.quantity <= 0 THEN 1 END) as out_of_stock,
+                    COUNT(CASE WHEN sb.quantity <= p.min_stock AND sb.quantity > 0 THEN 1 END) as low_stock,
+                    COUNT(CASE WHEN sb.quantity >= p.max_stock THEN 1 END) as over_stock
+                FROM products p
+                LEFT JOIN stock_balances sb ON sb.product_id = p.id AND sb.warehouse_id = :warehouse_id
+                WHERE p.is_active = 1 AND p.deleted_at IS NULL
+                {$whereClause}
+            ", $params);
+
+            successResponse('تم جلب تفاصيل المخزن', [
+                'warehouse' => $warehouse,
+                'products' => $products,
+                'stats' => [
+                    'total_products' => (int)($stats['total_products'] ?? 0),
+                    'total_quantity' => (float)($stats['total_quantity'] ?? 0),
+                    'total_value' => (float)($stats['total_value'] ?? 0),
+                    'total_reserved' => (float)($stats['total_reserved'] ?? 0),
+                    'out_of_stock' => (int)($stats['out_of_stock'] ?? 0),
+                    'low_stock' => (int)($stats['low_stock'] ?? 0),
+                    'over_stock' => (int)($stats['over_stock'] ?? 0)
+                ],
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => (int)$total,
+                    'pages' => ceil((int)$total / $limit)
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Warehouse detailed error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -658,10 +983,18 @@ class WarehouseController
                 'total_products' => count($products),
                 'total_quantity' => array_sum(array_column($products, 'quantity')),
                 'total_value' => array_sum(array_column($products, 'total_value')),
-                'out_of_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'نفذ')),
-                'low_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'منخفض')),
-                'over_stock' => count(array_filter($products, fn($p) => $p['stock_status'] === 'زائد')),
-                'normal' => count(array_filter($products, fn($p) => $p['stock_status'] === 'طبيعي'))
+                'out_of_stock' => count(array_filter($products, function($p) {
+                    return $p['stock_status'] === 'نفذ';
+                })),
+                'low_stock' => count(array_filter($products, function($p) {
+                    return $p['stock_status'] === 'منخفض';
+                })),
+                'over_stock' => count(array_filter($products, function($p) {
+                    return $p['stock_status'] === 'زائد';
+                })),
+                'normal' => count(array_filter($products, function($p) {
+                    return $p['stock_status'] === 'طبيعي';
+                }))
             ];
 
             successResponse('تم جلب تقرير مخزون المخزن', [
@@ -670,53 +1003,9 @@ class WarehouseController
                 'summary' => $stats
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse stock error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * GET /api/warehouses/{id}/sub
-     * جلب المخازن الفرعية
-     */
-    public function subWarehouses(int $id): void
-    {
-        try {
-            $userId = $_REQUEST['user_id'] ?? null;
-            
-            if (!$userId) {
-                errorResponse('غير مصرح', 401);
-                return;
-            }
-
-            $warehouse = $this->getWarehouseById($id);
-            if (!$warehouse) {
-                errorResponse('المخزن غير موجود');
-                return;
-            }
-
-            $subWarehouses = $this->db->query("
-                SELECT 
-                    w.*,
-                    u.full_name as manager_name,
-                    COUNT(DISTINCT sb.product_id) as products_count,
-                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
-                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value
-                FROM warehouses w
-                LEFT JOIN users u ON u.id = w.manager_id
-                LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id
-                LEFT JOIN products p ON p.id = sb.product_id
-                WHERE w.parent_id = :parent_id AND w.deleted_at IS NULL
-                GROUP BY w.id
-                ORDER BY w.name
-            ", ['parent_id' => $id]);
-
-            successResponse('تم جلب المخازن الفرعية', $subWarehouses);
-
-        } catch (\Exception $e) {
-            error_log('Sub warehouses error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -819,9 +1108,59 @@ class WarehouseController
                 successResponse('تم جلب تقرير المخزن', $reportData);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Warehouse report error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/warehouses/{id}/sub
+     * جلب المخازن الفرعية
+     */
+    public function subWarehouses(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            // التحقق من صلاحية العرض
+            if (!$this->auth->hasPermission($userId, 'warehouses.view')) {
+                errorResponse('ليس لديك صلاحية لعرض المخازن', 403);
+                return;
+            }
+
+            $warehouse = $this->getWarehouseById($id);
+            if (!$warehouse) {
+                errorResponse('المخزن غير موجود');
+                return;
+            }
+
+            $subWarehouses = $this->db->query("
+                SELECT 
+                    w.*,
+                    u.full_name as manager_name,
+                    COUNT(DISTINCT sb.product_id) as products_count,
+                    COALESCE(SUM(sb.quantity), 0) as total_quantity,
+                    COALESCE(SUM(sb.quantity * p.cost_price), 0) as total_value
+                FROM warehouses w
+                LEFT JOIN users u ON u.id = w.manager_id
+                LEFT JOIN stock_balances sb ON sb.warehouse_id = w.id
+                LEFT JOIN products p ON p.id = sb.product_id
+                WHERE w.parent_id = :parent_id AND w.deleted_at IS NULL
+                GROUP BY w.id
+                ORDER BY w.name
+            ", ['parent_id' => $id]);
+
+            successResponse('تم جلب المخازن الفرعية', $subWarehouses);
+
+        } catch (Exception $e) {
+            error_log('Sub warehouses error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -855,7 +1194,7 @@ class WarehouseController
      */
     private function generateWarehouseCode(): string
     {
-        $prefix = 'W';
+        $prefix = 'WH';
         $year = date('Y');
         
         $last = $this->db->queryValue("
@@ -969,5 +1308,15 @@ class WarehouseController
                 return;
             }
         }
+        
+        // التحقق من السعة
+        if (isset($data['capacity']) && $data['capacity'] < 0) {
+            errorResponse('السعة لا يمكن أن تكون سالبة');
+            return;
+        }
     }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================

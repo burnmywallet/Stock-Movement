@@ -1,860 +1,921 @@
 /**
  * ============================================================
- * نظام إدارة المخازن والمخزون المتقدم
+ * واجهة API الموحدة - نظام المخازن v5.0
  * الملف: frontend/assets/js/api.js
- * الوصف: إدارة طلبات API - جميع نقاط النهاية
- * الإصدار: 5.0 Ultimate
+ * الوصف: دوال الاتصال بـ API الخلفية - موحدة لجميع الصفحات
+ * التاريخ: 2026-08-22
  * ============================================================
  */
 
 const API = {
-    // ================================================================
+    // ============================================================
     // الإعدادات الأساسية
-    // ================================================================
+    // ============================================================
     
-    baseUrl: window.location.origin + '/api',
-    timeout: 30000,
-    retryAttempts: 3,
-    retryDelay: 1000,
-    
-    // ================================================================
-    // الرؤوس
-    // ================================================================
-    
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
+    baseUrl: null,
+    token: null,
+
+    /**
+     * تهيئة API - تحديد المسار الصحيح
+     */
+    init() {
+        this.baseUrl = this.getBaseUrl();
+        this.token = localStorage.getItem('auth_token');
+        console.log('🔗 API Base URL:', this.baseUrl);
+        return this;
     },
-    
-    // ================================================================
-    // إدارة التوكن
-    // ================================================================
-    
-    getToken: function() {
+
+    /**
+     * الحصول على مسار API الصحيح حسب بيئة التشغيل
+     */
+    getBaseUrl() {
+        const currentPath = window.location.pathname;
+        
+        if (currentPath.includes('/pages/')) {
+            return '../../api';
+        }
+        
+        if (currentPath.includes('/frontend/')) {
+            return '../api';
+        }
+        
+        if (currentPath.includes('/Stock-Movement/')) {
+            return '/Stock-Movement/api';
+        }
+        
+        return '/api';
+    },
+
+    /**
+     * الحصول على التوكن من localStorage
+     */
+    getToken() {
         return localStorage.getItem('auth_token');
     },
-    
-    setToken: function(token) {
+
+    /**
+     * تخزين التوكن
+     */
+    setToken(token) {
         localStorage.setItem('auth_token', token);
+        this.token = token;
     },
-    
-    removeToken: function() {
+
+    /**
+     * حذف التوكن
+     */
+    removeToken() {
         localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('refresh_token');
+        this.token = null;
     },
-    
-    getUser: function() {
+
+    /**
+     * الحصول على بيانات المستخدم
+     */
+    getUser() {
         try {
             return JSON.parse(localStorage.getItem('user'));
         } catch {
             return null;
         }
     },
-    
-    setUser: function(user) {
+
+    /**
+     * تخزين بيانات المستخدم
+     */
+    setUser(user) {
         localStorage.setItem('user', JSON.stringify(user));
     },
-    
-    getRefreshToken: function() {
-        return localStorage.getItem('refresh_token');
+
+    /**
+     * ✅ التحقق من وجود توكن صالح
+     */
+    isAuthenticated() {
+        return !!this.getToken();
     },
-    
-    setRefreshToken: function(token) {
-        localStorage.setItem('refresh_token', token);
+
+    /**
+     * ✅ الحصول على ثيم المستخدم
+     */
+    getTheme() {
+        const user = this.getUser();
+        return user?.theme || 'dark';
     },
-    
-    // ================================================================
-    // بناء الرؤوس
-    // ================================================================
-    
-    getHeaders: function() {
-        const headers = { ...this.headers };
-        const token = this.getToken();
-        if (token) {
-            headers['Authorization'] = 'Bearer ' + token;
-        }
-        return headers;
-    },
-    
-    // ================================================================
-    // معالجة الاستجابة
-    // ================================================================
-    
-    handleResponse: async function(response, retryCount = 0) {
-        if (response.status === 401) {
-            if (retryCount < this.retryAttempts) {
-                const refreshed = await this.refreshToken();
-                if (refreshed) {
-                    const newResponse = await fetch(response.url, {
-                        method: response.method || 'GET',
-                        headers: this.getHeaders(),
-                        body: response._bodyInit || null
-                    });
-                    return this.handleResponse(newResponse, retryCount + 1);
-                }
-            }
-            this.removeToken();
-            window.location.href = '/frontend/pages/login.html';
-            throw new Error('جلسة غير صالحة. يرجى تسجيل الدخول مرة أخرى.');
-        }
-        
-        if (response.status === 429) {
-            throw new Error('تم تجاوز الحد الأقصى للطلبات. حاول مرة أخرى لاحقاً.');
-        }
-        
-        if (response.status === 403) {
-            throw new Error('ليس لديك صلاحية للقيام بهذه العملية.');
-        }
-        
-        if (response.status === 404) {
-            throw new Error('المسار غير موجود أو العنصر غير متوفر.');
-        }
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.message || 'حدث خطأ في الطلب');
-        }
-        
-        if (!data.success) {
-            throw new Error(data.message || 'حدث خطأ في الطلب');
-        }
-        
-        return data;
-    },
-    
-    // ================================================================
-    // تجديد التوكن
-    // ================================================================
-    
-    refreshToken: async function() {
+
+    /**
+     * ✅ تحديث ثيم المستخدم
+     */
+    async updateTheme(theme) {
         try {
-            const refreshToken = this.getRefreshToken();
-            if (!refreshToken) return false;
-            
-            const response = await fetch(this.baseUrl + '/auth/refresh', {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify({ refresh_token: refreshToken })
-            });
-            
-            if (!response.ok) return false;
-            
-            const data = await response.json();
-            if (data.success && data.data) {
-                this.setToken(data.data.token);
-                if (data.data.refresh_token) {
-                    this.setRefreshToken(data.data.refresh_token);
+            const result = await this.request('/users/theme', 'POST', { theme });
+            if (result) {
+                const user = this.getUser();
+                if (user) {
+                    user.theme = theme;
+                    this.setUser(user);
                 }
                 return true;
             }
             return false;
-            
         } catch (error) {
-            console.error('Refresh token error:', error);
+            console.error('Error updating theme:', error);
             return false;
         }
     },
-    
-    // ================================================================
-    // الطلبات الأساسية
-    // ================================================================
-    
-    request: async function(method, endpoint, data = null, options = {}) {
+
+    /**
+     * طلب API موحد
+     */
+    async request(endpoint, method = 'GET', data = null, options = {}) {
         const url = this.baseUrl + endpoint;
-        const config = {
+        const token = this.getToken();
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...options.headers
+        };
+
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+
+        const fetchOptions = {
             method: method,
-            headers: this.getHeaders(),
+            headers: headers,
             ...options
         };
-        
-        if (data && method !== 'GET' && method !== 'DELETE') {
-            config.body = JSON.stringify(data);
+
+        if (data && method !== 'GET') {
+            fetchOptions.body = JSON.stringify(data);
         }
-        
-        if (method === 'GET' && data) {
-            const params = new URLSearchParams(data);
-            return this.request(method, endpoint + '?' + params.toString(), null, options);
+
+        try {
+            const response = await fetch(url, fetchOptions);
+            const result = await response.json();
+
+            // ✅ إذا كان التوكن غير صالح
+            if (response.status === 401) {
+                this.removeToken();
+                if (!window.location.pathname.includes('login.html')) {
+                    window.location.href = '/frontend/pages/login.html';
+                }
+                throw new Error('جلسة غير صالحة');
+            }
+
+            if (!result.success) {
+                throw new Error(result.message || 'حدث خطأ');
+            }
+
+            return result.data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
         }
-        
-        const response = await fetch(url, config);
-        return this.handleResponse(response);
     },
-    
-    get: async function(endpoint, params = null) {
-        return this.request('GET', endpoint, params);
-    },
-    
-    post: async function(endpoint, data = {}) {
-        return this.request('POST', endpoint, data);
-    },
-    
-    put: async function(endpoint, data = {}) {
-        return this.request('PUT', endpoint, data);
-    },
-    
-    patch: async function(endpoint, data = {}) {
-        return this.request('PATCH', endpoint, data);
-    },
-    
-    delete: async function(endpoint) {
-        return this.request('DELETE', endpoint);
-    },
-    
-    // ================================================================
-    // مسارات المصادقة
-    // ================================================================
+
+    // ============================================================
+    // المصادقة (Authentication)
+    // ============================================================
     
     auth: {
-        login: async function(username, password, deviceName = null) {
-            return API.post('/auth/login', {
+        /**
+         * تسجيل الدخول
+         */
+        login: (username, password, remember = false, deviceName = null) => {
+            return API.request('/auth/login', 'POST', {
                 username,
                 password,
-                device_name: deviceName || navigator.userAgent
+                remember,
+                device_name: deviceName || navigator.userAgent || 'Unknown Device'
             });
         },
-        
-        logout: async function() {
-            return API.post('/auth/logout');
+
+        /**
+         * تسجيل الخروج
+         */
+        logout: () => {
+            return API.request('/auth/logout', 'POST');
         },
-        
-        validate: async function() {
-            return API.get('/auth/validate');
+
+        /**
+         * التحقق من صحة الجلسة
+         */
+        validate: () => {
+            return API.request('/auth/validate');
         },
-        
-        refresh: async function() {
-            return API.post('/auth/refresh', {
-                refresh_token: API.getRefreshToken()
-            });
+
+        /**
+         * تجديد التوكن
+         */
+        refresh: (refreshToken) => {
+            return API.request('/auth/refresh', 'POST', { refresh_token: refreshToken });
         },
-        
-        me: async function() {
-            return API.get('/auth/me');
-        },
-        
-        changePassword: async function(currentPassword, newPassword, confirmPassword) {
-            return API.post('/auth/change-password', {
+
+        /**
+         * تغيير كلمة المرور
+         */
+        changePassword: (currentPassword, newPassword, confirmPassword) => {
+            return API.request('/auth/change-password', 'POST', {
                 current_password: currentPassword,
                 new_password: newPassword,
                 confirm_password: confirmPassword
             });
         },
-        
-        forgotPassword: async function(email) {
-            return API.post('/auth/forgot-password', { email });
+
+        /**
+         * طلب إعادة تعيين كلمة المرور
+         */
+        forgotPassword: (email) => {
+            return API.request('/auth/forgot-password', 'POST', { email });
         },
-        
-        resetPassword: async function(token, password, confirmPassword) {
-            return API.post('/auth/reset-password', {
+
+        /**
+         * إعادة تعيين كلمة المرور
+         */
+        resetPassword: (token, password, confirmPassword) => {
+            return API.request('/auth/reset-password', 'POST', {
                 token,
                 password,
                 confirm_password: confirmPassword
             });
         },
-        
-        sessions: async function() {
-            return API.get('/auth/sessions');
+
+        /**
+         * جلب معلومات المستخدم الحالي
+         */
+        me: () => {
+            return API.request('/auth/me');
         },
-        
-        terminateSession: async function(sessionId) {
-            return API.post('/auth/sessions/terminate', { session_id: sessionId });
+
+        /**
+         * جلب الجلسات النشطة
+         */
+        sessions: () => {
+            return API.request('/auth/sessions');
         },
-        
-        terminateAllSessions: async function() {
-            return API.post('/auth/sessions/terminate-all');
+
+        /**
+         * إنهاء جلسة محددة
+         */
+        terminateSession: (sessionId) => {
+            return API.request('/auth/sessions/terminate', 'POST', { session_id: sessionId });
+        },
+
+        /**
+         * إنهاء جميع الجلسات
+         */
+        terminateAllSessions: () => {
+            return API.request('/auth/sessions/terminate-all', 'POST');
         }
     },
-    
-    // ================================================================
-    // مسارات لوحة التحكم
-    // ================================================================
+
+    // ============================================================
+    // لوحة التحكم (Dashboard)
+    // ============================================================
     
     dashboard: {
-        get: async function() {
-            return API.get('/dashboard');
+        /**
+         * جلب جميع بيانات لوحة التحكم
+         */
+        index: () => API.request('/dashboard'),
+
+        /**
+         * جلب الإحصائيات
+         */
+        stats: () => API.request('/dashboard/stats'),
+
+        /**
+         * جلب بيانات الرسوم البيانية
+         */
+        charts: () => API.request('/dashboard/charts'),
+
+        /**
+         * جلب التنبيهات
+         */
+        alerts: () => API.request('/dashboard/alerts'),
+
+        /**
+         * جلب آخر الأنشطة
+         */
+        activities: () => API.request('/dashboard/activities'),
+
+        /**
+         * جلب حالة النظام
+         */
+        status: () => API.request('/dashboard/status'),
+
+        /**
+         * جلب الإشعارات
+         */
+        notifications: () => API.request('/dashboard/notifications'),
+
+        /**
+         * تعيين إشعار كمقروء
+         */
+        markNotificationRead: (notificationId) => {
+            return API.request('/dashboard/notifications/read', 'POST', { notification_id: notificationId });
         },
-        
-        stats: async function() {
-            // محاكاة بيانات الإحصائيات
-            return {
-                success: true,
-                data: {
-                    warehouses: 5,
-                    products: 38,
-                    users: 6,
-                    total_transfers: 42,
-                    daily_transfers: 3,
-                    low_stock: 7,
-                    last_update: 'منذ 5 دقائق',
-                    categories: 8,
-                    units: 4,
-                    receipts: 12,
-                    issues: 8,
-                    returns: 3
-                }
-            };
-        },
-        
-        charts: async function() {
-            // محاكاة بيانات الرسوم البيانية
-            return {
-                success: true,
-                data: {
-                    weekly: [
-                        { day: '2026-08-15', count: 45, day_name: 'Saturday' },
-                        { day: '2026-08-16', count: 58, day_name: 'Sunday' },
-                        { day: '2026-08-17', count: 32, day_name: 'Monday' },
-                        { day: '2026-08-18', count: 72, day_name: 'Tuesday' },
-                        { day: '2026-08-19', count: 42, day_name: 'Wednesday' },
-                        { day: '2026-08-20', count: 64, day_name: 'Thursday' },
-                        { day: '2026-08-21', count: 52, day_name: 'Friday' }
-                    ]
-                }
-            };
-        },
-        
-        alerts: async function() {
-            return {
-                success: true,
-                data: [
-                    { id: 1, message: 'تنبيه: صنف XYZ منخفض', type: 'warning' },
-                    { id: 2, message: 'تم إضافة مستخدم جديد', type: 'info' }
-                ]
-            };
-        },
-        
-        activities: async function() {
-            return {
-                success: true,
-                data: [
-                    { id: 1, user_name: 'أحمد', action: 'add', entity: 'products', date: new Date().toISOString(), time: 'منذ 5 دقائق' },
-                    { id: 2, user_name: 'محمد', action: 'transfer', entity: 'warehouses', date: new Date().toISOString(), time: 'منذ 15 دقيقة' },
-                    { id: 3, user_name: 'سارة', action: 'update', entity: 'products', date: new Date().toISOString(), time: 'منذ 32 دقيقة' },
-                    { id: 4, user_name: 'علي', action: 'delete', entity: 'products', date: new Date().toISOString(), time: 'منذ ساعة' },
-                    { id: 5, user_name: 'نورة', action: 'login', entity: 'auth', date: new Date().toISOString(), time: 'منذ ساعتين' }
-                ]
-            };
-        },
-        
-        status: async function() {
-            return API.get('/dashboard/status');
+
+        /**
+         * تعيين جميع الإشعارات كمقروءة
+         */
+        markAllNotificationsRead: () => {
+            return API.request('/dashboard/notifications/read-all', 'POST');
         }
     },
-    
-    // ================================================================
-    // مسارات الأصناف
-    // ================================================================
-    
-    products: {
-        list: async function(params = {}) {
-            return API.get('/products', params);
-        },
-        
-        get: async function(id) {
-            return API.get('/products/' + id);
-        },
-        
-        create: async function(data) {
-            return API.post('/products', data);
-        },
-        
-        update: async function(id, data) {
-            return API.put('/products/' + id, data);
-        },
-        
-        delete: async function(id) {
-            return API.delete('/products/' + id);
-        },
-        
-        categories: async function() {
-            return API.get('/products/categories');
-        },
-        
-        units: async function() {
-            return API.get('/products/units');
-        },
-        
-        balances: async function(id) {
-            return API.get('/products/' + id + '/balances');
-        },
-        
-        history: async function(id, params = {}) {
-            return API.get('/products/' + id + '/history', params);
-        },
-        
-        barcode: async function(id) {
-            return API.get('/products/' + id + '/barcode');
-        },
-        
-        bulkImport: async function(products) {
-            return API.post('/products/bulk-import', { products });
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/products/export', params);
-        }
-    },
-    
-    // ================================================================
-    // مسارات المخازن
-    // ================================================================
-    
-    warehouses: {
-        list: async function(params = {}) {
-            return API.get('/warehouses', params);
-        },
-        
-        get: async function(id) {
-            return API.get('/warehouses/' + id);
-        },
-        
-        create: async function(data) {
-            return API.post('/warehouses', data);
-        },
-        
-        update: async function(id, data) {
-            return API.put('/warehouses/' + id, data);
-        },
-        
-        delete: async function(id) {
-            return API.delete('/warehouses/' + id);
-        },
-        
-        stock: async function(id, params = {}) {
-            return API.get('/warehouses/' + id + '/stock', params);
-        },
-        
-        report: async function(id, params = {}) {
-            return API.get('/warehouses/' + id + '/report', params);
-        },
-        
-        sub: async function(id) {
-            return API.get('/warehouses/' + id + '/sub');
-        }
-    },
-    
-    // ================================================================
-    // مسارات المستخدمين
-    // ================================================================
+
+    // ============================================================
+    // المستخدمين (Users) - مع دعم الثيم
+    // ============================================================
     
     users: {
-        list: async function(params = {}) {
-            return API.get('/users', params);
+        /**
+         * جلب قائمة المستخدمين
+         */
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/users' + (query ? '?' + query : ''));
         },
-        
-        get: async function(id) {
-            return API.get('/users/' + id);
+
+        /**
+         * جلب مستخدم محدد
+         */
+        get: (id) => API.request('/users/' + id),
+
+        /**
+         * إنشاء مستخدم جديد
+         */
+        create: (data) => API.request('/users', 'POST', data),
+
+        /**
+         * تحديث مستخدم
+         */
+        update: (id, data) => API.request('/users/' + id, 'PUT', data),
+
+        /**
+         * حذف مستخدم
+         */
+        delete: (id) => API.request('/users/' + id, 'DELETE'),
+
+        /**
+         * استعادة مستخدم محذوف
+         */
+        restore: (id) => API.request('/users/' + id + '/restore', 'POST'),
+
+        /**
+         * قفل مستخدم
+         */
+        lock: (id) => API.request('/users/' + id + '/lock', 'POST'),
+
+        /**
+         * فتح قفل مستخدم
+         */
+        unlock: (id) => API.request('/users/' + id + '/unlock', 'POST'),
+
+        /**
+         * تحديث صلاحيات المستخدم
+         */
+        updatePermissions: (id, permissions, roleId) => {
+            return API.request('/users/' + id + '/permissions', 'PUT', { permissions, role_id: roleId });
         },
-        
-        me: async function() {
-            return API.get('/users/me');
+
+        /**
+         * جلب صلاحيات المستخدم
+         */
+        getPermissions: (id) => API.request('/users/' + id + '/permissions'),
+
+        /**
+         * تغيير كلمة المرور
+         */
+        changePassword: (id, currentPassword, newPassword, confirmPassword) => {
+            return API.request('/users/' + id + '/change-password', 'POST', {
+                current_password: currentPassword,
+                new_password: newPassword,
+                confirm_password: confirmPassword
+            });
         },
-        
-        create: async function(data) {
-            return API.post('/users', data);
+
+        /**
+         * جلب سجل نشاط المستخدم
+         */
+        activities: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/users/' + id + '/activities' + (query ? '?' + query : ''));
         },
-        
-        update: async function(id, data) {
-            return API.put('/users/' + id, data);
+
+        /**
+         * جلب جلسات المستخدم النشطة
+         */
+        sessions: (id) => API.request('/users/' + id + '/sessions'),
+
+        /**
+         * تصدير المستخدمين
+         */
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/users/export' + (query ? '?' + query : ''));
         },
-        
-        delete: async function(id) {
-            return API.delete('/users/' + id);
+
+        /**
+         * ✅ تحديث ثيم المستخدم
+         */
+        updateTheme: (theme) => {
+            return API.request('/users/theme', 'POST', { theme });
         },
-        
-        restore: async function(id) {
-            return API.post('/users/' + id + '/restore');
-        },
-        
-        lock: async function(id) {
-            return API.post('/users/' + id + '/lock');
-        },
-        
-        unlock: async function(id) {
-            return API.post('/users/' + id + '/unlock');
-        },
-        
-        permissions: async function(id, data) {
-            return API.put('/users/' + id + '/permissions', data);
-        },
-        
-        getPermissions: async function(id) {
-            return API.get('/users/' + id + '/permissions');
-        },
-        
-        changePassword: async function(id, data) {
-            return API.post('/users/' + id + '/change-password', data);
-        },
-        
-        activities: async function(id, params = {}) {
-            return API.get('/users/' + id + '/activities', params);
-        },
-        
-        sessions: async function(id) {
-            return API.get('/users/' + id + '/sessions');
+
+        /**
+         * ✅ جلب ثيم المستخدم
+         */
+        getTheme: () => {
+            return API.request('/users/theme');
         }
     },
+
+    // ============================================================
+    // الأصناف (Products)
+    // ============================================================
     
-    // ================================================================
-    // مسارات التقارير
-    // ================================================================
+    products: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/products' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/products/' + id),
+        create: (data) => API.request('/products', 'POST', data),
+        update: (id, data) => API.request('/products/' + id, 'PUT', data),
+        delete: (id) => API.request('/products/' + id, 'DELETE'),
+        bulkImport: (products) => API.request('/products/bulk-import', 'POST', { products }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/products/export' + (query ? '?' + query : ''));
+        },
+        categories: () => API.request('/products/categories'),
+        units: () => API.request('/products/units'),
+        balances: (id) => API.request('/products/' + id + '/balances'),
+        history: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/products/' + id + '/history' + (query ? '?' + query : ''));
+        },
+        barcode: (id) => API.request('/products/' + id + '/barcode')
+    },
+
+    // ============================================================
+    // المخازن (Warehouses)
+    // ============================================================
     
-    reports: {
-        stock: async function(params = {}) {
-            return API.get('/reports/stock', params);
+    warehouses: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/warehouses' + (query ? '?' + query : ''));
         },
-        
-        movements: async function(params = {}) {
-            return API.get('/reports/movements', params);
+        get: (id) => API.request('/warehouses/' + id),
+        create: (data) => API.request('/warehouses', 'POST', data),
+        update: (id, data) => API.request('/warehouses/' + id, 'PUT', data),
+        delete: (id) => API.request('/warehouses/' + id, 'DELETE'),
+        stock: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/warehouses/' + id + '/stock' + (query ? '?' + query : ''));
         },
-        
-        product: async function(id, params = {}) {
-            return API.get('/reports/product/' + id, params);
+        report: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/warehouses/' + id + '/report' + (query ? '?' + query : ''));
         },
-        
-        warehouse: async function(id, params = {}) {
-            return API.get('/reports/warehouse/' + id, params);
-        },
-        
-        audit: async function(params = {}) {
-            return API.get('/reports/audit', params);
-        },
-        
-        summary: async function() {
-            return API.get('/reports/summary');
-        },
-        
-        topProducts: async function(params = {}) {
-            return API.get('/reports/top-products', params);
-        },
-        
-        inventoryValue: async function() {
-            return API.get('/reports/inventory-value');
-        },
-        
-        users: async function(params = {}) {
-            return API.get('/reports/users', params);
+        sub: (id) => API.request('/warehouses/' + id + '/sub'),
+        summary: (id) => API.request('/warehouses/' + id + '/summary'),
+        detailed: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/warehouses/' + id + '/detailed' + (query ? '?' + query : ''));
         }
     },
+
+    // ============================================================
+    // الموردين (Suppliers)
+    // ============================================================
     
-    // ================================================================
-    // مسارات الاستلام
-    // ================================================================
+    suppliers: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/suppliers' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/suppliers/' + id),
+        create: (data) => API.request('/suppliers', 'POST', data),
+        update: (id, data) => API.request('/suppliers/' + id, 'PUT', data),
+        delete: (id) => API.request('/suppliers/' + id, 'DELETE'),
+        export: (format = 'csv') => API.request('/suppliers/export?format=' + format)
+    },
+
+    // ============================================================
+    // الوحدات (Units)
+    // ============================================================
+    
+    units: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/units' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/units/' + id),
+        create: (data) => API.request('/units', 'POST', data),
+        update: (id, data) => API.request('/units/' + id, 'PUT', data),
+        delete: (id) => API.request('/units/' + id, 'DELETE'),
+        convert: (fromUnit, toUnit, quantity = 1) => {
+            return API.request('/units/convert?from_unit=' + fromUnit + '&to_unit=' + toUnit + '&quantity=' + quantity);
+        },
+        base: () => API.request('/units/base')
+    },
+
+    // ============================================================
+    // التصنيفات (Categories)
+    // ============================================================
+    
+    categories: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/categories' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/categories/' + id),
+        create: (data) => API.request('/categories', 'POST', data),
+        update: (id, data) => API.request('/categories/' + id, 'PUT', data),
+        delete: (id) => API.request('/categories/' + id, 'DELETE'),
+        tree: () => API.request('/categories/tree'),
+        export: (format = 'csv') => API.request('/categories/export?format=' + format)
+    },
+
+    // ============================================================
+    // الجهات المستلمة (Recipients)
+    // ============================================================
+    
+    recipients: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/recipients' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/recipients/' + id),
+        create: (data) => API.request('/recipients', 'POST', data),
+        update: (id, data) => API.request('/recipients/' + id, 'PUT', data),
+        delete: (id) => API.request('/recipients/' + id, 'DELETE'),
+        export: (format = 'csv') => API.request('/recipients/export?format=' + format),
+        types: () => API.request('/recipients/types')
+    },
+
+    // ============================================================
+    // الاستلام (Receipts)
+    // ============================================================
     
     receipts: {
-        list: async function(params = {}) {
-            return API.get('/receipts', params);
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/receipts' + (query ? '?' + query : ''));
         },
-        
-        get: async function(id) {
-            return API.get('/receipts/' + id);
+        get: (id) => API.request('/receipts/' + id),
+        create: (data) => API.request('/receipts', 'POST', data),
+        update: (id, data) => API.request('/receipts/' + id, 'PUT', data),
+        approve: (id) => API.request('/receipts/' + id + '/approve', 'POST'),
+        reject: (id, reason) => API.request('/receipts/' + id + '/reject', 'POST', { reason }),
+        cancel: (id, reason) => API.request('/receipts/' + id + '/cancel', 'POST', { reason }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/receipts/export' + (query ? '?' + query : ''));
         },
-        
-        create: async function(data) {
-            return API.post('/receipts', data);
-        },
-        
-        update: async function(id, data) {
-            return API.put('/receipts/' + id, data);
-        },
-        
-        approve: async function(id) {
-            return API.post('/receipts/' + id + '/approve');
-        },
-        
-        reject: async function(id, reason = null) {
-            return API.post('/receipts/' + id + '/reject', { reason });
-        },
-        
-        cancel: async function(id, reason = null) {
-            return API.post('/receipts/' + id + '/cancel', { reason });
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/receipts/export', params);
-        }
+        print: (id) => API.request('/receipts/' + id + '/print')
     },
-    
-    // ================================================================
-    // مسارات الصرف
-    // ================================================================
+
+    // ============================================================
+    // الصرف (Issues)
+    // ============================================================
     
     issues: {
-        list: async function(params = {}) {
-            return API.get('/issues', params);
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/issues' + (query ? '?' + query : ''));
         },
-        
-        get: async function(id) {
-            return API.get('/issues/' + id);
+        get: (id) => API.request('/issues/' + id),
+        create: (data) => API.request('/issues', 'POST', data),
+        update: (id, data) => API.request('/issues/' + id, 'PUT', data),
+        approve: (id) => API.request('/issues/' + id + '/approve', 'POST'),
+        deliver: (id) => API.request('/issues/' + id + '/deliver', 'POST'),
+        reject: (id, reason) => API.request('/issues/' + id + '/reject', 'POST', { reason }),
+        cancel: (id, reason) => API.request('/issues/' + id + '/cancel', 'POST', { reason }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/issues/export' + (query ? '?' + query : ''));
         },
-        
-        create: async function(data) {
-            return API.post('/issues', data);
-        },
-        
-        update: async function(id, data) {
-            return API.put('/issues/' + id, data);
-        },
-        
-        approve: async function(id) {
-            return API.post('/issues/' + id + '/approve');
-        },
-        
-        deliver: async function(id) {
-            return API.post('/issues/' + id + '/deliver');
-        },
-        
-        reject: async function(id, reason = null) {
-            return API.post('/issues/' + id + '/reject', { reason });
-        },
-        
-        cancel: async function(id, reason = null) {
-            return API.post('/issues/' + id + '/cancel', { reason });
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/issues/export', params);
-        }
+        print: (id) => API.request('/issues/' + id + '/print')
     },
-    
-    // ================================================================
-    // مسارات التحويلات
-    // ================================================================
+
+    // ============================================================
+    // التحويلات (Transfers)
+    // ============================================================
     
     transfers: {
-        list: async function(params = {}) {
-            return API.get('/transfers', params);
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/transfers' + (query ? '?' + query : ''));
         },
-        
-        get: async function(id) {
-            return API.get('/transfers/' + id);
+        get: (id) => API.request('/transfers/' + id),
+        create: (data) => API.request('/transfers', 'POST', data),
+        update: (id, data) => API.request('/transfers/' + id, 'PUT', data),
+        approve: (id) => API.request('/transfers/' + id + '/approve', 'POST'),
+        complete: (id) => API.request('/transfers/' + id + '/complete', 'POST'),
+        reject: (id, reason) => API.request('/transfers/' + id + '/reject', 'POST', { reason }),
+        cancel: (id, reason) => API.request('/transfers/' + id + '/cancel', 'POST', { reason }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/transfers/export' + (query ? '?' + query : ''));
         },
-        
-        create: async function(data) {
-            return API.post('/transfers', data);
-        },
-        
-        update: async function(id, data) {
-            return API.put('/transfers/' + id, data);
-        },
-        
-        approve: async function(id) {
-            return API.post('/transfers/' + id + '/approve');
-        },
-        
-        complete: async function(id) {
-            return API.post('/transfers/' + id + '/complete');
-        },
-        
-        reject: async function(id, reason = null) {
-            return API.post('/transfers/' + id + '/reject', { reason });
-        },
-        
-        cancel: async function(id, reason = null) {
-            return API.post('/transfers/' + id + '/cancel', { reason });
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/transfers/export', params);
-        }
+        print: (id) => API.request('/transfers/' + id + '/print')
     },
-    
-    // ================================================================
-    // مسارات المرتجعات
-    // ================================================================
+
+    // ============================================================
+    // المرتجعات (Returns)
+    // ============================================================
     
     returns: {
-        list: async function(params = {}) {
-            return API.get('/returns', params);
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/returns' + (query ? '?' + query : ''));
         },
-        
-        get: async function(id) {
-            return API.get('/returns/' + id);
+        get: (id) => API.request('/returns/' + id),
+        create: (data) => API.request('/returns', 'POST', data),
+        update: (id, data) => API.request('/returns/' + id, 'PUT', data),
+        approve: (id) => API.request('/returns/' + id + '/approve', 'POST'),
+        reject: (id, reason) => API.request('/returns/' + id + '/reject', 'POST', { reason }),
+        cancel: (id, reason) => API.request('/returns/' + id + '/cancel', 'POST', { reason }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/returns/export' + (query ? '?' + query : ''));
         },
-        
-        create: async function(data) {
-            return API.post('/returns', data);
-        },
-        
-        approve: async function(id) {
-            return API.post('/returns/' + id + '/approve');
-        },
-        
-        reject: async function(id, reason = null) {
-            return API.post('/returns/' + id + '/reject', { reason });
-        },
-        
-        cancel: async function(id, reason = null) {
-            return API.post('/returns/' + id + '/cancel', { reason });
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/returns/export', params);
-        }
+        print: (id) => API.request('/returns/' + id + '/print')
     },
-    
-    // ================================================================
-    // مسارات التنبيهات
-    // ================================================================
-    
-    notifications: {
-        list: async function(params = {}) {
-            return API.get('/notifications', params);
-        },
-        
-        get: async function(id) {
-            return API.get('/notifications/' + id);
-        },
-        
-        markAsRead: async function(id) {
-            return API.post('/notifications/' + id + '/read');
-        },
-        
-        markAllAsRead: async function() {
-            return API.post('/notifications/read-all');
-        },
-        
-        delete: async function(id) {
-            return API.delete('/notifications/' + id);
-        },
-        
-        check: async function() {
-            return API.post('/notifications/check');
-        }
-    },
-    
-    // ================================================================
-    // مسارات الإعدادات
-    // ================================================================
-    
-    settings: {
-        list: async function() {
-            return API.get('/settings');
-        },
-        
-        get: async function(key) {
-            return API.get('/settings/' + key);
-        },
-        
-        update: async function(key, value) {
-            return API.put('/settings/' + key, { value });
-        },
-        
-        batchUpdate: async function(settings) {
-            return API.post('/settings/batch', { settings });
-        },
-        
-        reset: async function() {
-            return API.post('/settings/reset');
-        }
-    },
-    
-    // ================================================================
-    // مسارات النسخ الاحتياطي
-    // ================================================================
-    
-    backup: {
-        list: async function() {
-            return API.get('/backup');
-        },
-        
-        create: async function() {
-            return API.post('/backup/create');
-        },
-        
-        restore: async function(id) {
-            return API.post('/backup/restore/' + id);
-        },
-        
-        download: async function(id) {
-            return API.get('/backup/download/' + id);
-        },
-        
-        delete: async function(id) {
-            return API.delete('/backup/' + id);
-        }
-    },
-    
-    // ================================================================
-    // مسارات الجرد
-    // ================================================================
+
+    // ============================================================
+    // الجرد (Inventory)
+    // ============================================================
     
     inventory: {
-        counts: async function(params = {}) {
-            return API.get('/inventory/counts', params);
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/inventory/counts' + (query ? '?' + query : ''));
         },
-        
-        getCount: async function(id) {
-            return API.get('/inventory/counts/' + id);
+        get: (id) => API.request('/inventory/counts/' + id),
+        create: (data) => API.request('/inventory/counts', 'POST', data),
+        addItem: (id, data) => API.request('/inventory/counts/' + id + '/items', 'POST', data),
+        updateItem: (id, itemId, data) => {
+            return API.request('/inventory/counts/' + id + '/items/' + itemId, 'PUT', data);
         },
-        
-        createCount: async function(data) {
-            return API.post('/inventory/counts', data);
-        },
-        
-        addItem: async function(id, data) {
-            return API.post('/inventory/counts/' + id + '/items', data);
-        },
-        
-        updateItem: async function(id, itemId, data) {
-            return API.put('/inventory/counts/' + id + '/items/' + itemId, data);
-        },
-        
-        approveCount: async function(id) {
-            return API.post('/inventory/counts/' + id + '/approve');
-        },
-        
-        cancelCount: async function(id) {
-            return API.post('/inventory/counts/' + id + '/cancel');
-        },
-        
-        export: async function(params = {}) {
-            return API.get('/inventory/export', params);
+        approve: (id) => API.request('/inventory/counts/' + id + '/approve', 'POST'),
+        cancel: (id, reason) => API.request('/inventory/counts/' + id + '/cancel', 'POST', { reason }),
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/inventory/export' + (query ? '?' + query : ''));
         }
     },
+
+    // ============================================================
+    // التقارير (Reports)
+    // ============================================================
     
-    // ================================================================
-    // مسارات الأدوات المساعدة
-    // ================================================================
+    reports: {
+        stock: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/stock' + (query ? '?' + query : ''));
+        },
+        movements: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/movements' + (query ? '?' + query : ''));
+        },
+        product: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/product/' + id + (query ? '?' + query : ''));
+        },
+        warehouse: (id, params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/warehouse/' + id + (query ? '?' + query : ''));
+        },
+        audit: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/audit' + (query ? '?' + query : ''));
+        },
+        summary: () => API.request('/reports/summary'),
+        users: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/users' + (query ? '?' + query : ''));
+        },
+        topProducts: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/top-products' + (query ? '?' + query : ''));
+        },
+        inventoryValue: () => API.request('/reports/inventory-value'),
+        byPeriod: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/period' + (query ? '?' + query : ''));
+        },
+        byProduct: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/by-product' + (query ? '?' + query : ''));
+        },
+        bySupplier: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/reports/by-supplier' + (query ? '?' + query : ''));
+        }
+    },
+
+    // ============================================================
+    // سجل التدقيق (Audit)
+    // ============================================================
     
-    utils: {
-        health: async function() {
-            return API.get('/health');
+    audit: {
+        logs: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/audit/logs' + (query ? '?' + query : ''));
         },
-        
-        test: async function() {
-            return API.get('/test');
+        get: (id) => API.request('/audit/logs/' + id),
+        stats: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/audit/stats' + (query ? '?' + query : ''));
         },
-        
-        search: async function(query, type = 'all') {
-            return API.get('/search', { q: query, type });
+        export: (format = 'csv', params = {}) => {
+            const query = new URLSearchParams({ format, ...params }).toString();
+            return API.request('/audit/export' + (query ? '?' + query : ''));
         },
+        modules: () => API.request('/audit/modules'),
+        actions: () => API.request('/audit/actions'),
+        cleanup: (days) => API.request('/audit/cleanup', 'POST', { days })
+    },
+
+    // ============================================================
+    // الإشعارات (Notifications)
+    // ============================================================
+    
+    notifications: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/notifications' + (query ? '?' + query : ''));
+        },
+        get: (id) => API.request('/notifications/' + id),
+        markAsRead: (id) => API.request('/notifications/' + id + '/read', 'POST'),
+        markAllAsRead: () => API.request('/notifications/read-all', 'POST'),
+        delete: (id) => API.request('/notifications/' + id, 'DELETE'),
+        check: () => API.request('/notifications/check', 'POST'),
+        stats: () => API.request('/notifications/stats')
+    },
+
+    // ============================================================
+    // الإعدادات (Settings)
+    // ============================================================
+    
+    settings: {
+        list: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request('/settings' + (query ? '?' + query : ''));
+        },
+        get: (key) => API.request('/settings/' + key),
+        update: (key, value) => API.request('/settings/' + key, 'PUT', { value }),
+        batchUpdate: (settings) => API.request('/settings/batch', 'POST', { settings }),
+        reset: (key = null) => API.request('/settings/reset', 'POST', { key }),
+        app: () => API.request('/settings/app'),
+        security: () => API.request('/settings/security'),
+        backup: () => API.request('/settings/backup')
+    },
+
+    // ============================================================
+    // النسخ الاحتياطي (Backup)
+    // ============================================================
+    
+    backup: {
+        list: () => API.request('/backup'),
+        create: (type = 'manual', compress = true, notes = null) => {
+            return API.request('/backup/create', 'POST', { type, compress, notes });
+        },
+        restore: (id, confirm = true) => {
+            return API.request('/backup/restore/' + id, 'POST', { confirm });
+        },
+        download: (id) => {
+            const token = API.getToken();
+            window.open(API.baseUrl + '/backup/download/' + id + '?token=' + token, '_blank');
+        },
+        delete: (id) => API.request('/backup/' + id, 'DELETE'),
+        schedule: (enabled, time, frequency) => {
+            return API.request('/backup/schedule', 'POST', { enabled, time, frequency });
+        }
+    },
+
+    // ============================================================
+    // دوال مساعدة للاستخدام السريع
+    // ============================================================
+    
+    /**
+     * جلب البيانات مع معالجة الخطأ تلقائياً
+     */
+    async safeRequest(endpoint, method = 'GET', data = null, options = {}) {
+        try {
+            return await this.request(endpoint, method, data, options);
+        } catch (error) {
+            console.error('Safe Request Error:', error);
+            return null;
+        }
+    },
+
+    /**
+     * التحقق من صلاحية المستخدم
+     */
+    hasPermission(permission) {
+        const user = this.getUser();
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        return (user.permissions || []).includes(permission);
+    },
+
+    /**
+     * التحقق من دور المستخدم
+     */
+    hasRole(role) {
+        const user = this.getUser();
+        if (!user) return false;
+        return user.role === role;
+    },
+
+    /**
+     * ✅ جلب الثيم من localStorage أو المستخدم
+     */
+    getCurrentTheme() {
+        const saved = localStorage.getItem('app_theme');
+        if (saved) return saved;
+        const user = this.getUser();
+        return user?.theme || 'dark';
+    },
+
+    /**
+     * ✅ تطبيق الثيم على الصفحة
+     */
+    applyTheme(theme) {
+        const root = document.documentElement;
+        if (theme === 'light') {
+            root.style.setProperty('--bg-dark', '#f0f2f5');
+            root.style.setProperty('--bg-card', 'rgba(255,255,255,0.9)');
+            root.style.setProperty('--border-color', 'rgba(0,0,0,0.08)');
+            root.style.setProperty('--text-primary', '#1a2332');
+            root.style.setProperty('--text-secondary', 'rgba(0,0,0,0.6)');
+            root.style.setProperty('--text-muted', 'rgba(0,0,0,0.3)');
+            root.style.setProperty('--sidebar-bg', 'rgba(255,255,255,0.98)');
+            root.style.setProperty('--input-bg', 'rgba(0,0,0,0.04)');
+        } else {
+            root.style.setProperty('--bg-dark', '#0a0e1a');
+            root.style.setProperty('--bg-card', 'rgba(255,255,255,0.03)');
+            root.style.setProperty('--border-color', 'rgba(255,255,255,0.05)');
+            root.style.setProperty('--text-primary', '#ffffff');
+            root.style.setProperty('--text-secondary', 'rgba(255,255,255,0.6)');
+            root.style.setProperty('--text-muted', 'rgba(255,255,255,0.3)');
+            root.style.setProperty('--sidebar-bg', 'rgba(10,14,26,0.97)');
+            root.style.setProperty('--input-bg', 'rgba(255,255,255,0.04)');
+        }
+        localStorage.setItem('app_theme', theme);
         
-        upload: async function(file, type = 'image') {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('type', type);
-            
-            return fetch(API.baseUrl + '/upload', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + API.getToken()
-                },
-                body: formData
-            }).then(r => r.json());
+        // تحديث أيقونة الثيم
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (themeIcon) {
+            themeIcon.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+    },
+
+    /**
+     * ✅ تبديل الثيم وحفظه في قاعدة البيانات
+     */
+    async toggleTheme() {
+        const current = this.getCurrentTheme();
+        const newTheme = current === 'dark' ? 'light' : 'dark';
+        
+        // تطبيق محلياً
+        this.applyTheme(newTheme);
+        
+        // حفظ في قاعدة البيانات
+        try {
+            await this.updateTheme(newTheme);
+            return true;
+        } catch (error) {
+            console.warn('Could not save theme to database:', error);
+            return false;
         }
     }
 };
 
-// ================================================================
-// تصدير API
-// ================================================================
+// ============================================================
+// تهيئة API
+// ============================================================
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = API;
+API.init();
+
+// ============================================================
+// تصدير API للاستخدام العالمي
+// ============================================================
+
+if (typeof window !== 'undefined') {
+    window.API = API;
 }
 
-console.log('%c✅ API تم تحميلها بنجاح', 'font-size:14px;color:#28a745;');
-console.log('%c🔗 Base URL: ' + API.baseUrl, 'font-size:12px;color:#666;');
+console.log('%c✅ API v5.0 جاهز للاستخدام', 'color:#28a745;font-size:16px;font-weight:bold;');
+console.log('%c🔗 Base URL: ' + API.baseUrl, 'color:#667eea;font-size:12px;');
+
+// ============================================================
+// انتهى الملف
+// ============================================================

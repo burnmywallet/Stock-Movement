@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/routes/api.php
 // الوصف: مسارات API الرئيسية - جميع نقاط النهاية
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// التاريخ: 2026-08-22
 // ================================================================
 
 use Core\Router;
@@ -21,6 +20,11 @@ use Controllers\ReturnController;
 use Controllers\InventoryController;
 use Controllers\NotificationController;
 use Controllers\SettingController;
+use Controllers\AuditController;
+use Controllers\SupplierController;
+use Controllers\UnitController;
+use Controllers\CategoryController;
+use Controllers\RecipientController;
 
 // إنشاء كائن Router
 $router = new Router();
@@ -47,6 +51,21 @@ $router->group('/api/auth', [], function($router) {
     
     // إعادة تعيين كلمة المرور
     $router->post('/reset-password', [AuthController::class, 'resetPassword']);
+    
+    // تغيير كلمة المرور (للمستخدم المسجل)
+    $router->post('/change-password', [AuthController::class, 'changePassword']);
+    
+    // جلسات المستخدم النشطة
+    $router->get('/sessions', [AuthController::class, 'sessions']);
+    
+    // إنهاء جلسة محددة
+    $router->post('/sessions/terminate', [AuthController::class, 'terminateSession']);
+    
+    // إنهاء جميع الجلسات
+    $router->post('/sessions/terminate-all', [AuthController::class, 'terminateAllSessions']);
+    
+    // معلومات المستخدم الحالي
+    $router->get('/me', [AuthController::class, 'me']);
 });
 
 // ================================================================
@@ -86,6 +105,7 @@ $router->group('/api/dashboard', ['AuthMiddleware'], function($router) {
     $router->get('/charts', [DashboardController::class, 'charts']);
     $router->get('/alerts', [DashboardController::class, 'alerts']);
     $router->get('/activities', [DashboardController::class, 'activities']);
+    $router->get('/status', [DashboardController::class, 'status']);
 });
 
 // ================================================================
@@ -158,6 +178,12 @@ $router->group('/api/warehouses', ['AuthMiddleware'], function($router) {
     
     // جلب المخازن الفرعية
     $router->get('/{id}/sub', [WarehouseController::class, 'subWarehouses']);
+    
+    // عرض مخزن مجمع
+    $router->get('/{id}/summary', [WarehouseController::class, 'summary']);
+    
+    // عرض مخزن تفصيلي
+    $router->get('/{id}/detailed', [WarehouseController::class, 'detailed']);
 });
 
 // ================================================================
@@ -188,6 +214,9 @@ $router->group('/api/receipts', ['AuthMiddleware'], function($router) {
     
     // تصدير إذون الاستلام
     $router->get('/export', [ReceiptController::class, 'export']);
+    
+    // طباعة إذن استلام
+    $router->get('/{id}/print', [ReceiptController::class, 'print']);
 });
 
 // ================================================================
@@ -221,6 +250,9 @@ $router->group('/api/issues', ['AuthMiddleware'], function($router) {
     
     // تصدير إذون الصرف
     $router->get('/export', [IssueController::class, 'export']);
+    
+    // طباعة إذن صرف
+    $router->get('/{id}/print', [IssueController::class, 'print']);
 });
 
 // ================================================================
@@ -254,6 +286,9 @@ $router->group('/api/transfers', ['AuthMiddleware'], function($router) {
     
     // تصدير التحويلات
     $router->get('/export', [TransferController::class, 'export']);
+    
+    // طباعة تحويل
+    $router->get('/{id}/print', [TransferController::class, 'print']);
 });
 
 // ================================================================
@@ -270,6 +305,9 @@ $router->group('/api/returns', ['AuthMiddleware'], function($router) {
     // إنشاء مرتجع جديد
     $router->post('', [ReturnController::class, 'create']);
     
+    // تحديث مرتجع
+    $router->put('/{id}', [ReturnController::class, 'update']);
+    
     // اعتماد مرتجع
     $router->post('/{id}/approve', [ReturnController::class, 'approve']);
     
@@ -281,6 +319,9 @@ $router->group('/api/returns', ['AuthMiddleware'], function($router) {
     
     // تصدير المرتجعات
     $router->get('/export', [ReturnController::class, 'export']);
+    
+    // طباعة مرتجع
+    $router->get('/{id}/print', [ReturnController::class, 'print']);
 });
 
 // ================================================================
@@ -311,6 +352,9 @@ $router->group('/api/inventory', ['AuthMiddleware'], function($router) {
     
     // تصدير الجرد
     $router->get('/export', [InventoryController::class, 'export']);
+    
+    // طباعة جرد
+    $router->get('/{id}/print', [InventoryController::class, 'print']);
 });
 
 // ================================================================
@@ -344,10 +388,121 @@ $router->group('/api/reports', ['AuthMiddleware'], function($router) {
     
     // تقرير قيمة المخزون
     $router->get('/inventory-value', [ReportController::class, 'inventoryValue']);
+    
+    // تقرير حسب الفترة
+    $router->get('/period', [ReportController::class, 'period']);
+    
+    // تقرير حسب الصنف
+    $router->get('/by-product', [ReportController::class, 'byProduct']);
+    
+    // تقرير حسب المورد
+    $router->get('/by-supplier', [ReportController::class, 'bySupplier']);
+    
+    // تقرير حسب رقم الحركة
+    $router->get('/by-movement/{id}', [ReportController::class, 'byMovement']);
+    
+    // تقرير حسب كود الصنف
+    $router->get('/by-product-code/{code}', [ReportController::class, 'byProductCode']);
+    
+    // تقرير حسب كود المورد
+    $router->get('/by-supplier-code/{code}', [ReportController::class, 'bySupplierCode']);
+    
+    // تقرير حسب اسم الصنف
+    $router->get('/by-product-name/{name}', [ReportController::class, 'byProductName']);
+    
+    // تقرير حسب اسم المورد
+    $router->get('/by-supplier-name/{name}', [ReportController::class, 'bySupplierName']);
 });
 
 // ================================================================
-// 12. مسارات المستخدمين (محمية)
+// 12. مسارات الموردين (محمية)
+// ================================================================
+
+$router->group('/api/suppliers', ['AuthMiddleware'], function($router) {
+    // جلب جميع الموردين
+    $router->get('', [SupplierController::class, 'index']);
+    
+    // جلب مورد محدد
+    $router->get('/{id}', [SupplierController::class, 'show']);
+    
+    // إنشاء مورد جديد
+    $router->post('', [SupplierController::class, 'create']);
+    
+    // تحديث مورد
+    $router->put('/{id}', [SupplierController::class, 'update']);
+    
+    // حذف مورد
+    $router->delete('/{id}', [SupplierController::class, 'delete']);
+    
+    // تصدير الموردين
+    $router->get('/export', [SupplierController::class, 'export']);
+});
+
+// ================================================================
+// 13. مسارات الوحدات (محمية)
+// ================================================================
+
+$router->group('/api/units', ['AuthMiddleware'], function($router) {
+    // جلب جميع الوحدات
+    $router->get('', [UnitController::class, 'index']);
+    
+    // جلب وحدة محددة
+    $router->get('/{id}', [UnitController::class, 'show']);
+    
+    // إنشاء وحدة جديدة
+    $router->post('', [UnitController::class, 'create']);
+    
+    // تحديث وحدة
+    $router->put('/{id}', [UnitController::class, 'update']);
+    
+    // حذف وحدة
+    $router->delete('/{id}', [UnitController::class, 'delete']);
+});
+
+// ================================================================
+// 14. مسارات التصنيفات (محمية)
+// ================================================================
+
+$router->group('/api/categories', ['AuthMiddleware'], function($router) {
+    // جلب جميع التصنيفات
+    $router->get('', [CategoryController::class, 'index']);
+    
+    // جلب تصنيف محدد
+    $router->get('/{id}', [CategoryController::class, 'show']);
+    
+    // إنشاء تصنيف جديد
+    $router->post('', [CategoryController::class, 'create']);
+    
+    // تحديث تصنيف
+    $router->put('/{id}', [CategoryController::class, 'update']);
+    
+    // حذف تصنيف
+    $router->delete('/{id}', [CategoryController::class, 'delete']);
+});
+
+// ================================================================
+// 15. مسارات الجهات المستلمة (محمية)
+// ================================================================
+
+$router->group('/api/recipients', ['AuthMiddleware'], function($router) {
+    // جلب جميع الجهات
+    $router->get('', [RecipientController::class, 'index']);
+    
+    // جلب جهة محددة
+    $router->get('/{id}', [RecipientController::class, 'show']);
+    
+    // إنشاء جهة جديدة
+    $router->post('', [RecipientController::class, 'create']);
+    
+    // تحديث جهة
+    $router->put('/{id}', [RecipientController::class, 'update']);
+    
+    // حذف جهة
+    $router->delete('/{id}', [RecipientController::class, 'delete']);
+});
+
+// ================================================================
+// 16. مسارات المستخدمين (محمية)
 // ================================================================
 
 $router->group('/api/users', ['AuthMiddleware'], function($router) {
@@ -384,7 +539,7 @@ $router->group('/api/users', ['AuthMiddleware'], function($router) {
     // جلب صلاحيات المستخدم
     $router->get('/{id}/permissions', [UserController::class, 'getPermissions']);
     
-    // تغيير كلمة المرور
+    // تغيير كلمة المرور (للمستخدم العادي)
     $router->post('/{id}/change-password', [UserController::class, 'changePassword']);
     
     // جلب سجل نشاط المستخدم
@@ -392,10 +547,40 @@ $router->group('/api/users', ['AuthMiddleware'], function($router) {
     
     // جلب جلسات المستخدم النشطة
     $router->get('/{id}/sessions', [UserController::class, 'sessions']);
+    
+    // تصدير المستخدمين
+    $router->get('/export', [UserController::class, 'export']);
 });
 
 // ================================================================
-// 13. مسارات التنبيهات (محمية)
+// 17. مسارات سجل التدقيق (محمية)
+// ================================================================
+
+$router->group('/api/audit', ['AuthMiddleware'], function($router) {
+    // جلب سجل التدقيق مع فلترة
+    $router->get('/logs', [AuditController::class, 'logs']);
+    
+    // جلب تفاصيل سجل محدد
+    $router->get('/logs/{id}', [AuditController::class, 'show']);
+    
+    // إحصائيات سجل التدقيق
+    $router->get('/stats', [AuditController::class, 'stats']);
+    
+    // تصدير سجل التدقيق
+    $router->get('/export', [AuditController::class, 'export']);
+    
+    // جلب الوحدات المتاحة
+    $router->get('/modules', [AuditController::class, 'modules']);
+    
+    // جلب الإجراءات المتاحة
+    $router->get('/actions', [AuditController::class, 'actions']);
+    
+    // تنظيف السجلات القديمة
+    $router->post('/cleanup', [AuditController::class, 'cleanup']);
+});
+
+// ================================================================
+// 18. مسارات التنبيهات (محمية)
 // ================================================================
 
 $router->group('/api/notifications', ['AuthMiddleware'], function($router) {
@@ -416,13 +601,16 @@ $router->group('/api/notifications', ['AuthMiddleware'], function($router) {
     
     // فحص التنبيهات (مخزون منخفض، منفذ، انتهاء صلاحية)
     $router->post('/check', [NotificationController::class, 'check']);
+    
+    // إحصائيات التنبيهات
+    $router->get('/stats', [NotificationController::class, 'stats']);
 });
 
 // ================================================================
-// 14. مسارات الإعدادات (محمية)
+// 19. مسارات الإعدادات (محمية - للأدمن فقط)
 // ================================================================
 
-$router->group('/api/settings', ['AuthMiddleware'], function($router) {
+$router->group('/api/settings', ['AuthMiddleware', 'PermissionMiddleware'], function($router) {
     // جلب جميع الإعدادات
     $router->get('', [SettingController::class, 'index']);
     
@@ -437,13 +625,25 @@ $router->group('/api/settings', ['AuthMiddleware'], function($router) {
     
     // إعادة تعيين الإعدادات
     $router->post('/reset', [SettingController::class, 'reset']);
-});
+    
+    // جلب إعدادات التطبيق
+    $router->get('/app', [SettingController::class, 'appSettings']);
+    
+    // جلب إعدادات الأمان
+    $router->get('/security', [SettingController::class, 'securitySettings']);
+    
+    // جلب إعدادات التقارير
+    $router->get('/report', [SettingController::class, 'reportSettings']);
+    
+    // جلب إعدادات النسخ الاحتياطي
+    $router->get('/backup', [SettingController::class, 'backupSettings']);
+}, ['permissions' => ['settings.view']]);
 
 // ================================================================
-// 15. مسارات النسخ الاحتياطي (محمية)
+// 20. مسارات النسخ الاحتياطي (محمية - للأدمن فقط)
 // ================================================================
 
-$router->group('/api/backup', ['AuthMiddleware'], function($router) {
+$router->group('/api/backup', ['AuthMiddleware', 'PermissionMiddleware'], function($router) {
     // جلب النسخ الاحتياطية
     $router->get('', [BackupController::class, 'index']);
     
@@ -458,10 +658,13 @@ $router->group('/api/backup', ['AuthMiddleware'], function($router) {
     
     // حذف نسخة احتياطية
     $router->delete('/{id}', [BackupController::class, 'delete']);
-});
+    
+    // جدولة النسخ الاحتياطي
+    $router->post('/schedule', [BackupController::class, 'schedule']);
+}, ['permissions' => ['backup.view']]);
 
 // ================================================================
-// 16. مسارات الملفات الثابتة (Frontend)
+// 21. مسارات الملفات الثابتة (Frontend)
 // ================================================================
 
 // خدمة ملفات Frontend
@@ -479,9 +682,13 @@ $router->get('/frontend/{path:.*}', function($path) {
             'gif' => 'image/gif',
             'svg' => 'image/svg+xml',
             'ico' => 'image/x-icon',
-            'json' => 'application/json'
+            'json' => 'application/json',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf'
         ];
         header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
+        header('Cache-Control: public, max-age=86400');
         readfile($file);
         exit;
     }
@@ -496,6 +703,14 @@ $router->get('/', function() {
         exit;
     }
     notFoundResponse();
+});
+
+// ================================================================
+// 22. معالجة المسارات غير الموجودة (404)
+// ================================================================
+
+$router->get('/{path:.*}', function() {
+    notFoundResponse('المسار غير موجود');
 });
 
 // ================================================================

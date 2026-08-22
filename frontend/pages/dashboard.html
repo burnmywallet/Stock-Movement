@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة التحكم - نظام المخازن المتقدم</title>
+    <title>لوحة التحكم - نظام المخازن المتقدم v5.0</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
     <style>
         /* ================================================================
-        الأنماط الرئيسية - Dashboard v5.0 Ultimate
+        الأنماط الرئيسية - Dashboard v5.0
         ================================================================ */
         :root {
             --primary: #667eea;
@@ -29,1078 +30,169 @@
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Tajawal', 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh; direction: rtl; overflow-x: hidden; }
 
-        body {
-            font-family: 'Tajawal', 'Segoe UI', sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            min-height: 100vh;
-            direction: rtl;
-            overflow-x: hidden;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.3); border-radius: 10px; }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.02);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(102,126,234,0.3);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(102,126,234,0.5);
-        }
-
-        /* ================================================================
-        Sidebar - القائمة الجانبية
-        ================================================================ */
+        /* ===== Sidebar ===== */
         .sidebar {
-            position: fixed;
-            right: 0;
-            top: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background: rgba(10, 14, 26, 0.97);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-left: 1px solid var(--border-color);
-            padding: 0;
-            z-index: 1000;
-            transition: var(--transition);
-            overflow-y: auto;
-            overflow-x: hidden;
+            position: fixed; right: 0; top: 0; width: var(--sidebar-width); height: 100vh;
+            background: rgba(10, 14, 26, 0.97); backdrop-filter: blur(20px);
+            border-left: 1px solid var(--border-color); padding: 0; z-index: 1000;
+            transition: var(--transition); overflow-y: auto; overflow-x: hidden;
         }
+        .sidebar .brand { padding: 20px 25px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; }
+        .sidebar .brand .logo-icon { width: 45px; height: 45px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
+        .sidebar .brand h2 { font-size: 20px; font-weight: 800; color: #fff; }
+        .sidebar .brand h2 span { background: linear-gradient(135deg, var(--primary), #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar .brand .version-badge { font-size: 9px; padding: 2px 10px; border-radius: 20px; background: rgba(102,126,234,0.15); color: var(--primary); font-weight: 600; margin-right: auto; }
 
-        .sidebar .brand {
-            padding: 20px 25px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .sidebar .user-profile { padding: 18px 25px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 14px; }
+        .sidebar .user-profile .avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 700; flex-shrink: 0; position: relative; }
+        .sidebar .user-profile .avatar .status-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); border: 2px solid var(--bg-dark); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+        .sidebar .user-profile .info .name { color: #fff; font-size: 16px; font-weight: 700; }
+        .sidebar .user-profile .info .role { color: var(--text-muted); font-size: 12px; }
 
-        .sidebar .brand .logo-icon {
-            width: 45px;
-            height: 45px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            color: #fff;
-        }
-
-        .sidebar .brand h2 {
-            font-size: 20px;
-            font-weight: 800;
-            color: #fff;
-        }
-
-        .sidebar .brand h2 span {
-            background: linear-gradient(135deg, var(--primary), #f093fb);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .sidebar .brand .version-badge {
-            font-size: 9px;
-            padding: 2px 10px;
-            border-radius: 20px;
-            background: rgba(102,126,234,0.15);
-            color: var(--primary);
-            font-weight: 600;
-            margin-right: auto;
-        }
-
-        .sidebar .user-profile {
-            padding: 18px 25px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .sidebar .user-profile .avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 20px;
-            font-weight: 700;
-            flex-shrink: 0;
-            position: relative;
-        }
-
-        .sidebar .user-profile .avatar .status-dot {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--success);
-            border: 2px solid var(--bg-dark);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.8); }
-        }
-
-        .sidebar .user-profile .info .name {
-            color: #fff;
-            font-size: 16px;
-            font-weight: 700;
-        }
-
-        .sidebar .user-profile .info .role {
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-
-        .sidebar .nav-menu {
-            padding: 10px 0 20px;
-        }
-
-        .sidebar .nav-menu .nav-section {
-            padding: 0 12px;
-            margin-bottom: 4px;
-        }
-
-        .sidebar .nav-menu .nav-section .section-title {
-            color: var(--text-muted);
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            padding: 12px 12px 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .sidebar .nav-menu .nav-section .section-title .line {
-            flex: 1;
-            height: 1px;
-            background: var(--border-color);
-        }
-
-        .sidebar .nav-menu .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: 10px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: var(--transition);
-            cursor: pointer;
-            position: relative;
-            margin: 2px 0;
-            font-size: 14px;
-        }
-
-        .sidebar .nav-menu .nav-item:hover {
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-        }
-
-        .sidebar .nav-menu .nav-item.active {
-            background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
-            color: var(--primary);
-            border: 1px solid rgba(102,126,234,0.1);
-        }
-
-        .sidebar .nav-menu .nav-item.active::before {
-            content: '';
-            position: absolute;
-            right: -1px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 24px;
-            background: linear-gradient(180deg, var(--primary), var(--secondary));
-            border-radius: 0 4px 4px 0;
-        }
-
-        .sidebar .nav-menu .nav-item i {
-            width: 20px;
-            text-align: center;
-            font-size: 16px;
-        }
-
-        .sidebar .nav-menu .nav-item .badge {
-            margin-right: auto;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 600;
-        }
-
+        .sidebar .nav-menu { padding: 10px 0 20px; }
+        .sidebar .nav-menu .nav-section { padding: 0 12px; margin-bottom: 4px; }
+        .sidebar .nav-menu .nav-section .section-title { color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 12px 12px 6px; display: flex; align-items: center; gap: 8px; }
+        .sidebar .nav-menu .nav-section .section-title .line { flex: 1; height: 1px; background: var(--border-color); }
+        .sidebar .nav-menu .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: var(--text-secondary); text-decoration: none; transition: var(--transition); cursor: pointer; position: relative; margin: 2px 0; font-size: 14px; }
+        .sidebar .nav-menu .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .sidebar .nav-menu .nav-item.active { background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); color: var(--primary); border: 1px solid rgba(102,126,234,0.1); }
+        .sidebar .nav-menu .nav-item.active::before { content: ''; position: absolute; right: -1px; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: linear-gradient(180deg, var(--primary), var(--secondary)); border-radius: 0 4px 4px 0; }
+        .sidebar .nav-menu .nav-item i { width: 20px; text-align: center; font-size: 16px; }
+        .sidebar .nav-menu .nav-item .badge { margin-right: auto; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
         .sidebar .nav-menu .nav-item .badge.primary { background: rgba(102,126,234,0.15); color: var(--primary); }
         .sidebar .nav-menu .nav-item .badge.success { background: rgba(40,167,69,0.15); color: var(--success); }
         .sidebar .nav-menu .nav-item .badge.danger { background: rgba(220,53,69,0.15); color: var(--danger); }
         .sidebar .nav-menu .nav-item .badge.warning { background: rgba(255,193,7,0.15); color: var(--warning); }
+        .sidebar .nav-menu .nav-item.logout { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; color: var(--text-muted); }
+        .sidebar .nav-menu .nav-item.logout:hover { color: var(--danger); }
 
-        .sidebar .nav-menu .nav-item.logout {
-            margin-top: 15px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 15px;
-            color: var(--text-muted);
-        }
+        /* ===== Main Content ===== */
+        .main-content { margin-right: var(--sidebar-width); min-height: 100vh; padding: 20px 30px 30px; }
 
-        .sidebar .nav-menu .nav-item.logout:hover {
-            color: var(--danger);
-        }
+        .topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 20px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px; }
+        .topbar .page-title h1 { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .topbar .page-title p { color: var(--text-muted); font-size: 14px; }
+        .topbar .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .topbar .actions .search-box { display: flex; align-items: center; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 8px 16px; border: 1px solid var(--border-color); transition: var(--transition); }
+        .topbar .actions .search-box:focus-within { border-color: rgba(102,126,234,0.3); background: rgba(255,255,255,0.06); box-shadow: 0 0 0 4px rgba(102,126,234,0.05); }
+        .topbar .actions .search-box input { background: transparent; border: none; color: #fff; outline: none; font-family: 'Tajawal', sans-serif; padding: 4px 10px; width: 180px; font-size: 14px; }
+        .topbar .actions .search-box input::placeholder { color: var(--text-muted); }
+        .topbar .actions .search-box i { color: var(--text-muted); }
+        .topbar .actions .btn-icon { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; position: relative; }
+        .topbar .actions .btn-icon:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .topbar .actions .btn-icon .dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 1.5s infinite; }
+        .topbar .actions .btn-icon .count { position: absolute; top: -4px; right: -4px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; display: none; }
 
-        /* ================================================================
-        Main Content
-        ================================================================ */
-        .main-content {
-            margin-right: var(--sidebar-width);
-            min-height: 100vh;
-            padding: 20px 30px 30px;
-        }
-
-        /* ================================================================
-        Top Bar
-        ================================================================ */
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0 20px;
-            border-bottom: 1px solid var(--border-color);
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .topbar .page-title h1 {
-            font-size: 26px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff, var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .topbar .page-title p {
-            color: var(--text-muted);
-            font-size: 14px;
-            -webkit-text-fill-color: var(--text-muted);
-        }
-
-        .topbar .actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .topbar .actions .search-box {
-            display: flex;
-            align-items: center;
-            background: rgba(255,255,255,0.04);
-            border-radius: 12px;
-            padding: 8px 16px;
-            border: 1px solid var(--border-color);
-            transition: var(--transition);
-        }
-
-        .topbar .actions .search-box:focus-within {
-            border-color: rgba(102,126,234,0.3);
-            background: rgba(255,255,255,0.06);
-            box-shadow: 0 0 0 4px rgba(102,126,234,0.05);
-        }
-
-        .topbar .actions .search-box input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            outline: none;
-            font-family: 'Tajawal', sans-serif;
-            padding: 4px 10px;
-            width: 180px;
-            font-size: 14px;
-        }
-
-        .topbar .actions .search-box input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .topbar .actions .search-box i {
-            color: var(--text-muted);
-        }
-
-        .topbar .actions .btn-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .topbar .actions .btn-icon:hover {
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-        }
-
-        .topbar .actions .btn-icon .dot {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--danger);
-            animation: pulse 1.5s infinite;
-        }
-
-        .topbar .actions .btn-icon .count {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            background: var(--danger);
-            color: #fff;
-            font-size: 10px;
-            font-weight: 700;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            display: none;
-        }
-
-        /* ================================================================
-        Notification Panel
-        ================================================================ */
-        .notification-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .notification-overlay.show {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .notification-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 420px;
-            height: 100vh;
-            background: rgba(10, 14, 26, 0.98);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border-color);
-            z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .notification-panel.open {
-            transform: translateX(0);
-        }
-
-        .notification-panel .notification-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .notification-panel .notification-header .notification-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #fff;
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .notification-panel .notification-header .notification-title i {
-            color: var(--primary);
-        }
-
-        .notification-panel .notification-header .notification-title .notification-count {
-            background: var(--danger);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 20px;
-            min-width: 24px;
-            text-align: center;
-        }
-
-        .notification-panel .notification-header .notification-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .notification-panel .notification-header .notification-actions button {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: 'Tajawal', sans-serif;
-            font-size: 13px;
-            padding: 4px 10px;
-            border-radius: 8px;
-        }
-
-        .notification-panel .notification-header .notification-actions button:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .notification-panel .notification-header .notification-actions .btn-close-panel {
-            font-size: 20px;
-            padding: 4px 8px;
-        }
-
-        .notification-panel .notification-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 0;
-        }
-
-        .notification-panel .notification-list .notification-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 14px;
-            padding: 14px 24px;
-            transition: var(--transition);
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-        }
-
-        .notification-panel .notification-list .notification-item:hover {
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .notification-panel .notification-list .notification-item.unread {
-            background: rgba(102, 126, 234, 0.05);
-            border-right: 3px solid var(--primary);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-icon.info {
-            background: rgba(102, 126, 234, 0.12);
-            color: var(--primary);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-icon.success {
-            background: rgba(40, 167, 69, 0.12);
-            color: var(--success);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-icon.warning {
-            background: rgba(255, 193, 7, 0.12);
-            color: var(--warning);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-icon.danger {
-            background: rgba(220, 53, 69, 0.12);
-            color: var(--danger);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-content .notif-title {
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-content .notif-message {
-            color: var(--text-muted);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-content .notif-time {
-            color: var(--text-muted);
-            font-size: 11px;
-            margin-top: 4px;
-            display: block;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-actions {
-            display: flex;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-
-        .notification-panel .notification-list .notification-item .notif-actions button {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px 6px;
-            border-radius: 6px;
-            transition: var(--transition);
-        }
-
-        .notification-panel .notification-list .notification-item .notif-actions button:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .notification-panel .notification-list .notification-empty {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
-        }
-
-        .notification-panel .notification-list .notification-empty i {
-            font-size: 48px;
-            display: block;
-            margin-bottom: 15px;
-            color: var(--text-muted);
-        }
-
-        .notification-panel .notification-footer {
-            padding: 16px 24px;
-            border-top: 1px solid var(--border-color);
-            flex-shrink: 0;
-        }
-
-        .notification-panel .notification-footer .btn-view-all {
-            width: 100%;
-            padding: 10px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            font-family: 'Tajawal', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .notification-panel .notification-footer .btn-view-all:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #fff;
-        }
-
-        /* ================================================================
-        Quick Stats - الإحصائيات السريعة
-        ================================================================ */
-        .quick-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin: 20px 0 25px;
-        }
-
-        .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 18px 20px;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 4px;
-            height: 100%;
-            border-radius: 0 4px 4px 0;
-        }
-
+        .quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0 25px; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 18px 20px; transition: var(--transition); position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; right: 0; width: 4px; height: 100%; border-radius: 0 4px 4px 0; }
         .stat-card.blue::before { background: var(--primary); }
         .stat-card.green::before { background: var(--success); }
         .stat-card.orange::before { background: var(--warning); }
         .stat-card.purple::before { background: var(--secondary); }
         .stat-card.red::before { background: var(--danger); }
         .stat-card.cyan::before { background: var(--info); }
-
-        .stat-card:hover {
-            transform: translateY(-3px);
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(102,126,234,0.15);
-        }
-
-        .stat-card .stat-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-
-        .stat-card .stat-header .stat-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-        }
-
+        .stat-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.05); border-color: rgba(102,126,234,0.15); }
+        .stat-card .stat-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .stat-card .stat-header .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
         .stat-card .stat-header .stat-icon.blue { background: rgba(102,126,234,0.12); color: var(--primary); }
         .stat-card .stat-header .stat-icon.green { background: rgba(40,167,69,0.12); color: var(--success); }
         .stat-card .stat-header .stat-icon.orange { background: rgba(255,193,7,0.12); color: var(--warning); }
         .stat-card .stat-header .stat-icon.purple { background: rgba(118,75,162,0.12); color: var(--secondary); }
         .stat-card .stat-header .stat-icon.red { background: rgba(220,53,69,0.12); color: var(--danger); }
         .stat-card .stat-header .stat-icon.cyan { background: rgba(23,162,184,0.12); color: var(--info); }
+        .stat-card .stat-value { font-size: 28px; font-weight: 800; color: #fff; margin: 4px 0 2px; }
+        .stat-card .stat-label { color: var(--text-muted); font-size: 13px; }
 
-        .stat-card .stat-header .stat-trend {
-            font-size: 12px;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-        }
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; transition: var(--transition); }
+        .card:hover { border-color: rgba(102,126,234,0.1); }
+        .card .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .card .card-header h3 { font-size: 17px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .card .card-header h3 i { color: var(--primary); }
+        .card .card-header .card-action { color: var(--text-muted); font-size: 13px; text-decoration: none; transition: var(--transition); cursor: pointer; }
+        .card .card-header .card-action:hover { color: #fff; }
 
-        .stat-card .stat-header .stat-trend.up { background: rgba(40,167,69,0.12); color: var(--success); }
-        .stat-card .stat-header .stat-trend.down { background: rgba(220,53,69,0.12); color: var(--danger); }
+        .chart-bars { display: flex; align-items: flex-end; justify-content: space-between; height: 180px; padding: 5px 0; gap: 6px; }
+        .chart-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 30px; }
+        .chart-bar .bar { width: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--primary), var(--secondary)); transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1); min-height: 6px; position: relative; cursor: pointer; }
+        .chart-bar .bar:hover { opacity: 0.8; transform: scaleY(1.02); transform-origin: bottom; }
+        .chart-bar .bar .tooltip { display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; }
+        .chart-bar .bar:hover .tooltip { display: block; }
+        .chart-bar .label { color: var(--text-muted); font-size: 11px; text-align: center; }
 
-        .stat-card .stat-value {
-            font-size: 28px;
-            font-weight: 800;
-            color: #fff;
-            margin: 4px 0 2px;
-        }
-
-        .stat-card .stat-label {
-            color: var(--text-muted);
-            font-size: 13px;
-        }
-
-        /* ================================================================
-        Main Grid - الشبكة الرئيسية
-        ================================================================ */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 20px;
-            transition: var(--transition);
-        }
-
-        .card:hover {
-            border-color: rgba(102,126,234,0.1);
-        }
-
-        .card .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-        }
-
-        .card .card-header h3 {
-            font-size: 17px;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .card .card-header h3 i {
-            color: var(--primary);
-        }
-
-        .card .card-header .card-action {
-            color: var(--text-muted);
-            font-size: 13px;
-            text-decoration: none;
-            transition: var(--transition);
-            cursor: pointer;
-        }
-
-        .card .card-header .card-action:hover {
-            color: #fff;
-        }
-
-        /* ===== Chart Bars ===== */
-        .chart-bars {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            height: 180px;
-            padding: 5px 0;
-            gap: 6px;
-        }
-
-        .chart-bar {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .chart-bar .bar {
-            width: 100%;
-            border-radius: 4px 4px 0 0;
-            background: linear-gradient(180deg, var(--primary), var(--secondary));
-            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            min-height: 6px;
-            position: relative;
-            cursor: pointer;
-        }
-
-        .chart-bar .bar:hover {
-            opacity: 0.8;
-            transform: scaleY(1.02);
-            transform-origin: bottom;
-        }
-
-        .chart-bar .bar .tooltip {
-            display: none;
-            position: absolute;
-            top: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            color: #fff;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .chart-bar .bar:hover .tooltip {
-            display: block;
-        }
-
-        .chart-bar .label {
-            color: var(--text-muted);
-            font-size: 11px;
-        }
-
-        /* ===== Activity List ===== */
-        .activity-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-height: 320px;
-            overflow-y: auto;
-        }
-
-        .activity-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            background: rgba(255,255,255,0.02);
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.02);
-            transition: var(--transition);
-        }
-
-        .activity-item:hover {
-            background: rgba(255,255,255,0.04);
-        }
-
-        .activity-item .activity-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
+        .activity-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+        .activity-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.02); transition: var(--transition); }
+        .activity-item:hover { background: rgba(255,255,255,0.04); }
+        .activity-item .activity-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
         .activity-item .activity-icon.blue { background: rgba(102,126,234,0.12); color: var(--primary); }
         .activity-item .activity-icon.green { background: rgba(40,167,69,0.12); color: var(--success); }
         .activity-item .activity-icon.orange { background: rgba(255,193,7,0.12); color: var(--warning); }
         .activity-item .activity-icon.red { background: rgba(220,53,69,0.12); color: var(--danger); }
         .activity-item .activity-icon.purple { background: rgba(118,75,162,0.12); color: var(--secondary); }
+        .activity-item .activity-content { flex: 1; min-width: 0; }
+        .activity-item .activity-content .text { color: rgba(255,255,255,0.8); font-size: 13px; }
+        .activity-item .activity-content .text strong { color: #fff; }
+        .activity-item .activity-content .time { color: var(--text-muted); font-size: 11px; }
 
-        .activity-item .activity-content {
-            flex: 1;
-            min-width: 0;
-        }
+        .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 20px 0 25px; }
+        .quick-action { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px 12px; text-align: center; text-decoration: none; color: #fff; transition: var(--transition); cursor: pointer; }
+        .quick-action:hover { transform: translateY(-4px); background: rgba(255,255,255,0.06); border-color: rgba(102,126,234,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .quick-action i { font-size: 24px; display: block; margin-bottom: 6px; }
+        .quick-action .title { font-size: 13px; font-weight: 600; }
+        .quick-action .desc { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
 
-        .activity-item .activity-content .text {
-            color: rgba(255,255,255,0.8);
-            font-size: 13px;
-        }
+        .sidebar-toggle { display: none; position: fixed; right: 16px; top: 16px; z-index: 1001; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 18px; transition: var(--transition); }
+        .sidebar-toggle:hover { background: rgba(255,255,255,0.08); }
 
-        .activity-item .activity-content .text strong {
-            color: #fff;
-        }
+        .toast-custom { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 12px; background: rgba(102,126,234,0.95); color: #fff; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600; box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 9999; animation: slideUp 0.4s ease; max-width: 90%; backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px; }
+        .toast-custom.success { background: rgba(40,167,69,0.95); }
+        .toast-custom.error { background: rgba(220,53,69,0.95); }
+        .toast-custom.warning { background: rgba(255,193,7,0.95); color: #1a2332; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        .activity-item .activity-content .time {
-            color: var(--text-muted);
-            font-size: 11px;
-        }
+        .loading-spinner { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .loading-spinner i { font-size: 36px; display: block; margin-bottom: 15px; color: var(--primary); }
 
-        /* ================================================================
-        Quick Actions - الإجراءات السريعة
-        ================================================================ */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 12px;
-            margin: 20px 0 25px;
-        }
+        .chart-empty { grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted); }
+        .chart-empty i { font-size: 48px; display: block; margin-bottom: 15px; opacity: 0.3; }
+        .chart-empty p { font-size: 16px; }
+        .chart-empty .sub { font-size: 13px; color: var(--text-muted); }
 
-        .quick-action {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 16px 12px;
-            text-align: center;
-            text-decoration: none;
-            color: #fff;
-            transition: var(--transition);
-            cursor: pointer;
-        }
-
-        .quick-action:hover {
-            transform: translateY(-4px);
-            background: rgba(255,255,255,0.06);
-            border-color: rgba(102,126,234,0.2);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-
-        .quick-action i {
-            font-size: 24px;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .quick-action .title {
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .quick-action .desc {
-            color: var(--text-muted);
-            font-size: 10px;
-            margin-top: 2px;
-        }
-
-        /* ================================================================
-        Mobile Toggle
-        ================================================================ */
-        .sidebar-toggle {
-            display: none;
-            position: fixed;
-            right: 16px;
-            top: 16px;
-            z-index: 1001;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-color);
-            color: #fff;
-            padding: 10px 12px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: var(--transition);
-        }
-
-        .sidebar-toggle:hover {
-            background: rgba(255,255,255,0.08);
-        }
-
-        /* ================================================================
-        Toast
-        ================================================================ */
-        .custom-toast {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            padding: 14px 24px;
-            border-radius: 12px;
-            background: rgba(102,126,234,0.95);
-            color: #fff;
-            font-family: 'Tajawal', sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            z-index: 9999;
-            animation: slideUp 0.4s ease;
-            max-width: 90%;
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .custom-toast.success { background: rgba(40,167,69,0.95); }
-        .custom-toast.error { background: rgba(220,53,69,0.95); }
-        .custom-toast.warning { background: rgba(255,193,7,0.95); color: #1a2332; }
-
-        @keyframes slideUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        /* ================================================================
-        Loading
-        ================================================================ */
-        .loading-spinner {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
-        }
-
-        .loading-spinner i {
-            font-size: 36px;
-            display: block;
-            margin-bottom: 15px;
-            color: var(--primary);
-        }
-
-        /* ================================================================
-        Responsive
-        ================================================================ */
-        @media (max-width: 1200px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
+        @media (max-width: 1200px) { .dashboard-grid { grid-template-columns: 1fr; } }
         @media (max-width: 992px) {
-            .sidebar {
-                right: -280px;
-            }
-
-            .sidebar.open {
-                right: 0;
-                box-shadow: 0 0 50px rgba(0,0,0,0.6);
-            }
-
-            .sidebar-toggle {
-                display: block;
-            }
-
-            .main-content {
-                margin-right: 0;
-                padding: 15px;
-            }
-
-            .topbar {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .topbar .actions {
-                width: 100%;
-            }
-
-            .topbar .actions .search-box {
-                flex: 1;
-            }
-
-            .topbar .actions .search-box input {
-                width: 100%;
-            }
-
-            .notification-panel {
-                width: 100%;
-            }
+            .sidebar { right: -280px; }
+            .sidebar.open { right: 0; box-shadow: 0 0 50px rgba(0,0,0,0.6); }
+            .sidebar-toggle { display: block; }
+            .main-content { margin-right: 0; padding: 15px; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+            .topbar .actions { width: 100%; }
+            .topbar .actions .search-box { flex: 1; }
+            .topbar .actions .search-box input { width: 100%; }
         }
-
         @media (max-width: 576px) {
-            .quick-stats {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .topbar .page-title h1 {
-                font-size: 20px;
-            }
-
-            .stat-card .stat-value {
-                font-size: 22px;
-            }
-
-            .card {
-                padding: 14px;
-            }
+            .quick-stats { grid-template-columns: 1fr 1fr; }
+            .quick-actions { grid-template-columns: 1fr 1fr; }
+            .topbar .page-title h1 { font-size: 20px; }
+            .stat-card .stat-value { font-size: 22px; }
+            .card { padding: 14px; }
+            .chart-bars { height: 120px; }
+            .chart-bar .label { font-size: 9px; }
         }
-
-        @media (max-width: 400px) {
-            .quick-stats {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
+        @media (max-width: 400px) { .quick-stats { grid-template-columns: 1fr; } .quick-actions { grid-template-columns: 1fr 1fr; } }
     </style>
 </head>
 <body>
 
-    <!-- ===== Sidebar Toggle (Mobile) ===== -->
-    <button class="sidebar-toggle" id="sidebarToggle">
-        <i class="fas fa-bars"></i>
-    </button>
+    <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
 
     <!-- ===== Sidebar ===== -->
     <aside class="sidebar" id="sidebar">
@@ -1109,177 +201,56 @@
             <h2>نظام <span>المخازن</span></h2>
             <span class="version-badge">v5.0</span>
         </div>
-
         <div class="user-profile">
-            <div class="avatar" id="userAvatar">
-                م
-                <span class="status-dot"></span>
-            </div>
+            <div class="avatar" id="userAvatar">م<span class="status-dot"></span></div>
             <div class="info">
                 <div class="name" id="userName">مدير النظام</div>
                 <div class="role" id="userRole">مدير عام</div>
             </div>
         </div>
-
         <nav class="nav-menu">
-            <!-- الرئيسية -->
-            <div class="nav-section">
-                <div class="section-title">
-                    <span>الرئيسية</span>
-                    <span class="line"></span>
-                </div>
-                <a href="/frontend/pages/dashboard.html" class="nav-item active">
-                    <i class="fas fa-chart-pie"></i> لوحة التحكم
-                </a>
+            <div class="nav-section"><div class="section-title"><span>الرئيسية</span><span class="line"></span></div>
+                <a href="/frontend/pages/dashboard.html" class="nav-item active"><i class="fas fa-chart-pie"></i> لوحة التحكم</a>
             </div>
-
-            <!-- إدارة المخزون -->
-            <div class="nav-section">
-                <div class="section-title">
-                    <span>إدارة المخزون</span>
-                    <span class="line"></span>
-                </div>
-                <a href="/frontend/pages/warehouses.html" class="nav-item" data-page="warehouses">
-                    <i class="fas fa-warehouse"></i> المخازن
-                    <span class="badge success" id="warehouseBadge">0</span>
-                </a>
-                <a href="/frontend/pages/products.html" class="nav-item" data-page="products">
-                    <i class="fas fa-boxes"></i> الأصناف
-                    <span class="badge" id="productBadge">0</span>
-                </a>
-                <a href="/frontend/pages/users.html" class="nav-item" data-page="users">
-                    <i class="fas fa-users"></i> المستخدمين
-                    <span class="badge success" id="userBadge">0</span>
-                </a>
+            <div class="nav-section"><div class="section-title"><span>إدارة المخزون</span><span class="line"></span></div>
+                <a href="/frontend/pages/warehouses.html" class="nav-item"><i class="fas fa-warehouse"></i> المخازن <span class="badge success" id="warehouseBadge">0</span></a>
+                <a href="/frontend/pages/products.html" class="nav-item"><i class="fas fa-boxes"></i> الأصناف <span class="badge" id="productBadge">0</span></a>
+                <a href="/frontend/pages/users.html" class="nav-item"><i class="fas fa-users"></i> المستخدمين <span class="badge success" id="userBadge">0</span></a>
             </div>
-
-            <!-- العمليات -->
-            <div class="nav-section">
-                <div class="section-title">
-                    <span>العمليات</span>
-                    <span class="line"></span>
-                </div>
-                <a href="/frontend/pages/receipts.html" class="nav-item" data-page="receipts">
-                    <i class="fas fa-arrow-down" style="color:var(--success);"></i> إذن استلام
-                    <span class="badge warning" id="receiptBadge">0</span>
-                </a>
-                <a href="/frontend/pages/transfers.html" class="nav-item" data-page="transfers">
-                    <i class="fas fa-exchange-alt" style="color:var(--warning);"></i> تحويلات
-                    <span class="badge primary" id="transferBadge">0</span>
-                </a>
-                <a href="/frontend/pages/inventory.html" class="nav-item" data-page="inventory">
-                    <i class="fas fa-clipboard-check"></i> الجرد
-                </a>
-                <a href="/frontend/pages/audit.html" class="nav-item" data-page="audit">
-                    <i class="fas fa-history"></i> سجل التدقيق
-                </a>
+            <div class="nav-section"><div class="section-title"><span>العمليات</span><span class="line"></span></div>
+                <a href="/frontend/pages/receipts.html" class="nav-item"><i class="fas fa-arrow-down" style="color:var(--success);"></i> إذن استلام <span class="badge warning" id="receiptBadge">0</span></a>
+                <a href="/frontend/pages/issues.html" class="nav-item"><i class="fas fa-arrow-up" style="color:var(--danger);"></i> إذن صرف <span class="badge warning" id="issueBadge">0</span></a>
+                <a href="/frontend/pages/transfers.html" class="nav-item"><i class="fas fa-exchange-alt" style="color:var(--warning);"></i> تحويلات <span class="badge primary" id="transferBadge">0</span></a>
+                <a href="/frontend/pages/returns.html" class="nav-item"><i class="fas fa-undo" style="color:var(--secondary);"></i> مرتجعات</a>
+                <a href="/frontend/pages/inventory.html" class="nav-item"><i class="fas fa-clipboard-check"></i> الجرد</a>
             </div>
-
-            <!-- التقارير -->
-            <div class="nav-section">
-                <div class="section-title">
-                    <span>التقارير</span>
-                    <span class="line"></span>
-                </div>
-                <a href="/frontend/pages/reports.html" class="nav-item" data-page="reports">
-                    <i class="fas fa-chart-bar"></i> التقارير المتقدمة
-                </a>
+            <div class="nav-section"><div class="section-title"><span>التقارير</span><span class="line"></span></div>
+                <a href="/frontend/pages/reports.html" class="nav-item"><i class="fas fa-chart-bar"></i> التقارير المتقدمة</a>
+                <a href="/frontend/pages/audit.html" class="nav-item"><i class="fas fa-history"></i> سجل التدقيق</a>
             </div>
-
-            <!-- الإدارة -->
-            <div class="nav-section">
-                <div class="section-title">
-                    <span>الإدارة</span>
-                    <span class="line"></span>
-                </div>
-                <a href="/frontend/pages/settings.html" class="nav-item" data-page="settings">
-                    <i class="fas fa-cog"></i> الإعدادات المتقدمة
-                </a>
-                <a href="#" class="nav-item" data-page="themes">
-                    <i class="fas fa-palette"></i> الثيمات
-                </a>
-            </div>
-
-            <!-- تسجيل الخروج -->
-            <div class="nav-section">
-                <a href="#" class="nav-item logout" id="logoutBtn">
-                    <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
-                </a>
+            <div class="nav-section"><div class="section-title"><span>الإدارة</span><span class="line"></span></div>
+                <a href="/frontend/pages/notifications.html" class="nav-item"><i class="fas fa-bell"></i> الإشعارات</a>
+                <a href="/frontend/pages/settings.html" class="nav-item"><i class="fas fa-cog"></i> الإعدادات المتقدمة</a>
+                <a href="/frontend/pages/backup.html" class="nav-item"><i class="fas fa-database"></i> النسخ الاحتياطي</a>
+                <a href="#" class="nav-item logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
             </div>
         </nav>
     </aside>
 
     <!-- ===== Main Content ===== -->
     <div class="main-content">
-
-        <!-- ===== Top Bar ===== -->
         <header class="topbar">
-            <div class="page-title">
-                <h1 id="pageTitle">لوحة التحكم</h1>
-                <p id="pageSubtitle">نظرة عامة على أداء نظام المخازن</p>
-            </div>
+            <div class="page-title"><h1>لوحة التحكم</h1><p>نظرة عامة على أداء نظام المخازن</p></div>
             <div class="actions">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="بحث في النظام..." id="globalSearch">
-                </div>
-                <button class="btn-icon" id="notifBtn" title="الإشعارات">
-                    <i class="fas fa-bell"></i>
-                    <span class="dot"></span>
-                    <span class="count" id="notifCount">0</span>
-                </button>
-                <button class="btn-icon" id="themeToggle" title="تغيير الثيم">
-                    <i class="fas fa-moon"></i>
-                </button>
+                <div class="search-box"><i class="fas fa-search"></i><input type="text" placeholder="بحث في النظام..." id="globalSearch"></div>
+                <button class="btn-icon" id="themeToggle" title="تغيير الثيم"><i class="fas fa-moon"></i></button>
             </div>
         </header>
-
-        <!-- ===== Content Area ===== -->
-        <div id="contentArea">
-            <div class="loading-spinner">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>جاري تحميل البيانات...</p>
-            </div>
-        </div>
-
+        <div id="contentArea"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><p>جاري تحميل البيانات...</p></div></div>
     </div>
 
     <!-- ================================================================
-    لوحة الإشعارات
-    ================================================================ -->
-    <div class="notification-overlay" id="notificationOverlay"></div>
-
-    <div class="notification-panel" id="notificationPanel">
-        <div class="notification-header">
-            <div class="notification-title">
-                <i class="fas fa-bell"></i>
-                <span>الإشعارات</span>
-                <span class="notification-count" id="panelNotifCount">0</span>
-            </div>
-            <div class="notification-actions">
-                <button class="btn-mark-all" id="markAllRead">
-                    <i class="fas fa-check-double"></i> تعيين الكل كمقروء
-                </button>
-                <button class="btn-close-panel" id="closeNotifications">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-        <div class="notification-list" id="notificationList">
-            <div class="notification-empty">
-                <i class="fas fa-inbox"></i>
-                <p>لا توجد إشعارات جديدة</p>
-            </div>
-        </div>
-        <div class="notification-footer">
-            <button class="btn-view-all" id="viewAllNotifications">
-                عرض جميع الإشعارات
-            </button>
-        </div>
-    </div>
-
-    <!-- ================================================================
-    JavaScript - متكامل مع الإشعارات
+    JavaScript
     ================================================================ -->
     <script>
         (function() {
@@ -1288,7 +259,6 @@
             // ================================================================
             // التحقق من حالة تسجيل الدخول
             // ================================================================
-
             const token = localStorage.getItem('auth_token');
             if (!token) {
                 window.location.href = '/frontend/pages/login.html';
@@ -1296,333 +266,138 @@
             }
 
             // ================================================================
+            // مسار API
+            // ================================================================
+            function getApiBaseUrl() {
+                const currentPath = window.location.pathname;
+                if (currentPath.includes('/pages/')) return '../../api';
+                if (currentPath.includes('/frontend/')) return '../api';
+                if (currentPath.includes('/Stock-Movement/')) return '/Stock-Movement/api';
+                return '/api';
+            }
+            const API_BASE_URL = getApiBaseUrl();
+
+            // ================================================================
+            // دوال API
+            // ================================================================
+            async function apiRequest(endpoint, method = 'GET', data = null) {
+                const url = API_BASE_URL + endpoint;
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    }
+                };
+                if (data && method !== 'GET') options.body = JSON.stringify(data);
+                try {
+                    const response = await fetch(url, options);
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.message || 'حدث خطأ');
+                    return result;
+                } catch (error) {
+                    console.error('API Error:', error);
+                    throw error;
+                }
+            }
+
+            // ================================================================
             // تحميل معلومات المستخدم
             // ================================================================
-
             try {
                 const userData = JSON.parse(localStorage.getItem('user') || '{}');
-                document.getElementById('userName').textContent = userData.name || 'مدير النظام';
-                document.getElementById('userRole').textContent = userData.role === 'admin' ? 'مدير' : 'مستخدم';
-                document.getElementById('userAvatar').textContent = (userData.name || 'م')[0];
-            } catch (e) {
-                console.warn('No user data found');
-            }
-
-            // ================================================================
-            // بيانات محاكاة (Mock Data)
-            // ================================================================
-
-            const MOCK_DATA = {
-                stats: {
-                    warehouses: 5,
-                    products: 38,
-                    users: 6,
-                    total_transfers: 42,
-                    daily_transfers: 3,
-                    low_stock: 7,
-                    last_update: 'منذ 5 دقائق',
-                    receipts: 12,
-                    returns: 3
-                },
-                charts: {
-                    weekly: [
-                        { count: 45, day_name: 'Saturday' },
-                        { count: 58, day_name: 'Sunday' },
-                        { count: 32, day_name: 'Monday' },
-                        { count: 72, day_name: 'Tuesday' },
-                        { count: 42, day_name: 'Wednesday' },
-                        { count: 64, day_name: 'Thursday' },
-                        { count: 52, day_name: 'Friday' }
-                    ]
-                },
-                activities: [
-                    { user_name: 'أحمد', action: 'add', entity: 'products', time: 'منذ 5 دقائق' },
-                    { user_name: 'محمد', action: 'transfer', entity: 'warehouses', time: 'منذ 15 دقيقة' },
-                    { user_name: 'سارة', action: 'update', entity: 'products', time: 'منذ 32 دقيقة' },
-                    { user_name: 'علي', action: 'delete', entity: 'products', time: 'منذ ساعة' },
-                    { user_name: 'نورة', action: 'login', entity: 'auth', time: 'منذ ساعتين' }
-                ]
-            };
-
-            // ================================================================
-            // بيانات الإشعارات
-            // ================================================================
-
-            let notifications = [{
-                id: 1,
-                type: 'info',
-                icon: 'fa-info-circle',
-                title: 'تحديث النظام',
-                message: 'تم تحديث النظام إلى الإصدار 5.0.1',
-                time: 'منذ 5 دقائق',
-                read: false,
-                date: new Date(Date.now() - 5 * 60 * 1000)
-            }, {
-                id: 2,
-                type: 'success',
-                icon: 'fa-check-circle',
-                title: 'تم الاستلام',
-                message: 'تم استلام 50 قطعة من المنتج "مادة خام A"',
-                time: 'منذ 15 دقيقة',
-                read: false,
-                date: new Date(Date.now() - 15 * 60 * 1000)
-            }, {
-                id: 3,
-                type: 'warning',
-                icon: 'fa-exclamation-triangle',
-                title: 'تنبيه مخزون منخفض',
-                message: 'المنتج "مادة مساعدة C" قارب على النفاد (الكمية المتبقية: 5)',
-                time: 'منذ ساعة',
-                read: false,
-                date: new Date(Date.now() - 60 * 60 * 1000)
-            }, {
-                id: 4,
-                type: 'danger',
-                icon: 'fa-times-circle',
-                title: 'فشل التحويل',
-                message: 'فشل تحويل المنتج "منتج نهائي B" بسبب نقص المخزون',
-                time: 'منذ ساعتين',
-                read: true,
-                date: new Date(Date.now() - 2 * 60 * 60 * 1000)
-            }, {
-                id: 5,
-                type: 'info',
-                icon: 'fa-user-plus',
-                title: 'مستخدم جديد',
-                message: 'تم إضافة مستخدم جديد: "أحمد محمد"',
-                time: 'منذ 3 ساعات',
-                read: true,
-                date: new Date(Date.now() - 3 * 60 * 60 * 1000)
-            }];
-
-            // ================================================================
-            // عناصر الإشعارات
-            // ================================================================
-
-            const notificationPanel = document.getElementById('notificationPanel');
-            const notificationOverlay = document.getElementById('notificationOverlay');
-            const notificationList = document.getElementById('notificationList');
-            const notifBtn = document.getElementById('notifBtn');
-            const notifCount = document.getElementById('notifCount');
-            const panelNotifCount = document.getElementById('panelNotifCount');
-            const markAllReadBtn = document.getElementById('markAllRead');
-            const closeNotificationsBtn = document.getElementById('closeNotifications');
-            const viewAllBtn = document.getElementById('viewAllNotifications');
-
-            // ================================================================
-            // وظائف الإشعارات
-            // ================================================================
-
-            function updateNotifCount() {
-                const unread = notifications.filter(n => !n.read).length;
-                notifCount.textContent = unread;
-                notifCount.style.display = unread > 0 ? 'flex' : 'none';
-                panelNotifCount.textContent = unread;
-            }
-
-            function renderNotifications() {
-                if (notifications.length === 0) {
-                    notificationList.innerHTML = `
-                        <div class="notification-empty">
-                            <i class="fas fa-inbox"></i>
-                            <p>لا توجد إشعارات</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                notificationList.innerHTML = notifications.map(notif => `
-                    <div class="notification-item ${notif.read ? '' : 'unread'}" data-id="${notif.id}">
-                        <div class="notif-icon ${notif.type}">
-                            <i class="fas ${notif.icon}"></i>
-                        </div>
-                        <div class="notif-content">
-                            <div class="notif-title">${notif.title}</div>
-                            <div class="notif-message">${notif.message}</div>
-                            <span class="notif-time">${notif.time}</span>
-                        </div>
-                        <div class="notif-actions">
-                            ${!notif.read ? `<button class="mark-read" onclick="markAsRead(${notif.id})" title="تعيين كمقروء"><i class="fas fa-check"></i></button>` : ''}
-                            <button class="delete-notif" onclick="deleteNotification(${notif.id})" title="حذف"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                `).join('');
-
-                updateNotifCount();
-            }
-
-            function toggleNotifications() {
-                notificationPanel.classList.toggle('open');
-                notificationOverlay.classList.toggle('show');
-                if (notificationPanel.classList.contains('open')) {
-                    // تعيين الإشعارات كمقروءة عند الفتح
-                    notifications.forEach(n => n.read = true);
-                    renderNotifications();
-                }
-            }
-
-            // ================================================================
-            // مستمعي الأحداث للإشعارات
-            // ================================================================
-
-            notifBtn.addEventListener('click', toggleNotifications);
-            notificationOverlay.addEventListener('click', toggleNotifications);
-            closeNotificationsBtn.addEventListener('click', toggleNotifications);
-
-            markAllReadBtn.addEventListener('click', function() {
-                notifications.forEach(n => n.read = true);
-                renderNotifications();
-                showToast('✅ تم تعيين جميع الإشعارات كمقروءة', 'success');
-            });
-
-            window.markAsRead = function(id) {
-                const notif = notifications.find(n => n.id === id);
-                if (notif) {
-                    notif.read = true;
-                    renderNotifications();
-                }
-            };
-
-            window.deleteNotification = function(id) {
-                if (confirm('هل أنت متأكد من حذف هذا الإشعار؟')) {
-                    notifications = notifications.filter(n => n.id !== id);
-                    renderNotifications();
-                    showToast('🗑️ تم حذف الإشعار', 'success');
-                }
-            };
-
-            viewAllBtn.addEventListener('click', function() {
-                toggleNotifications();
-                showToast('📬 جاري عرض جميع الإشعارات...', 'info');
-                // توجيه إلى صفحة الإشعارات
-                // window.location.href = '/frontend/pages/notifications.html';
-            });
-
-            // ================================================================
-            // إضافة إشعار جديد (محاكاة)
-            // ================================================================
-
-            function addNotification(type, title, message) {
-                const icons = {
-                    info: 'fa-info-circle',
-                    success: 'fa-check-circle',
-                    warning: 'fa-exclamation-triangle',
-                    danger: 'fa-times-circle'
+                document.getElementById('userName').textContent = userData.full_name || userData.name || 'مدير النظام';
+                const roleMap = {
+                    'admin': 'مدير عام',
+                    'warehouse_manager': 'مدير مخازن',
+                    'warehouse_supervisor': 'مشرف مخزن',
+                    'warehouse_staff': 'موظف مخزن',
+                    'viewer': 'مشاهدة',
+                    'auditor': 'مدقق'
                 };
-
-                const newNotif = {
-                    id: Date.now(),
-                    type: type,
-                    icon: icons[type] || 'fa-info-circle',
-                    title: title,
-                    message: message,
-                    time: 'الآن',
-                    read: false,
-                    date: new Date()
-                };
-
-                notifications.unshift(newNotif);
-                renderNotifications();
-
-                // إظهار إشعار منبثق
-                showToast(`🔔 ${title}`, type);
-
-                // تحديث عدد الإشعارات في الزر
-                updateNotifCount();
-            }
-
-            // ================================================================
-            // محاكاة إشعارات جديدة كل 30 ثانية
-            // ================================================================
-
-            setInterval(() => {
-                const types = ['info', 'success', 'warning', 'danger'];
-                const titles = [
-                    'تحديث جديد',
-                    'تمت العملية بنجاح',
-                    'تنبيه مهم',
-                    'خطأ في النظام'
-                ];
-                const messages = [
-                    'تم تحديث البيانات بنجاح',
-                    'تم تنفيذ العملية بنجاح',
-                    'يرجى مراجعة المخزون',
-                    'حدث خطأ غير متوقع'
-                ];
-
-                const randomIndex = Math.floor(Math.random() * types.length);
-                addNotification(
-                    types[randomIndex],
-                    titles[randomIndex],
-                    messages[randomIndex]
-                );
-            }, 30000);
+                document.getElementById('userRole').textContent = roleMap[userData.role] || 'مستخدم';
+                document.getElementById('userAvatar').textContent = (userData.full_name || userData.name || 'م')[0];
+            } catch (e) { console.warn('No user data found'); }
 
             // ================================================================
             // تحميل بيانات لوحة التحكم
             // ================================================================
-
             async function loadDashboard() {
                 const contentArea = document.getElementById('contentArea');
 
                 try {
-                    // محاكاة جلب البيانات
-                    const stats = MOCK_DATA.stats;
-                    const charts = MOCK_DATA.charts;
-                    const activities = MOCK_DATA.activities;
+                    const [statsResponse, chartsResponse, activitiesResponse] = await Promise.all([
+                        apiRequest('/dashboard/stats'),
+                        apiRequest('/dashboard/charts'),
+                        apiRequest('/dashboard/activities')
+                    ]);
+
+                    const stats = statsResponse.data || {};
+                    const charts = chartsResponse.data || {};
+                    const activities = activitiesResponse.data || [];
 
                     // تحديث البادجات
-                    document.getElementById('warehouseBadge').textContent = stats.warehouses || 0;
-                    document.getElementById('productBadge').textContent = stats.products || 0;
-                    document.getElementById('userBadge').textContent = stats.users || 0;
-                    document.getElementById('receiptBadge').textContent = stats.receipts || 0;
-                    document.getElementById('transferBadge').textContent = stats.total_transfers || 0;
+                    document.getElementById('warehouseBadge').textContent = stats.warehouses?.total || 0;
+                    document.getElementById('productBadge').textContent = stats.products?.total || 0;
+                    document.getElementById('userBadge').textContent = stats.users?.total || 0;
+                    document.getElementById('receiptBadge').textContent = stats.today_movements?.receipts || 0;
+                    document.getElementById('issueBadge').textContent = stats.today_movements?.issues || 0;
+                    document.getElementById('transferBadge').textContent = stats.today_movements?.transfers || 0;
 
-                    // إعداد بيانات الرسم البياني
-                    const chartData = charts.weekly || [];
-                    const maxCount = chartData.length > 0 ? Math.max(...chartData.map(d => d.count), 1) : 1;
-                    const dayNames = {
-                        'Monday': 'إثن',
-                        'Tuesday': 'ثلاث',
-                        'Wednesday': 'أربع',
-                        'Thursday': 'خميس',
-                        'Friday': 'جمعة',
-                        'Saturday': 'سبت',
-                        'Sunday': 'أحد'
-                    };
+                    // ✅ الرسم البياني للمخازن - يقرأ من قاعدة البيانات
+                    const warehouseData = stats.warehouse_balances || [];
+                    const maxWarehouseValue = warehouseData.length > 0 ? Math.max(...warehouseData.map(d => d.total_value || 0), 1) : 1;
+
+                    // ✅ إذا لم توجد مخازن، نعرض رسالة
+                    const chartContent = warehouseData.length > 0 ? 
+                        warehouseData.map(item => {
+                            const height = Math.max(8, (item.total_value / maxWarehouseValue) * 140);
+                            return `
+                                <div class="chart-bar">
+                                    <div class="bar" style="height:${height}px;background:linear-gradient(180deg, #667eea, #764ba2);">
+                                        <span class="tooltip">${(item.total_value || 0).toFixed(2)}</span>
+                                    </div>
+                                    <span class="label">${item.name || 'مخزن'}</span>
+                                </div>
+                            `;
+                        }).join('') : 
+                        // ✅ رسالة "لا توجد مخازن"
+                        `<div class="chart-empty">
+                            <i class="fas fa-warehouse"></i>
+                            <p>لا توجد مخازن مسجلة</p>
+                            <p class="sub">أضف مخزن جديد لبدء عرض البيانات</p>
+                        </div>`;
 
                     const quickStats = [
-                        { icon: 'fa-warehouse', color: 'blue', label: 'المخازن', value: stats.warehouses || 0 },
-                        { icon: 'fa-boxes', color: 'green', label: 'الأصناف', value: stats.products || 0 },
-                        { icon: 'fa-users', color: 'orange', label: 'المستخدمين', value: stats.users || 0 },
-                        { icon: 'fa-exchange-alt', color: 'purple', label: 'التحويلات', value: stats.total_transfers ||
-                            0 },
-                        { icon: 'fa-exclamation-triangle', color: 'red', label: 'أصناف منخفضة', value: stats.low_stock ||
-                            0 },
-                        { icon: 'fa-clock', color: 'cyan', label: 'آخر تحديث', value: stats.last_update || 'منذ قليل' }
+                        { icon: 'fa-warehouse', color: 'blue', label: 'المخازن', value: stats.warehouses?.total || 0 },
+                        { icon: 'fa-boxes', color: 'green', label: 'الأصناف', value: stats.products?.total || 0 },
+                        { icon: 'fa-users', color: 'orange', label: 'المستخدمين', value: stats.users?.total || 0 },
+                        { icon: 'fa-exchange-alt', color: 'purple', label: 'التحويلات', value: stats.today_movements?.transfers || 0 },
+                        { icon: 'fa-exclamation-triangle', color: 'red', label: 'أصناف منخفضة', value: stats.stock_status?.low_stock || 0 },
+                        { icon: 'fa-clock', color: 'cyan', label: 'آخر تحديث', value: 'منذ قليل' }
                     ];
 
                     const quickActions = [
                         { icon: 'fa-warehouse', color: '#667eea', title: 'المخازن', page: 'warehouses' },
                         { icon: 'fa-boxes', color: '#28a745', title: 'الأصناف', page: 'products' },
                         { icon: 'fa-arrow-down', color: '#28a745', title: 'استلام', page: 'receipts' },
+                        { icon: 'fa-arrow-up', color: '#dc3545', title: 'صرف', page: 'issues' },
                         { icon: 'fa-exchange-alt', color: '#ffc107', title: 'تحويل', page: 'transfers' },
                         { icon: 'fa-clipboard-check', color: '#17a2b8', title: 'الجرد', page: 'inventory' },
                         { icon: 'fa-chart-bar', color: '#764ba2', title: 'التقارير', page: 'reports' },
                         { icon: 'fa-users', color: '#dc3545', title: 'المستخدمين', page: 'users' },
-                        { icon: 'fa-history', color: '#fd7e14', title: 'التدقيق', page: 'audit' }
+                        { icon: 'fa-history', color: '#fd7e14', title: 'التدقيق', page: 'audit' },
+                        { icon: 'fa-cog', color: '#6c757d', title: 'الإعدادات', page: 'settings' }
                     ];
 
                     contentArea.innerHTML = `
-                        <!-- الإحصائيات السريعة -->
                         <div class="quick-stats">
                             ${quickStats.map(stat => `
                                 <div class="stat-card ${stat.color}">
                                     <div class="stat-header">
                                         <div class="stat-icon ${stat.color}"><i class="fas ${stat.icon}"></i></div>
-                                        <span class="stat-trend up">
-                                            <i class="fas fa-arrow-up"></i> ${stat.value > 0 ? 'نشط' : '0'}
-                                        </span>
+                                        <span class="stat-trend up"><i class="fas fa-arrow-up"></i> ${stat.value > 0 ? 'نشط' : '0'}</span>
                                     </div>
                                     <div class="stat-value">${stat.value}</div>
                                     <div class="stat-label">${stat.label}</div>
@@ -1630,26 +405,15 @@
                             `).join('')}
                         </div>
 
-                        <!-- الشبكة الرئيسية -->
                         <div class="dashboard-grid">
-                            <!-- الرسم البياني -->
+                            <!-- ✅ رسم بياني للمخازن -->
                             <div class="card">
                                 <div class="card-header">
-                                    <h3><i class="fas fa-chart-line"></i> حركة المخزون</h3>
-                                    <span class="card-action">آخر 7 أيام</span>
+                                    <h3><i class="fas fa-warehouse" style="color:#667eea;"></i> أرصدة المخازن</h3>
+                                    <span class="card-action">حسب القيمة</span>
                                 </div>
                                 <div class="chart-bars">
-                                    ${chartData.map(item => {
-                                        const height = Math.max(8, (item.count / maxCount) * 140);
-                                        return `
-                                            <div class="chart-bar">
-                                                <div class="bar" style="height:${height}px;">
-                                                    <span class="tooltip">${item.count}</span>
-                                                </div>
-                                                <span class="label">${dayNames[item.day_name] || item.day_name}</span>
-                                            </div>
-                                        `;
-                                    }).join('')}
+                                    ${chartContent}
                                 </div>
                             </div>
 
@@ -1662,28 +426,37 @@
                                 <div class="activity-list">
                                     ${activities.length > 0 ? activities.slice(0, 6).map(log => {
                                         const icons = {
-                                            'login':'fa-sign-in-alt','logout':'fa-sign-out-alt',
-                                            'add':'fa-plus','update':'fa-edit','delete':'fa-trash',
-                                            'transfer':'fa-exchange-alt','receipt':'fa-arrow-down'
+                                            'LOGIN_SUCCESS':'fa-sign-in-alt','LOGOUT':'fa-sign-out-alt',
+                                            'PRODUCT_CREATED':'fa-plus','PRODUCT_UPDATED':'fa-edit','PRODUCT_DELETED':'fa-trash',
+                                            'WAREHOUSE_CREATED':'fa-plus','WAREHOUSE_UPDATED':'fa-edit','WAREHOUSE_DELETED':'fa-trash',
+                                            'RECEIPT_CREATED':'fa-arrow-down','RECEIPT_APPROVED':'fa-check',
+                                            'ISSUE_CREATED':'fa-arrow-up','ISSUE_APPROVED':'fa-check',
+                                            'TRANSFER_CREATED':'fa-exchange-alt','TRANSFER_APPROVED':'fa-check'
                                         };
                                         const colors = {
-                                            'login':'blue','logout':'red','add':'green',
-                                            'update':'orange','delete':'red','transfer':'purple',
-                                            'receipt':'green'
+                                            'LOGIN_SUCCESS':'blue','LOGOUT':'red',
+                                            'PRODUCT_CREATED':'green','PRODUCT_UPDATED':'orange','PRODUCT_DELETED':'red',
+                                            'WAREHOUSE_CREATED':'blue','WAREHOUSE_UPDATED':'orange','WAREHOUSE_DELETED':'red',
+                                            'RECEIPT_CREATED':'green','RECEIPT_APPROVED':'primary',
+                                            'ISSUE_CREATED':'danger','ISSUE_APPROVED':'primary',
+                                            'TRANSFER_CREATED':'warning','TRANSFER_APPROVED':'primary'
                                         };
                                         const icon = icons[log.action] || 'fa-circle';
                                         const color = colors[log.action] || 'blue';
-                                        const actionText = {
-                                            'login':'تسجيل دخول','logout':'تسجيل خروج',
-                                            'add':'أضاف','update':'عدل','delete':'حذف',
-                                            'transfer':'حول','receipt':'استلام'
-                                        }[log.action] || log.action;
+                                        const actionLabels = {
+                                            'LOGIN_SUCCESS':'تسجيل دخول','LOGOUT':'تسجيل خروج',
+                                            'PRODUCT_CREATED':'أضاف منتج','PRODUCT_UPDATED':'عدل منتج','PRODUCT_DELETED':'حذف منتج',
+                                            'WAREHOUSE_CREATED':'أضاف مخزن','WAREHOUSE_UPDATED':'عدل مخزن','WAREHOUSE_DELETED':'حذف مخزن',
+                                            'RECEIPT_CREATED':'أنشأ استلام','RECEIPT_APPROVED':'اعتمد استلام',
+                                            'ISSUE_CREATED':'أنشأ صرف','ISSUE_APPROVED':'اعتمد صرف',
+                                            'TRANSFER_CREATED':'أنشأ تحويل','TRANSFER_APPROVED':'اعتمد تحويل'
+                                        };
                                         return `
                                             <div class="activity-item">
                                                 <div class="activity-icon ${color}"><i class="fas ${icon}"></i></div>
                                                 <div class="activity-content">
-                                                    <div class="text"><strong>${log.user_name || 'نظام'}</strong> ${actionText} في ${log.entity}</div>
-                                                    <div class="time">${log.time}</div>
+                                                    <div class="text"><strong>${log.user_name || 'نظام'}</strong> ${actionLabels[log.action] || log.action}</div>
+                                                    <div class="time">${log.time || log.created_at}</div>
                                                 </div>
                                             </div>
                                         `;
@@ -1697,7 +470,6 @@
                             </div>
                         </div>
 
-                        <!-- الإجراءات السريعة -->
                         <div class="quick-actions">
                             ${quickActions.map(action => `
                                 <a href="/frontend/pages/${action.page}.html" class="quick-action">
@@ -1715,7 +487,7 @@
                         <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
                             <i class="fas fa-database" style="font-size:48px;display:block;margin-bottom:20px;color:var(--danger);"></i>
                             <h2 style="font-size:22px;margin-bottom:10px;color:#fff;">خطأ في تحميل البيانات</h2>
-                            <p style="color:var(--text-secondary);">${error.message || 'حدث خطأ غير متوقع'}</p>
+                            <p style="color:var(--text-secondary);">${error.message}</p>
                             <button onclick="location.reload()" style="margin-top:20px;padding:12px 30px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--secondary));border:none;color:#fff;font-family:'Tajawal',sans-serif;font-weight:700;cursor:pointer;transition:var(--transition);">
                                 <i class="fas fa-sync-alt"></i> إعادة المحاولة
                             </button>
@@ -1725,40 +497,24 @@
             }
 
             // ================================================================
-            // Toast Notification
+            // Toast
             // ================================================================
-
             function showToast(message, type = 'info') {
-                const existing = document.querySelector('.custom-toast');
+                const existing = document.querySelector('.toast-custom');
                 if (existing) existing.remove();
-
                 const toast = document.createElement('div');
-                toast.className = `custom-toast ${type}`;
-
-                const icons = {
-                    success: 'fa-check-circle',
-                    error: 'fa-exclamation-circle',
-                    warning: 'fa-exclamation-triangle',
-                    info: 'fa-info-circle'
-                };
-
+                toast.className = `toast-custom ${type}`;
+                const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
                 toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
                 document.body.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.style.transition = 'opacity 0.4s ease';
-                    setTimeout(() => toast.remove(), 400);
-                }, 3500);
+                setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s ease'; setTimeout(() => toast.remove(), 400); }, 3500);
             }
 
             // ================================================================
-            // Sidebar Toggle (Mobile)
+            // Sidebar Toggle
             // ================================================================
-
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
-
             sidebarToggle.addEventListener('click', function() {
                 sidebar.classList.toggle('open');
                 this.querySelector('i').classList.toggle('fa-bars');
@@ -1768,24 +524,17 @@
             // ================================================================
             // Theme Toggle
             // ================================================================
-
             let darkMode = true;
             document.getElementById('themeToggle').addEventListener('click', function() {
                 darkMode = !darkMode;
                 const root = document.documentElement;
                 if (darkMode) {
                     root.style.setProperty('--bg-dark', '#0a0e1a');
-                    root.style.setProperty('--text-primary', '#ffffff');
-                    root.style.setProperty('--text-secondary', 'rgba(255,255,255,0.6)');
-                    root.style.setProperty('--text-muted', 'rgba(255,255,255,0.3)');
                     root.style.setProperty('--bg-card', 'rgba(255,255,255,0.03)');
                     root.style.setProperty('--border-color', 'rgba(255,255,255,0.05)');
                     this.querySelector('i').className = 'fas fa-moon';
                 } else {
                     root.style.setProperty('--bg-dark', '#f0f2f5');
-                    root.style.setProperty('--text-primary', '#1a2332');
-                    root.style.setProperty('--text-secondary', 'rgba(0,0,0,0.6)');
-                    root.style.setProperty('--text-muted', 'rgba(0,0,0,0.3)');
                     root.style.setProperty('--bg-card', 'rgba(255,255,255,0.8)');
                     root.style.setProperty('--border-color', 'rgba(0,0,0,0.08)');
                     this.querySelector('i').className = 'fas fa-sun';
@@ -1796,96 +545,27 @@
             // ================================================================
             // Logout
             // ================================================================
-
             document.getElementById('logoutBtn').addEventListener('click', function(e) {
                 e.preventDefault();
                 if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('user');
-                    localStorage.removeItem('saved_username');
-                    localStorage.removeItem('remember_me');
                     window.location.href = '/frontend/pages/login.html';
                 }
             });
 
             // ================================================================
-            // البحث
-            // ================================================================
-
-            document.getElementById('globalSearch').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    const query = this.value.trim();
-                    if (query) {
-                        showToast(`🔍 جاري البحث عن: "${query}"`, 'info');
-                        this.blur();
-                    }
-                }
-            });
-
-            // ================================================================
-            // التنقل بين الصفحات (للأيقونات في السايدبار)
-            // ================================================================
-
-            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const page = this.dataset.page;
-                    const titles = {
-                        warehouses: 'المخازن',
-                        products: 'الأصناف',
-                        users: 'المستخدمين',
-                        receipts: 'إذن استلام',
-                        transfers: 'التحويلات',
-                        inventory: 'الجرد',
-                        audit: 'سجل التدقيق',
-                        reports: 'التقارير المتقدمة',
-                        settings: 'الإعدادات',
-                        themes: 'الثيمات'
-                    };
-
-                    // تحديث العنصر النشط
-                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                    this.classList.add('active');
-
-                    // تحديث العنوان
-                    document.getElementById('pageTitle').textContent = titles[page] || page;
-                    document.getElementById('pageSubtitle').textContent = `إدارة ${titles[page] || page}`;
-
-                    showToast(`📄 جاري الانتقال إلى صفحة ${titles[page] || page}...`, 'info');
-
-                    // إغلاق السايدبار في الموبايل
-                    sidebar.classList.remove('open');
-                    sidebarToggle.querySelector('i').className = 'fas fa-bars';
-
-                    // توجيه إلى الصفحة المطلوبة
-                    if (page !== 'settings' && page !== 'themes') {
-                        window.location.href = `/frontend/pages/${page}.html`;
-                    }
-                });
-            });
-
-            // ================================================================
             // تحديث البيانات كل 60 ثانية
             // ================================================================
-
-            let refreshInterval = setInterval(loadDashboard, 60000);
+            setInterval(loadDashboard, 60000);
 
             // ================================================================
             // تشغيل التطبيق
             // ================================================================
-
             loadDashboard();
-            renderNotifications();
 
-            // ================================================================
-            // Console
-            // ================================================================
-
-            console.log('%c📊 نظام المخازن المتقدم v5.0 Ultimate', 'font-size:22px;font-weight:bold;color:#667eea;');
+            console.log('%c📊 نظام المخازن المتقدم v5.0 - متصل بقاعدة البيانات', 'font-size:22px;font-weight:bold;color:#667eea;');
             console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px;color:#aaa;');
-            console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px;color:#666;');
-            console.log('%c📱 01286187173 | 01027191811', 'font-size:12px;color:#666;');
-            console.log('%c🔔 نظام الإشعارات يعمل', 'font-size:12px;color:#ffc107;');
 
         })();
     </script>

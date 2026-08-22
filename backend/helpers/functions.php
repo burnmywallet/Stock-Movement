@@ -1,21 +1,20 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/helpers/functions.php
-// الوصف: دوال مساعدة عامة
-// الإصدار: 2.0 Production Ready
-// التاريخ: 2026-08-20
+// الوصف: دوال مساعدة عامة - استجابة، تحقق، تنسيق، ملفات، سجلات
+// التاريخ: 2026-08-22
 // ================================================================
 
 // ================================================================
-// دوال الاستجابة
+// 1. دوال الاستجابة
 // ================================================================
 
 if (!function_exists('json_response')) {
     /**
-     * إرسال استجابة JSON
+     * إرسال استجابة JSON متقدمة
      */
-    function json_response(bool $success, string $message, $data = null, int $statusCode = 200): void
+    function json_response(bool $success, string $message, $data = null, int $statusCode = 200, $meta = null, $errors = null): void
     {
         header('Content-Type: application/json');
         http_response_code($statusCode);
@@ -23,14 +22,21 @@ if (!function_exists('json_response')) {
         $response = [
             'success' => $success,
             'message' => $message,
-            'timestamp' => date('Y-m-d H:i:s')
+            'timestamp' => date('Y-m-d H:i:s'),
+            'version' => VERSION ?? '5.0.0'
         ];
         
         if ($data !== null) {
             $response['data'] = $data;
         }
+        if ($meta !== null) {
+            $response['meta'] = $meta;
+        }
+        if ($errors !== null) {
+            $response['errors'] = $errors;
+        }
         
-        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         exit;
     }
 }
@@ -56,7 +62,7 @@ if (!function_exists('json_error')) {
 }
 
 // ================================================================
-// دوال التحقق من البيانات
+// 2. دوال التحقق من البيانات
 // ================================================================
 
 if (!function_exists('is_valid_email')) {
@@ -106,6 +112,20 @@ if (!function_exists('is_valid_saudi_id')) {
     }
 }
 
+if (!function_exists('is_valid_egyptian_id')) {
+    /**
+     * التحقق من صحة الرقم القومي المصري
+     */
+    function is_valid_egyptian_id(string $id): bool
+    {
+        $id = trim($id);
+        if (!preg_match('/^[2-3]\d{13}$/', $id)) {
+            return false;
+        }
+        return true;
+    }
+}
+
 if (!function_exists('sanitize_input')) {
     /**
      * تنظيف المدخلات
@@ -124,9 +144,35 @@ if (!function_exists('sanitize_input')) {
     }
 }
 
+if (!function_exists('validate_date')) {
+    /**
+     * التحقق من صحة التاريخ
+     */
+    function validate_date(string $date, string $format = 'Y-m-d'): bool
+    {
+        $d = DateTime::createFromFormat($format, $date);
+        return $d && $d->format($format) === $date;
+    }
+}
+
+if (!function_exists('validate_datetime')) {
+    /**
+     * التحقق من صحة التاريخ والوقت
+     */
+    function validate_datetime(string $datetime, string $format = 'Y-m-d H:i:s'): bool
+    {
+        $d = DateTime::createFromFormat($format, $datetime);
+        return $d && $d->format($format) === $datetime;
+    }
+}
+
+// ================================================================
+// 3. دوال التوليد
+// ================================================================
+
 if (!function_exists('generate_random_string')) {
     /**
-     * توليد نص عشوائي
+     * توليد نص عشوائي آمن
      */
     function generate_random_string(int $length = 32): string
     {
@@ -134,8 +180,53 @@ if (!function_exists('generate_random_string')) {
     }
 }
 
+if (!function_exists('generate_code')) {
+    /**
+     * توليد كود فريد
+     */
+    function generate_code(string $prefix = '', int $length = 6, string $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'): string
+    {
+        $code = '';
+        $max = strlen($chars) - 1;
+        for ($i = 0; $i < $length; $i++) {
+            $code .= $chars[random_int(0, $max)];
+        }
+        return $prefix ? $prefix . '-' . $code : $code;
+    }
+}
+
+if (!function_exists('generate_uuid')) {
+    /**
+     * توليد UUID v4
+     */
+    function generate_uuid(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+}
+
+if (!function_exists('generate_slug')) {
+    /**
+     * تحويل النص إلى Slug
+     */
+    function generate_slug(string $text): string
+    {
+        $text = preg_replace('~[^\pL\d]+~u', '-', $text);
+        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+        $text = preg_replace('~[^-\w]+~', '', $text);
+        $text = trim($text, '-');
+        $text = preg_replace('~-+~', '-', $text);
+        $text = strtolower($text);
+        
+        return empty($text) ? 'n-a' : $text;
+    }
+}
+
 // ================================================================
-// دوال التاريخ والوقت
+// 4. دوال التاريخ والوقت
 // ================================================================
 
 if (!function_exists('format_date')) {
@@ -170,6 +261,42 @@ if (!function_exists('format_datetime')) {
     }
 }
 
+if (!function_exists('format_date_arabic')) {
+    /**
+     * تنسيق التاريخ بالعربية
+     */
+    function format_date_arabic($date, string $format = 'd F Y'): string
+    {
+        $months = [
+            1 => 'يناير', 2 => 'فبراير', 3 => 'مارس',
+            4 => 'أبريل', 5 => 'مايو', 6 => 'يونيو',
+            7 => 'يوليو', 8 => 'أغسطس', 9 => 'سبتمبر',
+            10 => 'أكتوبر', 11 => 'نوفمبر', 12 => 'ديسمبر'
+        ];
+        
+        $days = [
+            'Sat' => 'السبت', 'Sun' => 'الأحد', 'Mon' => 'الإثنين',
+            'Tue' => 'الثلاثاء', 'Wed' => 'الأربعاء', 'Thu' => 'الخميس',
+            'Fri' => 'الجمعة'
+        ];
+        
+        $date = format_date($date);
+        if (empty($date)) {
+            return '';
+        }
+        
+        $timestamp = strtotime($date);
+        $month = (int)date('n', $timestamp);
+        $day = date('D', $timestamp);
+        
+        $result = date($format, $timestamp);
+        $result = str_replace(date('F', $timestamp), $months[$month], $result);
+        $result = str_replace($day, $days[$day], $result);
+        
+        return $result;
+    }
+}
+
 if (!function_exists('get_days_between')) {
     /**
      * عدد الأيام بين تاريخين
@@ -196,8 +323,46 @@ if (!function_exists('is_date_in_range')) {
     }
 }
 
+if (!function_exists('time_ago')) {
+    /**
+     * حساب الوقت المنقضي
+     */
+    function time_ago($datetime): string
+    {
+        if (empty($datetime)) {
+            return '';
+        }
+        
+        $timestamp = is_string($datetime) ? strtotime($datetime) : $datetime;
+        $diff = time() - $timestamp;
+        
+        $units = [
+            31536000 => 'سنة',
+            2592000 => 'شهر',
+            604800 => 'أسبوع',
+            86400 => 'يوم',
+            3600 => 'ساعة',
+            60 => 'دقيقة',
+            1 => 'ثانية'
+        ];
+        
+        foreach ($units as $seconds => $unit) {
+            if ($diff >= $seconds) {
+                $count = floor($diff / $seconds);
+                $text = $count . ' ' . $unit;
+                if ($count > 1) {
+                    $text .= $unit === 'سنة' ? 'ات' : ($unit === 'شهر' ? 'ور' : ($unit === 'أسبوع' ? 'وع' : ($unit === 'يوم' ? 'اً' : ($unit === 'ساعة' ? 'ات' : ($unit === 'دقيقة' ? 'ق' : 'ات')))));
+                }
+                return $text . ' ago';
+            }
+        }
+        
+        return 'الآن';
+    }
+}
+
 // ================================================================
-// دوال الأرقام والعملات
+// 5. دوال الأرقام والعملات
 // ================================================================
 
 if (!function_exists('format_money')) {
@@ -243,8 +408,21 @@ if (!function_exists('round_down')) {
     }
 }
 
+if (!function_exists('percentage')) {
+    /**
+     * حساب النسبة المئوية
+     */
+    function percentage(float $part, float $total, int $decimals = 2): float
+    {
+        if ($total == 0) {
+            return 0;
+        }
+        return round(($part / $total) * 100, $decimals);
+    }
+}
+
 // ================================================================
-// دوال النصوص
+// 6. دوال النصوص
 // ================================================================
 
 if (!function_exists('truncate_text')) {
@@ -261,36 +439,40 @@ if (!function_exists('truncate_text')) {
     }
 }
 
-if (!function_exists('slugify')) {
+if (!function_exists('strip_html')) {
     /**
-     * تحويل النص إلى Slug
+     * إزالة HTML من النص
      */
-    function slugify(string $text): string
+    function strip_html(string $text): string
     {
-        $text = preg_replace('~[^\pL\d]+~u', '-', $text);
-        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
-        $text = preg_replace('~[^-\w]+~', '', $text);
-        $text = trim($text, '-');
-        $text = preg_replace('~-+~', '-', $text);
-        $text = strtolower($text);
-        
-        return empty($text) ? 'n-a' : $text;
+        return strip_tags($text);
     }
 }
 
-if (!function_exists('generate_code')) {
+if (!function_exists('extract_emails')) {
     /**
-     * توليد كود فريد
+     * استخراج البريد الإلكتروني من النص
      */
-    function generate_code(string $prefix = '', int $length = 6): string
+    function extract_emails(string $text): array
     {
-        $code = strtoupper(substr(generate_random_string($length), 0, $length));
-        return $prefix ? $prefix . '-' . $code : $code;
+        preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $text, $matches);
+        return $matches[0] ?? [];
+    }
+}
+
+if (!function_exists('extract_phones')) {
+    /**
+     * استخراج أرقام الهواتف من النص
+     */
+    function extract_phones(string $text): array
+    {
+        preg_match_all('/[0-9+\-\s()]{7,20}/', $text, $matches);
+        return array_map('trim', $matches[0] ?? []);
     }
 }
 
 // ================================================================
-// دوال المصفوفات
+// 7. دوال المصفوفات
 // ================================================================
 
 if (!function_exists('array_group_by')) {
@@ -310,6 +492,25 @@ if (!function_exists('array_group_by')) {
             }
         }
         return $result;
+    }
+}
+
+if (!function_exists('array_sort_by')) {
+    /**
+     * ترتيب مصفوفة حسب المفتاح
+     */
+    function array_sort_by(array $array, string $key, string $direction = 'asc'): array
+    {
+        usort($array, function($a, $b) use ($key, $direction) {
+            $valA = $a[$key] ?? '';
+            $valB = $b[$key] ?? '';
+            
+            if ($direction === 'asc') {
+                return $valA <=> $valB;
+            }
+            return $valB <=> $valA;
+        });
+        return $array;
     }
 }
 
@@ -337,8 +538,31 @@ if (!function_exists('array_to_csv')) {
     }
 }
 
+if (!function_exists('array_to_xml')) {
+    /**
+     * تحويل مصفوفة إلى XML
+     */
+    function array_to_xml(array $data, string $root = 'root', string $item = 'item'): string
+    {
+        $xml = new SimpleXMLElement('<' . $root . '/>');
+        
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $node = $xml->addChild($item);
+                foreach ($value as $k => $v) {
+                    $node->addChild($k, $v);
+                }
+            } else {
+                $xml->addChild($key, $value);
+            }
+        }
+        
+        return $xml->asXML();
+    }
+}
+
 // ================================================================
-// دوال الملفات
+// 8. دوال الملفات
 // ================================================================
 
 if (!function_exists('get_file_size')) {
@@ -351,6 +575,27 @@ if (!function_exists('get_file_size')) {
         $factor = floor((strlen($bytes) - 1) / 3);
         
         return sprintf("%.2f %s", $bytes / pow(1024, $factor), $units[$factor]);
+    }
+}
+
+if (!function_exists('get_file_extension')) {
+    /**
+     * الحصول على امتداد الملف
+     */
+    function get_file_extension(string $filename): string
+    {
+        return strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    }
+}
+
+if (!function_exists('is_allowed_extension')) {
+    /**
+     * التحقق من امتداد الملف المسموح
+     */
+    function is_allowed_extension(string $filename, array $allowed = ['jpg', 'jpeg', 'png', 'gif', 'pdf']): bool
+    {
+        $ext = get_file_extension($filename);
+        return in_array($ext, $allowed);
     }
 }
 
@@ -386,13 +631,27 @@ if (!function_exists('upload_file')) {
             'filename' => $filename,
             'path' => $filepath,
             'size' => $file['size'],
-            'extension' => $extension
+            'extension' => $extension,
+            'mime_type' => mime_content_type($filepath)
         ];
     }
 }
 
+if (!function_exists('delete_file')) {
+    /**
+     * حذف ملف
+     */
+    function delete_file(string $path): bool
+    {
+        if (file_exists($path) && is_file($path)) {
+            return unlink($path);
+        }
+        return false;
+    }
+}
+
 // ================================================================
-// دوال النظام
+// 9. دوال النظام
 // ================================================================
 
 if (!function_exists('get_client_ip')) {
@@ -457,8 +716,27 @@ if (!function_exists('memory_usage')) {
     }
 }
 
+if (!function_exists('get_server_uptime')) {
+    /**
+     * الحصول على وقت تشغيل الخادم
+     */
+    function get_server_uptime(): string
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            return 'غير معروف (Windows)';
+        }
+        
+        try {
+            $uptime = shell_exec('uptime -p');
+            return trim($uptime) ?: 'غير معروف';
+        } catch (Exception $e) {
+            return 'غير معروف';
+        }
+    }
+}
+
 // ================================================================
-// دوال السجل
+// 10. دوال السجل
 // ================================================================
 
 if (!function_exists('log_debug')) {
@@ -468,7 +746,7 @@ if (!function_exists('log_debug')) {
     function log_debug(string $message, array $context = []): void
     {
         if ($_ENV['APP_DEBUG'] ?? false) {
-            error_log("[DEBUG] {$message} " . json_encode($context));
+            error_log("[DEBUG] {$message} " . json_encode($context, JSON_UNESCAPED_UNICODE));
         }
     }
 }
@@ -479,7 +757,7 @@ if (!function_exists('log_error')) {
      */
     function log_error(string $message, array $context = []): void
     {
-        error_log("[ERROR] {$message} " . json_encode($context));
+        error_log("[ERROR] {$message} " . json_encode($context, JSON_UNESCAPED_UNICODE));
     }
 }
 
@@ -489,6 +767,105 @@ if (!function_exists('log_info')) {
      */
     function log_info(string $message, array $context = []): void
     {
-        error_log("[INFO] {$message} " . json_encode($context));
+        error_log("[INFO] {$message} " . json_encode($context, JSON_UNESCAPED_UNICODE));
     }
 }
+
+if (!function_exists('log_warning')) {
+    /**
+     * تسجيل رسالة تحذير
+     */
+    function log_warning(string $message, array $context = []): void
+    {
+        error_log("[WARNING] {$message} " . json_encode($context, JSON_UNESCAPED_UNICODE));
+    }
+}
+
+// ================================================================
+// 11. دوال إضافية متقدمة
+// ================================================================
+
+if (!function_exists('is_serialized')) {
+    /**
+     * التحقق من أن البيانات مسلسلة
+     */
+    function is_serialized(string $data): bool
+    {
+        $data = trim($data);
+        if ($data === 'N;') {
+            return true;
+        }
+        if (!preg_match('/^([adObis]):/', $data, $badions)) {
+            return false;
+        }
+        switch ($badions[1]) {
+            case 'a':
+            case 'O':
+            case 's':
+                return preg_match("/^{$badions[1]}:[0-9]+:.*[;}]\$/s", $data);
+            case 'b':
+            case 'i':
+            case 'd':
+                return preg_match("/^{$badions[1]}:[0-9.E-]+;\$/", $data);
+        }
+        return false;
+    }
+}
+
+if (!function_exists('safe_json_decode')) {
+    /**
+     * فك تشفير JSON بأمان
+     */
+    function safe_json_decode(string $json, bool $assoc = true)
+    {
+        if (empty($json)) {
+            return null;
+        }
+        $data = json_decode($json, $assoc);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return null;
+        }
+        return $data;
+    }
+}
+
+if (!function_exists('safe_json_encode')) {
+    /**
+     * تشفير JSON بأمان
+     */
+    function safe_json_encode($data): string
+    {
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return json_encode(['error' => 'JSON encoding failed']);
+        }
+        return $json;
+    }
+}
+
+if (!function_exists('get_currency_symbol')) {
+    /**
+     * الحصول على رمز العملة
+     */
+    function get_currency_symbol(string $currency = null): string
+    {
+        $symbols = [
+            'SAR' => 'ر.س',
+            'USD' => '$',
+            'EUR' => '€',
+            'GBP' => '£',
+            'EGP' => 'ج.م',
+            'AED' => 'د.إ',
+            'KWD' => 'د.ك',
+            'BHD' => 'د.ب',
+            'QAR' => 'ر.ق'
+        ];
+        
+        $currency = $currency ?? ($_ENV['CURRENCY'] ?? 'SAR');
+        return $symbols[$currency] ?? 'ر.س';
+    }
+}
+
+// ================================================================
+// انتهى الملف
+// ================================================================

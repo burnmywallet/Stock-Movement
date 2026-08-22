@@ -1,793 +1,1481 @@
-// ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
-// الملف: frontend/assets/js/app.js
-// الوصف: التطبيق الرئيسي - إدارة الصفحات والتنقل والتهيئة
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
-// ================================================================
-
 /**
- * التطبيق الرئيسي - إدارة النظام بالكامل
+ * ============================================================
+ * التطبيق الرئيسي - نظام المخازن v5.0
+ * الملف: frontend/assets/js/app.js
+ * الوصف: دوال مساعدة عامة للتطبيق - Toast، Modal، Formatter، إلخ
+ * التاريخ: 2026-08-22
+ * ============================================================
  */
+
 const App = {
-    // ================================================================
-    // الحالة العامة
-    // ================================================================
-    
-    currentPage: 'dashboard',
-    initialized: false,
-    sidebarOpen: false,
-    isLoading: false,
-    refreshInterval: null,
-    
-    // ================================================================
-    // التهيئة
-    // ================================================================
-    
     /**
-     * تهيئة التطبيق
+     * ============================================================
+     * الإعدادات الأساسية
+     * ============================================================
      */
-    init: function() {
-        if (this.initialized) return;
-        
-        // التحقق من المصادقة
-        if (!Auth.isAuthenticated()) {
-            this.showLogin();
-            return;
-        }
-        
-        // إخفاء مؤشر التحميل
-        this.hideLoading();
-        
-        // تحديث واجهة المستخدم
-        Auth.updateUI();
-        
-        // إعداد التنقل
-        this.setupNavigation();
-        
-        // إعداد تسجيل الخروج
-        this.setupLogout();
-        
-        // إعداد الشريط الجانبي
-        this.setupSidebar();
-        
-        // إعداد الإشعارات
-        this.setupNotifications();
-        
-        // تحميل الصفحة الافتراضية
-        this.loadPage('dashboard');
-        
-        // تحديث تلقائي كل 60 ثانية
-        this.refreshInterval = setInterval(() => this.refreshData(), 60000);
-        
-        this.initialized = true;
-        
-        console.log('✅ تطبيق المخازن المتقدم جاهز');
+    
+    config: {
+        debug: false,
+        version: '5.0.0',
+        dateFormat: 'Y-m-d',
+        timeFormat: 'H:i:s',
+        currency: 'EGP',
+        currencySymbol: 'ج.م'
     },
-    
+
     /**
-     * إظهار شاشة تسجيل الدخول
+     * ============================================================
+     * Toast Notifications
+     * ============================================================
      */
-    showLogin: function() {
-        window.location.href = '/frontend/pages/login.html';
-    },
     
-    /**
-     * إخفاء مؤشر التحميل
-     */
-    hideLoading: function() {
-        const spinner = document.getElementById('loading-spinner');
-        if (spinner) {
-            spinner.classList.add('hidden');
+    toast: {
+        show: function(message, type = 'info', duration = 3500) {
+            const existing = document.querySelector('.toast-custom');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast-custom ${type}`;
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
+            document.body.appendChild(toast);
+
             setTimeout(() => {
-                spinner.style.display = 'none';
-            }, 500);
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        },
+
+        success: function(message, duration = 3500) {
+            this.show(message, 'success', duration);
+        },
+
+        error: function(message, duration = 3500) {
+            this.show(message, 'error', duration);
+        },
+
+        warning: function(message, duration = 3500) {
+            this.show(message, 'warning', duration);
+        },
+
+        info: function(message, duration = 3500) {
+            this.show(message, 'info', duration);
         }
     },
-    
+
     /**
-     * إظهار مؤشر التحميل
+     * ============================================================
+     * Modal
+     * ============================================================
      */
-    showLoading: function() {
-        const spinner = document.getElementById('loading-spinner');
-        if (spinner) {
-            spinner.style.display = 'flex';
-            spinner.classList.remove('hidden');
+    
+    modal: {
+        open: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        },
+
+        close: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        },
+
+        toggle: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.toggle('show');
+                document.body.style.overflow = modal.classList.contains('show') ? 'hidden' : '';
+            }
         }
     },
-    
-    // ================================================================
-    // التنقل
-    // ================================================================
-    
+
     /**
-     * إعداد التنقل
+     * ============================================================
+     * Formatter
+     * ============================================================
      */
-    setupNavigation: function() {
-        // روابط الشريط الجانبي
-        document.querySelectorAll('.sidebar-menu a, .navbar-nav a[href^="#"]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const href = link.getAttribute('href');
-                if (href && href.startsWith('#')) {
-                    const page = href.substring(1);
-                    this.loadPage(page);
-                    // إغلاق الشريط الجانبي على الموبايل
-                    if (window.innerWidth <= 992) {
-                        this.toggleSidebar(false);
-                    }
-                }
+    
+    format: {
+        /**
+         * تنسيق التاريخ
+         */
+        date: function(date, format = null) {
+            if (!date) return '-';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return '-';
+            
+            format = format || App.config.dateFormat;
+            
+            const map = {
+                'Y': d.getFullYear(),
+                'm': String(d.getMonth() + 1).padStart(2, '0'),
+                'd': String(d.getDate()).padStart(2, '0'),
+                'H': String(d.getHours()).padStart(2, '0'),
+                'i': String(d.getMinutes()).padStart(2, '0'),
+                's': String(d.getSeconds()).padStart(2, '0')
+            };
+            
+            let result = format;
+            for (const [key, value] of Object.entries(map)) {
+                result = result.replace(key, value);
+            }
+            return result;
+        },
+
+        /**
+         * تنسيق الوقت
+         */
+        time: function(date) {
+            return this.date(date, 'H:i:s');
+        },
+
+        /**
+         * تنسيق العملة
+         */
+        currency: function(amount, symbol = null) {
+            if (amount === null || amount === undefined) return '-';
+            symbol = symbol || App.config.currencySymbol;
+            return Number(amount).toLocaleString('ar-EG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }) + ' ' + symbol;
+        },
+
+        /**
+         * تنسيق الرقم
+         */
+        number: function(number, decimals = 2) {
+            if (number === null || number === undefined) return '-';
+            return Number(number).toLocaleString('ar-EG', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
             });
-        });
-        
-        // معالجة تغيير الـ Hash
-        window.addEventListener('hashchange', () => {
-            const hash = window.location.hash.substring(1);
-            if (hash) {
-                this.loadPage(hash);
-            }
-        });
-    },
-    
-    /**
-     * تحميل صفحة
-     */
-    loadPage: function(page) {
-        // تحديث الصفحة الحالية
-        this.currentPage = page;
-        
-        // تحديث عنوان الصفحة
-        this.updatePageTitle(page);
-        
-        // تحديث الـ Hash
-        if (window.location.hash !== '#' + page) {
-            window.location.hash = page;
-        }
-        
-        // تحديث العناصر النشطة في القائمة
-        this.updateActiveMenu(page);
-        
-        // إظهار محتوى الصفحة
-        this.showPageContent(page);
-        
-        // تحميل بيانات الصفحة
-        this.loadPageData(page);
-    },
-    
-    /**
-     * تحديث عنوان الصفحة
-     */
-    updatePageTitle: function(page) {
-        const titles = {
-            'dashboard': 'لوحة التحكم',
-            'products': 'إدارة الأصناف',
-            'warehouses': 'إدارة المخازن',
-            'receipts': 'إذون الاستلام',
-            'issues': 'إذون الصرف',
-            'transfers': 'التحويلات',
-            'returns': 'المرتجعات',
-            'inventory': 'الجرد',
-            'reports': 'التقارير',
-            'users': 'المستخدمين',
-            'audit': 'سجل التدقيق',
-            'settings': 'الإعدادات',
-            'backup': 'النسخ الاحتياطي'
-        };
-        
-        const title = titles[page] || page;
-        document.title = `${title} - نظام المخازن المتقدم`;
-    },
-    
-    /**
-     * تحديث العناصر النشطة في القائمة
-     */
-    updateActiveMenu: function(page) {
-        document.querySelectorAll('.sidebar-menu li, .navbar-nav .nav-item').forEach(li => {
-            li.classList.remove('active');
-        });
-        
-        document.querySelectorAll(`.sidebar-menu a[href="#${page}"], .navbar-nav a[href="#${page}"]`).forEach(link => {
-            const parent = link.closest('li');
-            if (parent) {
-                parent.classList.add('active');
-            }
-        });
-    },
-    
-    /**
-     * إظهار محتوى الصفحة
-     */
-    showPageContent: function(page) {
-        // إخفاء جميع الصفحات
-        document.querySelectorAll('.page-content').forEach(el => {
-            el.classList.remove('active');
-        });
-        
-        // إظهار الصفحة المطلوبة
-        const pageEl = document.getElementById(page + 'Page');
-        if (pageEl) {
-            pageEl.classList.add('active');
-        } else {
-            // إذا لم يتم العثور على الصفحة، حاول تحميلها ديناميكياً
-            this.loadDynamicPage(page);
+        },
+
+        /**
+         * تنسيق الوقت المنقضي
+         */
+        timeAgo: function(date) {
+            if (!date) return '-';
+            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+            
+            if (diff < 60) return 'منذ لحظات';
+            if (diff < 3600) return 'منذ ' + Math.floor(diff / 60) + ' دقيقة';
+            if (diff < 86400) return 'منذ ' + Math.floor(diff / 3600) + ' ساعة';
+            if (diff < 604800) return 'منذ ' + Math.floor(diff / 86400) + ' يوم';
+            if (diff < 2592000) return 'منذ ' + Math.floor(diff / 604800) + ' أسبوع';
+            if (diff < 31536000) return 'منذ ' + Math.floor(diff / 2592000) + ' شهر';
+            return 'منذ ' + Math.floor(diff / 31536000) + ' سنة';
+        },
+
+        /**
+         * اختصار النص
+         */
+        truncate: function(text, length = 100, suffix = '...') {
+            if (!text) return '';
+            if (text.length <= length) return text;
+            return text.substring(0, length) + suffix;
+        },
+
+        /**
+         * تحويل النص إلى HTML آمن
+         */
+        escape: function(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        /**
+         * تحويل النص إلى Slug
+         */
+        slug: function(text) {
+            if (!text) return '';
+            return text
+                .toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .replace(/\s+/g, '-');
         }
     },
-    
+
     /**
-     * تحميل صفحة ديناميكية
+     * ============================================================
+     * Validation
+     * ============================================================
      */
-    loadDynamicPage: function(page) {
-        const parts = page.split('/');
-        const module = parts[0];
-        const action = parts[1] || 'index';
-        
-        // محاولة تحميل الصفحة من خلال الـ Controllers
-        switch (module) {
-            case 'reports':
-                if (action === 'stock') {
-                    Reports.loadStock();
-                } else if (action === 'movements') {
-                    Reports.loadMovements();
-                } else if (action === 'audit') {
-                    Reports.loadAudit();
-                }
-                break;
-            case 'products':
-                Products.load();
-                break;
-            case 'warehouses':
-                Warehouses.load();
-                break;
-            case 'users':
-                Users.load();
-                break;
-            default:
-                this.show404();
+    
+    validate: {
+        /**
+         * التحقق من البريد الإلكتروني
+         */
+        email: function(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+
+        /**
+         * التحقق من رقم الهاتف
+         */
+        phone: function(phone) {
+            return /^[0-9+\-\s()]{7,20}$/.test(phone);
+        },
+
+        /**
+         * التحقق من رقم الهوية
+         */
+        id: function(id) {
+            return /^[0-9]{10,14}$/.test(id);
+        },
+
+        /**
+         * التحقق من كلمة المرور (8 أحرف، حرف كبير، حرف صغير، رقم، رمز خاص)
+         */
+        password: function(password) {
+            return password.length >= 8 &&
+                   /[A-Z]/.test(password) &&
+                   /[a-z]/.test(password) &&
+                   /[0-9]/.test(password) &&
+                   /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        },
+
+        /**
+         * التحقق من التاريخ
+         */
+        date: function(date) {
+            const d = new Date(date);
+            return !isNaN(d.getTime());
+        },
+
+        /**
+         * التحقق من الرقم
+         */
+        number: function(value) {
+            return !isNaN(parseFloat(value)) && isFinite(value);
+        },
+
+        /**
+         * التحقق من الحقل الفارغ
+         */
+        required: function(value) {
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'string') return value.trim() !== '';
+            if (Array.isArray(value)) return value.length > 0;
+            return true;
         }
     },
-    
+
     /**
-     * تحميل بيانات الصفحة
+     * ============================================================
+     * DOM Helpers
+     * ============================================================
      */
-    loadPageData: function(page) {
-        // استخدام الـ Controllers المناسبة
-        switch (page) {
-            case 'dashboard':
-                if (typeof Dashboard !== 'undefined' && Dashboard.load) {
-                    Dashboard.load();
-                }
-                break;
-            case 'products':
-                if (typeof Products !== 'undefined' && Products.load) {
-                    Products.load();
-                }
-                break;
-            case 'warehouses':
-                if (typeof Warehouses !== 'undefined' && Warehouses.load) {
-                    Warehouses.load();
-                }
-                break;
-            case 'receipts':
-                if (typeof Receipts !== 'undefined' && Receipts.load) {
-                    Receipts.load();
-                }
-                break;
-            case 'issues':
-                if (typeof Issues !== 'undefined' && Issues.load) {
-                    Issues.load();
-                }
-                break;
-            case 'transfers':
-                if (typeof Transfers !== 'undefined' && Transfers.load) {
-                    Transfers.load();
-                }
-                break;
-            case 'returns':
-                if (typeof Returns !== 'undefined' && Returns.load) {
-                    Returns.load();
-                }
-                break;
-            case 'users':
-                if (typeof Users !== 'undefined' && Users.load) {
-                    Users.load();
-                }
-                break;
-            case 'reports':
-                if (typeof Reports !== 'undefined' && Reports.load) {
-                    Reports.load();
-                }
-                break;
-            case 'settings':
-                if (typeof Settings !== 'undefined' && Settings.load) {
-                    Settings.load();
-                }
-                break;
-            default:
-                // محاولة تحميل وحدة غير معروفة
-                console.warn(`الصفحة "${page}" ليس لها معالج محدد`);
-        }
-    },
     
-    /**
-     * عرض صفحة 404
-     */
-    show404: function() {
-        const container = document.getElementById('mainContent');
-        if (container) {
-            container.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="fas fa-exclamation-triangle fa-4x text-warning mb-4"></i>
-                    <h2 class="text-white">الصفحة غير موجودة</h2>
-                    <p class="text-muted">عذراً، الصفحة التي تبحث عنها غير موجودة</p>
-                    <button class="btn btn-primary mt-3" onclick="App.loadPage('dashboard')">
-                        <i class="fas fa-arrow-right me-2"></i> العودة إلى لوحة التحكم
-                    </button>
-                </div>
-            `;
-        }
-    },
-    
-    // ================================================================
-    // الشريط الجانبي
-    // ================================================================
-    
-    /**
-     * إعداد الشريط الجانبي
-     */
-    setupSidebar: function() {
-        // زر فتح/إغلاق الشريط الجانبي
-        const toggleBtn = document.getElementById('sidebarToggle');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.toggleSidebar();
+    dom: {
+        /**
+         * الحصول على عنصر
+         */
+        get: function(selector) {
+            return document.querySelector(selector);
+        },
+
+        /**
+         * الحصول على جميع العناصر
+         */
+        getAll: function(selector) {
+            return document.querySelectorAll(selector);
+        },
+
+        /**
+         * إضافة مستمع حدث
+         */
+        on: function(selector, event, callback) {
+            const elements = typeof selector === 'string' ? this.getAll(selector) : [selector];
+            elements.forEach(el => {
+                if (el) el.addEventListener(event, callback);
             });
+        },
+
+        /**
+         * إظهار عنصر
+         */
+        show: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.style.display = '';
+        },
+
+        /**
+         * إخفاء عنصر
+         */
+        hide: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.style.display = 'none';
+        },
+
+        /**
+         * تبديل حالة العنصر
+         */
+        toggle: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) {
+                el.style.display = el.style.display === 'none' ? '' : 'none';
+            }
+        },
+
+        /**
+         * إضافة كلاس
+         */
+        addClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.add(className);
+        },
+
+        /**
+         * إزالة كلاس
+         */
+        removeClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.remove(className);
+        },
+
+        /**
+         * تبديل كلاس
+         */
+        toggleClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.toggle(className);
+        },
+
+        /**
+         * تعيين HTML
+         */
+        html: function(selector, content) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.innerHTML = content;
+        },
+
+        /**
+         * تعيين النص
+         */
+        text: function(selector, content) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.textContent = content;
+        },
+
+        /**
+         * تعيين القيمة
+         */
+        val: function(selector, value) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) {
+                if (value === undefined) return el.value;
+                el.value = value;
+            }
         }
+    },
+
+    /**
+     * ============================================================
+     * Storage
+     * ============================================================
+     */
+    
+    storage: {
+        /**
+         * تخزين بيانات
+         */
+        set: function(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.warn('Storage set error:', e);
+            }
+        },
+
+        /**
+         * جلب بيانات
+         */
+        get: function(key, defaultValue = null) {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : defaultValue;
+            } catch (e) {
+                return defaultValue;
+            }
+        },
+
+        /**
+         * حذف بيانات
+         */
+        remove: function(key) {
+            localStorage.removeItem(key);
+        },
+
+        /**
+         * مسح جميع البيانات
+         */
+        clear: function() {
+            localStorage.clear();
+        },
+
+        /**
+         * التحقق من وجود بيانات
+         */
+        has: function(key) {
+            return localStorage.getItem(key) !== null;
+        }
+    },
+
+    /**
+     * ============================================================
+     * URL Helpers
+     * ============================================================
+     */
+    
+    url: {
+        /**
+         * الحصول على معلمات URL
+         */
+        params: function() {
+            const params = new URLSearchParams(window.location.search);
+            const result = {};
+            for (const [key, value] of params) {
+                result[key] = value;
+            }
+            return result;
+        },
+
+        /**
+         * الحصول على معلمة محددة
+         */
+        param: function(key, defaultValue = null) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(key) || defaultValue;
+        },
+
+        /**
+         * إضافة معلمة إلى URL
+         */
+        addParam: function(key, value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set(key, value);
+            return url.toString();
+        },
+
+        /**
+         * إزالة معلمة من URL
+         */
+        removeParam: function(key) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete(key);
+            return url.toString();
+        }
+    },
+
+    /**
+     * ============================================================
+     * System Info
+     * ============================================================
+     */
+    
+    system: {
+        /**
+         * الحصول على معلومات النظام
+         */
+        info: function() {
+            return {
+                version: App.config.version,
+                platform: navigator.platform,
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                screen: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                },
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                online: navigator.onLine
+            };
+        },
+
+        /**
+         * التحقق من الاتصال بالإنترنت
+         */
+        isOnline: function() {
+            return navigator.onLine;
+        },
+
+        /**
+         * إعادة تحميل الصفحة
+         */
+        reload: function() {
+            window.location.reload();
+        },
+
+        /**
+         * الانتقال إلى صفحة
+         */
+        redirect: function(url) {
+            window.location.href = url;
+        }
+    },
+
+    /**
+     * ============================================================
+     * عمليات المستخدم
+     * ============================================================
+     */
+    
+    user: {
+        /**
+         * الحصول على بيانات المستخدم
+         */
+        get: function() {
+            try {
+                return JSON.parse(localStorage.getItem('user'));
+            } catch {
+                return null;
+            }
+        },
+
+        /**
+         * التحقق من تسجيل الدخول
+         */
+        isLoggedIn: function() {
+            return !!localStorage.getItem('auth_token');
+        },
+
+        /**
+         * التحقق من الصلاحية
+         */
+        hasPermission: function(permission) {
+            const user = this.get();
+            if (!user) return false;
+            if (user.role === 'admin') return true;
+            return (user.permissions || []).includes(permission);
+        },
+
+        /**
+         * التحقق من الدور
+         */
+        hasRole: function(role) {
+            const user = this.get();
+            if (!user) return false;
+            return user.role === role;
+        },
+
+        /**
+         * تسجيل الخروج
+         */
+        logout: function() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            window.location.href = '/frontend/pages/login.html';
+        }
+    },
+
+    /**
+     * ============================================================
+     * تهيئة التطبيق
+     * ============================================================
+     */
+    
+    init: function() {
+        console.log('%c🚀 تطبيق المخازن v' + this.config.version + ' جاهز', 'font-size:20px;font-weight:bold;color:#667eea;');
+        console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px;color:#aaa;');
+        console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px;color:#666;');
         
-        // إغلاق الشريط عند النقر خارجه على الموبايل
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 992) {
-                const sidebar = document.getElementById('sidebar');
-                const toggle = document.getElementById('sidebarToggle');
-                if (sidebar && !sidebar.contains(e.target) && toggle && !toggle.contains(e.target)) {
-                    this.toggleSidebar(false);
+        // إضافة حدث للتحقق من الاتصال
+        window.addEventListener('online', function() {
+            App.toast.success('✅ تم استعادة الاتصال بالإنترنت');
+        });
+        window.addEventListener('offline', function() {
+            App.toast.error('❌ تم فقدان الاتصال بالإنترنت');
+        });
+
+        // إضافة حدث للرموز المغلقة تلقائياً
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.toast-custom .close')) {
+                const toast = e.target.closest('.toast-custom');
+                if (toast) {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.4s ease';
+                    setTimeout(() => toast.remove(), 400);
                 }
             }
         });
-        
-        // إعادة تعيين حالة الشريط عند تغيير حجم النافذة
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 992) {
-                this.toggleSidebar(false);
-            }
-        });
-    },
-    
-    /**
-     * تبديل الشريط الجانبي
-     */
-    toggleSidebar: function(open) {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar) return;
-        
-        if (typeof open === 'boolean') {
-            if (open) {
-                sidebar.classList.add('open');
-                this.sidebarOpen = true;
-            } else {
-                sidebar.classList.remove('open');
-                this.sidebarOpen = false;
-            }
-        } else {
-            sidebar.classList.toggle('open');
-            this.sidebarOpen = sidebar.classList.contains('open');
-        }
-    },
-    
-    // ================================================================
-    // تسجيل الخروج
-    // ================================================================
-    
-    /**
-     * إعداد زر تسجيل الخروج
-     */
-    setupLogout: function() {
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await this.confirmLogout();
-            });
-        }
-    },
-    
-    /**
-     * تأكيد تسجيل الخروج
-     */
-    confirmLogout: async function() {
-        const result = await Swal.fire({
-            title: 'تسجيل الخروج',
-            text: 'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'نعم، تسجيل الخروج',
-            cancelButtonText: 'إلغاء',
-            confirmButtonColor: '#DC3545'
-        });
-        
-        if (result.isConfirmed) {
-            await Auth.logout();
-        }
-    },
-    
-    // ================================================================
-    // الإشعارات
-    // ================================================================
-    
-    /**
-     * إعداد الإشعارات
-     */
-    setupNotifications: function() {
-        // التحقق من الإشعارات كل 30 ثانية
-        setInterval(() => {
-            this.fetchNotifications();
-        }, 30000);
-        
-        // جلب الإشعارات عند التحميل
-        this.fetchNotifications();
-    },
-    
-    /**
-     * جلب الإشعارات
-     */
-    fetchNotifications: async function() {
-        try {
-            const result = await API.notifications.list();
-            if (result.success && result.data) {
-                this.updateNotificationBadge(result.data);
-            }
-        } catch (error) {
-            // تجاهل
-        }
-    },
-    
-    /**
-     * تحديث شارة الإشعارات
-     */
-    updateNotificationBadge: function(notifications) {
-        const unread = notifications.filter(n => !n.is_read).length;
-        const badge = document.getElementById('notificationBadge');
-        if (badge) {
-            badge.textContent = unread;
-            badge.style.display = unread > 0 ? 'inline' : 'none';
-        }
-    },
-    
-    // ================================================================
-    // تحديث البيانات
-    // ================================================================
-    
-    /**
-     * تحديث البيانات
-     */
-    refreshData: function() {
-        // التحقق من أن الصفحة مرئية
-        if (document.hidden) return;
-        
-        // تحديث الصفحة الحالية
-        this.loadPageData(this.currentPage);
-    },
-    
-    // ================================================================
-    // أدوات مساعدة
-    // ================================================================
-    
-    /**
-     * عرض إشعار (Toast)
-     */
-    showToast: function(message, type = 'success', duration = 3000) {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.4s ease';
-            setTimeout(() => toast.remove(), 400);
-        }, duration);
-    },
-    
-    /**
-     * عرض تنبيه (Alert)
-     */
-    showAlert: function(message, type = 'info') {
-        Swal.fire({
-            icon: type,
-            title: message,
-            timer: 3000,
-            showConfirmButton: false
-        });
-    },
-    
-    /**
-     * عرض تأكيد (Confirm)
-     */
-    showConfirm: async function(message, title = 'تأكيد') {
-        const result = await Swal.fire({
-            title: title,
-            text: message,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'نعم',
-            cancelButtonText: 'إلغاء'
-        });
-        return result.isConfirmed;
-    },
-    
-    /**
-     * تنسيق العملة
-     */
-    formatCurrency: function(amount) {
-        return new Intl.NumberFormat('ar-SA', {
-            style: 'currency',
-            currency: 'SAR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(amount);
-    },
-    
-    /**
-     * تنسيق التاريخ
-     */
-    formatDate: function(date) {
-        if (!date) return '-';
-        const d = new Date(date);
-        return d.toLocaleDateString('ar-SA', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    },
-    
-    /**
-     * تنسيق التاريخ فقط
-     */
-    formatDateOnly: function(date) {
-        if (!date) return '-';
-        const d = new Date(date);
-        return d.toLocaleDateString('ar-SA', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    },
-    
-    /**
-     * تنسيق رقم
-     */
-    formatNumber: function(number) {
-        return new Intl.NumberFormat('ar-SA').format(number);
-    },
-    
-    /**
-     * الحصول على حالة التصنيف
-     */
-    getStatusBadge: function(status) {
-        const badges = {
-            'draft': '<span class="badge bg-secondary">مسودة</span>',
-            'submitted': '<span class="badge bg-info">مرسل</span>',
-            'approved': '<span class="badge bg-success">معتمد</span>',
-            'rejected': '<span class="badge bg-danger">مرفوض</span>',
-            'cancelled': '<span class="badge bg-dark">ملغي</span>',
-            'completed': '<span class="badge bg-primary">مكتمل</span>',
-            'delivered': '<span class="badge bg-success">تم التسليم</span>',
-            'in_progress': '<span class="badge bg-warning">قيد التنفيذ</span>',
-            'reviewed': '<span class="badge bg-info">مراجعة</span>',
-            'active': '<span class="badge bg-success">نشط</span>',
-            'inactive': '<span class="badge bg-secondary">غير نشط</span>',
-            'out_of_stock': '<span class="badge bg-danger">نفذ</span>',
-            'low_stock': '<span class="badge bg-warning">منخفض</span>',
-            'over_stock': '<span class="badge bg-info">زائد</span>',
-            'normal': '<span class="badge bg-success">طبيعي</span>'
-        };
-        return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
-    },
-    
-    /**
-     * الحصول على لون الحالة
-     */
-    getStatusColor: function(status) {
-        const colors = {
-            'draft': 'secondary',
-            'submitted': 'info',
-            'approved': 'success',
-            'rejected': 'danger',
-            'cancelled': 'dark',
-            'completed': 'primary',
-            'delivered': 'success',
-            'in_progress': 'warning',
-            'reviewed': 'info',
-            'active': 'success',
-            'inactive': 'secondary',
-            'out_of_stock': 'danger',
-            'low_stock': 'warning',
-            'over_stock': 'info',
-            'normal': 'success'
-        };
-        return colors[status] || 'secondary';
-    },
-    
-    /**
-     * الحصول على تسمية نوع الحركة
-     */
-    getMovementLabel: function(type) {
-        const labels = {
-            'RECEIPT': 'استلام',
-            'ISSUE': 'صرف',
-            'TRANSFER_OUT': 'تحويل خارج',
-            'TRANSFER_IN': 'تحويل داخل',
-            'RETURN_IN': 'مرتجع للمخزن',
-            'RETURN_OUT': 'مرتجع من المخزن',
-            'ADJUSTMENT': 'تسوية',
-            'COUNT_CORRECTION': 'تصحيح جرد'
-        };
-        return labels[type] || type;
-    },
-    
-    /**
-     * الحصول على أيقونة نوع الحركة
-     */
-    getMovementIcon: function(type) {
-        const icons = {
-            'RECEIPT': 'fa-arrow-down text-success',
-            'ISSUE': 'fa-arrow-up text-danger',
-            'TRANSFER_OUT': 'fa-exchange-alt text-warning',
-            'TRANSFER_IN': 'fa-exchange-alt text-info',
-            'RETURN_IN': 'fa-undo text-primary',
-            'RETURN_OUT': 'fa-undo text-warning',
-            'ADJUSTMENT': 'fa-balance-scale text-secondary',
-            'COUNT_CORRECTION': 'fa-check-double text-success'
-        };
-        return icons[type] || 'fa-circle';
-    },
-    
-    /**
-     * تصدير البيانات كـ CSV
-     */
-    exportCSV: function(data, filename = 'export.csv') {
-        if (!data || data.length === 0) {
-            this.showToast('لا توجد بيانات للتصدير', 'warning');
-            return;
-        }
-        
-        const headers = Object.keys(data[0]);
-        let csv = headers.join(',') + '\n';
-        
-        data.forEach(row => {
-            csv += headers.map(h => {
-                let val = row[h] || '';
-                if (typeof val === 'string' && val.includes(',')) {
-                    val = '"' + val + '"';
-                }
-                return val;
-            }).join(',') + '\n';
-        });
-        
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        
-        this.showToast('✅ تم التصدير بنجاح');
-    },
-    
-    /**
-     * تصدير البيانات كـ Excel
-     */
-    exportExcel: function(data, filename = 'export.xls') {
-        if (!data || data.length === 0) {
-            this.showToast('لا توجد بيانات للتصدير', 'warning');
-            return;
-        }
-        
-        let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
-        html += '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>';
-        html += '<x:ExcelWorksheet><x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>';
-        html += '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
-        html += '<table border="1">';
-        html += '<tr>' + Object.keys(data[0]).map(h => `<th style="background:#667eea;color:#fff;font-weight:bold;">${h}</th>`).join('') + '</tr>';
-        
-        data.forEach(row => {
-            html += '<tr>' + Object.values(row).map(v => `<td>${v}</td>`).join('') + '</tr>';
-        });
-        
-        html += '</table></body></html>';
-        
-        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        
-        this.showToast('✅ تم التصدير بنجاح');
-    },
-    
-    /**
-     * طباعة العنصر
-     */
-    printElement: function(elementId) {
-        const element = document.getElementById(elementId);
-        if (!element) {
-            this.showToast('العنصر غير موجود', 'error');
-            return;
-        }
-        
-        const printWindow = window.open('', '_blank', 'width=1000,height=800');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>طباعة</title>
-                    <link rel="stylesheet" href="/assets/css/style.css">
-                    <style>
-                        body { padding: 30px; direction: rtl; font-family: 'Tajawal', sans-serif; }
-                        .no-print { display: none; }
-                        @media print { .no-print { display: none; } }
-                    </style>
-                </head>
-                <body>
-                    ${element.innerHTML}
-                    <div class="no-print text-center mt-3">
-                        <button class="btn btn-primary" onclick="window.print()">
-                            <i class="fas fa-print me-2"></i> طباعة
-                        </button>
-                        <button class="btn btn-secondary" onclick="window.close()">
-                            <i class="fas fa-times me-2"></i> إغلاق
-                        </button>
-                    </div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-    },
-    
-    /**
-     * تنظيف الموارد
-     */
-    destroy: function() {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-        }
-        
-        // تنظيف الـ Controllers
-        if (typeof Dashboard !== 'undefined' && Dashboard.destroy) {
-            Dashboard.destroy();
-        }
-        
-        this.initialized = false;
+
+        return this;
     }
 };
 
-// ================================================================
-// تهيئة التطبيق عند تحميل الصفحة
-// ================================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    App.init();
-});
-
-// ================================================================
-// تصدير App
-// ================================================================
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = App;
+// تهيئة التطبيق تلقائياً
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        App.init();
+    });
 }
+
+// تصدير App للاستخدام العالمي
+if (typeof window !== 'undefined') {
+    window.App = App;
+}
+
+// ================================================================
+// انتهى الملف
+// ================================================================
+/**
+ * ============================================================
+ * التطبيق الرئيسي - نظام المخازن v5.0
+ * الملف: frontend/assets/js/app.js
+ * الوصف: دوال مساعدة عامة مع نظام الثيم المتقدم والإشعارات
+ * التاريخ: 2026-08-22
+ * ============================================================
+ */
+
+const App = {
+    // ============================================================
+    // الإعدادات الأساسية
+    // ============================================================
+    
+    config: {
+        debug: false,
+        version: '5.0.0',
+        dateFormat: 'Y-m-d',
+        timeFormat: 'H:i:s',
+        currency: 'EGP',
+        currencySymbol: 'ج.م',
+        apiBaseUrl: null
+    },
+
+    // ============================================================
+    // التهيئة
+    // ============================================================
+    
+    init: function() {
+        // تحديد مسار API
+        this.config.apiBaseUrl = this.getApiBaseUrl();
+        
+        // تهيئة الثيم
+        this.theme.init();
+        
+        // تهيئة الإشعارات
+        this.notifications.init();
+        
+        // إضافة مستمعي الأحداث العامة
+        this.bindEvents();
+        
+        console.log('%c🚀 تطبيق المخازن v' + this.config.version + ' جاهز', 'font-size:20px;font-weight:bold;color:#667eea;');
+        console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px;color:#aaa;');
+        console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px;color:#666;');
+        console.log('%c🔗 API Base URL: ' + this.config.apiBaseUrl, 'font-size:12px;color:#28a745;');
+        
+        return this;
+    },
+
+    /**
+     * الحصول على مسار API الصحيح
+     */
+    getApiBaseUrl: function() {
+        const currentPath = window.location.pathname;
+        
+        if (currentPath.includes('/pages/')) {
+            return '../../api';
+        }
+        
+        if (currentPath.includes('/frontend/')) {
+            return '../api';
+        }
+        
+        if (currentPath.includes('/Stock-Movement/')) {
+            return '/Stock-Movement/api';
+        }
+        
+        return '/api';
+    },
+
+    /**
+     * ربط الأحداث العامة
+     */
+    bindEvents: function() {
+        // التحقق من الاتصال بالإنترنت
+        window.addEventListener('online', function() {
+            App.toast.success('✅ تم استعادة الاتصال بالإنترنت');
+        });
+        window.addEventListener('offline', function() {
+            App.toast.error('❌ تم فقدان الاتصال بالإنترنت');
+        });
+
+        // إغلاق الـ Toast عند النقر على زر الإغلاق
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.toast-custom .close')) {
+                const toast = e.target.closest('.toast-custom');
+                if (toast) {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.4s ease';
+                    setTimeout(() => toast.remove(), 400);
+                }
+            }
+        });
+
+        // إغلاق القوائم عند النقر خارجها
+        document.addEventListener('click', function(e) {
+            const sidebar = document.querySelector('.sidebar');
+            const toggle = document.querySelector('.sidebar-toggle');
+            if (sidebar && sidebar.classList.contains('open')) {
+                if (!sidebar.contains(e.target) && !toggle?.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
+    },
+
+    // ============================================================
+    // نظام الثيم (Dark/Light Mode)
+    // ============================================================
+    
+    theme: {
+        current: 'dark',
+        initialized: false,
+
+        /**
+         * تهيئة الثيم
+         */
+        init: function() {
+            // محاولة جلب الثيم من localStorage أولاً
+            const savedTheme = localStorage.getItem('app_theme');
+            
+            if (savedTheme) {
+                this.current = savedTheme;
+                this.apply(savedTheme);
+                this.initialized = true;
+                return;
+            }
+
+            // إذا لم يكن محفوظاً، جلب من قاعدة البيانات
+            this.loadFromDatabase();
+        },
+
+        /**
+         * جلب الثيم من قاعدة البيانات
+         */
+        loadFromDatabase: async function() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    this.apply('dark');
+                    return;
+                }
+
+                const baseUrl = App.getApiBaseUrl();
+                const response = await fetch(baseUrl + '/users/theme', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+
+                if (data.success && data.data && data.data.theme) {
+                    this.current = data.data.theme;
+                    this.apply(data.data.theme);
+                    localStorage.setItem('app_theme', data.data.theme);
+                } else {
+                    this.apply('dark');
+                }
+            } catch (error) {
+                console.warn('Could not load theme from database, using default:', error);
+                this.apply('dark');
+            }
+            this.initialized = true;
+        },
+
+        /**
+         * تطبيق الثيم
+         */
+        apply: function(theme) {
+            const root = document.documentElement;
+            
+            if (theme === 'light') {
+                root.style.setProperty('--bg-dark', '#f0f2f5');
+                root.style.setProperty('--bg-card', 'rgba(255,255,255,0.9)');
+                root.style.setProperty('--border-color', 'rgba(0,0,0,0.08)');
+                root.style.setProperty('--text-primary', '#1a2332');
+                root.style.setProperty('--text-secondary', 'rgba(0,0,0,0.6)');
+                root.style.setProperty('--text-muted', 'rgba(0,0,0,0.3)');
+                root.style.setProperty('--sidebar-bg', 'rgba(255,255,255,0.98)');
+                root.style.setProperty('--input-bg', 'rgba(0,0,0,0.04)');
+                root.style.setProperty('--shadow-color', 'rgba(0,0,0,0.1)');
+                
+                // تحديث أيقونة الثيم
+                const themeIcon = document.querySelector('#themeToggle i');
+                if (themeIcon) themeIcon.className = 'fas fa-sun';
+                
+                // إضافة كلاس للـ body
+                document.body.classList.add('light-mode');
+                document.body.classList.remove('dark-mode');
+            } else {
+                // Dark mode (default)
+                root.style.setProperty('--bg-dark', '#0a0e1a');
+                root.style.setProperty('--bg-card', 'rgba(255,255,255,0.03)');
+                root.style.setProperty('--border-color', 'rgba(255,255,255,0.05)');
+                root.style.setProperty('--text-primary', '#ffffff');
+                root.style.setProperty('--text-secondary', 'rgba(255,255,255,0.6)');
+                root.style.setProperty('--text-muted', 'rgba(255,255,255,0.3)');
+                root.style.setProperty('--sidebar-bg', 'rgba(10,14,26,0.97)');
+                root.style.setProperty('--input-bg', 'rgba(255,255,255,0.04)');
+                root.style.setProperty('--shadow-color', 'rgba(0,0,0,0.5)');
+                
+                const themeIcon = document.querySelector('#themeToggle i');
+                if (themeIcon) themeIcon.className = 'fas fa-moon';
+                
+                document.body.classList.add('dark-mode');
+                document.body.classList.remove('light-mode');
+            }
+
+            this.current = theme;
+            localStorage.setItem('app_theme', theme);
+        },
+
+        /**
+         * تبديل الثيم
+         */
+        toggle: async function() {
+            const newTheme = this.current === 'dark' ? 'light' : 'dark';
+            
+            // تطبيق الثيم محلياً
+            this.apply(newTheme);
+            
+            // حفظ في قاعدة البيانات
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
+                    return;
+                }
+
+                const baseUrl = App.getApiBaseUrl();
+                const response = await fetch(baseUrl + '/users/theme', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ theme: newTheme })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    // تحديث بيانات المستخدم
+                    const user = API.getUser ? API.getUser() : null;
+                    if (user) {
+                        user.theme = newTheme;
+                        if (API.setUser) API.setUser(user);
+                    }
+                    App.toast.success('✅ تم تغيير الثيم إلى ' + (newTheme === 'dark' ? 'الداكن' : 'الفاتح'));
+                } else {
+                    App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
+                }
+            } catch (error) {
+                console.warn('Could not save theme to database:', error);
+                App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
+            }
+        },
+
+        /**
+         * الحصول على الثيم الحالي
+         */
+        get: function() {
+            return this.current;
+        },
+
+        /**
+         * التحقق من الوضع الداكن
+         */
+        isDark: function() {
+            return this.current === 'dark';
+        },
+
+        /**
+         * التحقق من الوضع الفاتح
+         */
+        isLight: function() {
+            return this.current === 'light';
+        }
+    },
+
+    // ============================================================
+    // نظام الإشعارات (Notifications)
+    // ============================================================
+    
+    notifications: {
+        count: 0,
+        items: [],
+        initialized: false,
+
+        /**
+         * تهيئة الإشعارات
+         */
+        init: function() {
+            // جلب عدد الإشعارات غير المقروءة
+            this.fetchCount();
+            
+            // تحديث كل 60 ثانية
+            setInterval(() => this.fetchCount(), 60000);
+            
+            this.initialized = true;
+        },
+
+        /**
+         * جلب عدد الإشعارات غير المقروءة
+         */
+        fetchCount: async function() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) return;
+
+                const baseUrl = App.getApiBaseUrl();
+                const response = await fetch(baseUrl + '/dashboard/notifications', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    this.items = data.data;
+                    this.count = this.items.filter(n => !n.is_read).length;
+                    this.updateBadge();
+                }
+            } catch (error) {
+                console.warn('Could not fetch notifications:', error);
+            }
+        },
+
+        /**
+         * تحديث شارة الإشعارات
+         */
+        updateBadge: function() {
+            const badge = document.getElementById('notifCount');
+            const dot = document.querySelector('#notifBtn .dot');
+            
+            if (this.count > 0) {
+                if (badge) {
+                    badge.textContent = this.count;
+                    badge.style.display = 'flex';
+                }
+                if (dot) dot.style.display = 'block';
+            } else {
+                if (badge) badge.style.display = 'none';
+                if (dot) dot.style.display = 'none';
+            }
+        },
+
+        /**
+         * تعيين إشعار كمقروء
+         */
+        markAsRead: async function(id) {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) return;
+
+                const baseUrl = App.getApiBaseUrl();
+                const response = await fetch(baseUrl + '/dashboard/notifications/read', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ notification_id: id })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // تحديث محلياً
+                    const notif = this.items.find(n => n.id === id);
+                    if (notif) {
+                        notif.is_read = 1;
+                        this.count = Math.max(0, this.count - 1);
+                        this.updateBadge();
+                    }
+                    App.toast.success('✅ تم تعيين الإشعار كمقروء');
+                }
+            } catch (error) {
+                console.warn('Could not mark notification as read:', error);
+            }
+        },
+
+        /**
+         * تعيين جميع الإشعارات كمقروءة
+         */
+        markAllAsRead: async function() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) return;
+
+                const baseUrl = App.getApiBaseUrl();
+                const response = await fetch(baseUrl + '/dashboard/notifications/read-all', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    this.items.forEach(n => n.is_read = 1);
+                    this.count = 0;
+                    this.updateBadge();
+                    App.toast.success('✅ تم تعيين جميع الإشعارات كمقروءة');
+                }
+            } catch (error) {
+                console.warn('Could not mark all as read:', error);
+            }
+        },
+
+        /**
+         * الحصول على الإشعارات
+         */
+        getItems: function() {
+            return this.items;
+        },
+
+        /**
+         * الحصول على عدد الإشعارات غير المقروءة
+         */
+        getCount: function() {
+            return this.count;
+        }
+    },
+
+    // ============================================================
+    // Toast Notifications
+    // ============================================================
+    
+    toast: {
+        show: function(message, type = 'info', duration = 3500) {
+            const existing = document.querySelector('.toast-custom');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast-custom ${type}`;
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
+            
+            // إضافة زر إغلاق
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'close';
+            closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+            closeBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:16px;margin-right:auto;padding:0 4px;';
+            toast.appendChild(closeBtn);
+            
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        },
+
+        success: function(message, duration = 3500) {
+            this.show(message, 'success', duration);
+        },
+
+        error: function(message, duration = 3500) {
+            this.show(message, 'error', duration);
+        },
+
+        warning: function(message, duration = 3500) {
+            this.show(message, 'warning', duration);
+        },
+
+        info: function(message, duration = 3500) {
+            this.show(message, 'info', duration);
+        }
+    },
+
+    // ============================================================
+    // Modal
+    // ============================================================
+    
+    modal: {
+        open: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        },
+
+        close: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        },
+
+        toggle: function(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.toggle('show');
+                document.body.style.overflow = modal.classList.contains('show') ? 'hidden' : '';
+            }
+        }
+    },
+
+    // ============================================================
+    // Formatter
+    // ============================================================
+    
+    format: {
+        date: function(date, format = null) {
+            if (!date) return '-';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return '-';
+            
+            format = format || App.config.dateFormat;
+            
+            const map = {
+                'Y': d.getFullYear(),
+                'm': String(d.getMonth() + 1).padStart(2, '0'),
+                'd': String(d.getDate()).padStart(2, '0'),
+                'H': String(d.getHours()).padStart(2, '0'),
+                'i': String(d.getMinutes()).padStart(2, '0'),
+                's': String(d.getSeconds()).padStart(2, '0')
+            };
+            
+            let result = format;
+            for (const [key, value] of Object.entries(map)) {
+                result = result.replace(key, value);
+            }
+            return result;
+        },
+
+        time: function(date) {
+            return this.date(date, 'H:i:s');
+        },
+
+        currency: function(amount, symbol = null) {
+            if (amount === null || amount === undefined) return '-';
+            symbol = symbol || App.config.currencySymbol;
+            return Number(amount).toLocaleString('ar-EG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }) + ' ' + symbol;
+        },
+
+        number: function(number, decimals = 2) {
+            if (number === null || number === undefined) return '-';
+            return Number(number).toLocaleString('ar-EG', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        },
+
+        timeAgo: function(date) {
+            if (!date) return '-';
+            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+            
+            if (diff < 60) return 'منذ لحظات';
+            if (diff < 3600) return 'منذ ' + Math.floor(diff / 60) + ' دقيقة';
+            if (diff < 86400) return 'منذ ' + Math.floor(diff / 3600) + ' ساعة';
+            if (diff < 604800) return 'منذ ' + Math.floor(diff / 86400) + ' يوم';
+            if (diff < 2592000) return 'منذ ' + Math.floor(diff / 604800) + ' أسبوع';
+            if (diff < 31536000) return 'منذ ' + Math.floor(diff / 2592000) + ' شهر';
+            return 'منذ ' + Math.floor(diff / 31536000) + ' سنة';
+        },
+
+        truncate: function(text, length = 100, suffix = '...') {
+            if (!text) return '';
+            if (text.length <= length) return text;
+            return text.substring(0, length) + suffix;
+        },
+
+        escape: function(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        slug: function(text) {
+            if (!text) return '';
+            return text
+                .toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .replace(/\s+/g, '-');
+        }
+    },
+
+    // ============================================================
+    // Validation
+    // ============================================================
+    
+    validate: {
+        email: function(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+
+        phone: function(phone) {
+            return /^[0-9+\-\s()]{7,20}$/.test(phone);
+        },
+
+        id: function(id) {
+            return /^[0-9]{10,14}$/.test(id);
+        },
+
+        password: function(password) {
+            return password.length >= 8 &&
+                   /[A-Z]/.test(password) &&
+                   /[a-z]/.test(password) &&
+                   /[0-9]/.test(password) &&
+                   /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        },
+
+        date: function(date) {
+            const d = new Date(date);
+            return !isNaN(d.getTime());
+        },
+
+        number: function(value) {
+            return !isNaN(parseFloat(value)) && isFinite(value);
+        },
+
+        required: function(value) {
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'string') return value.trim() !== '';
+            if (Array.isArray(value)) return value.length > 0;
+            return true;
+        }
+    },
+
+    // ============================================================
+    // DOM Helpers
+    // ============================================================
+    
+    dom: {
+        get: function(selector) {
+            return document.querySelector(selector);
+        },
+
+        getAll: function(selector) {
+            return document.querySelectorAll(selector);
+        },
+
+        on: function(selector, event, callback) {
+            const elements = typeof selector === 'string' ? this.getAll(selector) : [selector];
+            elements.forEach(el => {
+                if (el) el.addEventListener(event, callback);
+            });
+        },
+
+        show: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.style.display = '';
+        },
+
+        hide: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.style.display = 'none';
+        },
+
+        toggle: function(selector) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) {
+                el.style.display = el.style.display === 'none' ? '' : 'none';
+            }
+        },
+
+        addClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.add(className);
+        },
+
+        removeClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.remove(className);
+        },
+
+        toggleClass: function(selector, className) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.classList.toggle(className);
+        },
+
+        html: function(selector, content) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.innerHTML = content;
+        },
+
+        text: function(selector, content) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) el.textContent = content;
+        },
+
+        val: function(selector, value) {
+            const el = typeof selector === 'string' ? this.get(selector) : selector;
+            if (el) {
+                if (value === undefined) return el.value;
+                el.value = value;
+            }
+        }
+    },
+
+    // ============================================================
+    // Storage
+    // ============================================================
+    
+    storage: {
+        set: function(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.warn('Storage set error:', e);
+            }
+        },
+
+        get: function(key, defaultValue = null) {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : defaultValue;
+            } catch (e) {
+                return defaultValue;
+            }
+        },
+
+        remove: function(key) {
+            localStorage.removeItem(key);
+        },
+
+        clear: function() {
+            localStorage.clear();
+        },
+
+        has: function(key) {
+            return localStorage.getItem(key) !== null;
+        }
+    },
+
+    // ============================================================
+    // URL Helpers
+    // ============================================================
+    
+    url: {
+        params: function() {
+            const params = new URLSearchParams(window.location.search);
+            const result = {};
+            for (const [key, value] of params) {
+                result[key] = value;
+            }
+            return result;
+        },
+
+        param: function(key, defaultValue = null) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(key) || defaultValue;
+        },
+
+        addParam: function(key, value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set(key, value);
+            return url.toString();
+        },
+
+        removeParam: function(key) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete(key);
+            return url.toString();
+        },
+
+        redirect: function(url) {
+            window.location.href = url;
+        },
+
+        reload: function() {
+            window.location.reload();
+        }
+    },
+
+    // ============================================================
+    // System Info
+    // ============================================================
+    
+    system: {
+        info: function() {
+            return {
+                version: App.config.version,
+                platform: navigator.platform,
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                screen: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                },
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                online: navigator.onLine
+            };
+        },
+
+        isOnline: function() {
+            return navigator.onLine;
+        }
+    },
+
+    // ============================================================
+    // عمليات المستخدم
+    // ============================================================
+    
+    user: {
+        get: function() {
+            try {
+                return JSON.parse(localStorage.getItem('user'));
+            } catch {
+                return null;
+            }
+        },
+
+        isLoggedIn: function() {
+            return !!localStorage.getItem('auth_token');
+        },
+
+        logout: function() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('app_theme');
+            window.location.href = '/frontend/pages/login.html';
+        }
+    }
+};
+
+// ============================================================
+// تهيئة التطبيق تلقائياً
+// ============================================================
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        App.init();
+    });
+}
+
+// ============================================================
+// تصدير App للاستخدام العالمي
+// ============================================================
+
+if (typeof window !== 'undefined') {
+    window.App = App;
+}
+
+// ============================================================
+// انتهى الملف
+// ============================================================

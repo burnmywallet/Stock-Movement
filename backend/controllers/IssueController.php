@@ -1,10 +1,9 @@
 <?php
 // ================================================================
-// نظام إدارة المخازن والمخزون المتقدم
+// نظام إدارة المخازن والمخزون المتقدم v5.0
 // الملف: backend/controllers/IssueController.php
-// الوصف: متحكم إدارة إذون الصرف - إنشاء، تعديل، اعتماد، تسليم
-// الإصدار: 5.0 Ultimate
-// التاريخ: 2026-08-21
+// الوصف: متحكم إدارة إذون الصرف - إنشاء، اعتماد، رفض، إلغاء، تسليم، طباعة
+// التاريخ: 2026-08-22
 // ================================================================
 
 namespace Controllers;
@@ -13,6 +12,7 @@ use Core\Database;
 use Core\Auth;
 use Core\Audit;
 use Services\StockService;
+use Exception;
 
 class IssueController
 {
@@ -122,6 +122,7 @@ class IssueController
                     w.name as warehouse_name,
                     i.recipient_id,
                     r.name as recipient_name,
+                    r.type as recipient_type,
                     i.issue_date,
                     i.issue_time,
                     i.required_date,
@@ -150,7 +151,15 @@ class IssueController
                         WHEN i.status = 'cancelled' THEN 'ملغي'
                         WHEN i.status = 'delivered' THEN 'تم التسليم'
                         ELSE i.status
-                    END as status_label
+                    END as status_label,
+                    CASE 
+                        WHEN i.status = 'approved' OR i.status = 'delivered' THEN 'success'
+                        WHEN i.status = 'rejected' THEN 'danger'
+                        WHEN i.status = 'cancelled' THEN 'secondary'
+                        WHEN i.status = 'draft' THEN 'warning'
+                        WHEN i.status = 'submitted' THEN 'info'
+                        ELSE 'secondary'
+                    END as status_color
                 FROM issues i
                 LEFT JOIN warehouses w ON w.id = i.warehouse_id
                 LEFT JOIN recipients r ON r.id = i.recipient_id
@@ -205,9 +214,9 @@ class IssueController
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Issues list error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -245,10 +254,12 @@ class IssueController
                     p.name as product_name,
                     p.barcode,
                     u.name as unit_name,
+                    u.symbol as unit_symbol,
                     p.min_stock,
                     p.max_stock,
                     COALESCE(sb.quantity, 0) as current_balance,
-                    COALESCE(sb.reserved_quantity, 0) as reserved_quantity
+                    COALESCE(sb.reserved_quantity, 0) as reserved_quantity,
+                    (ii.quantity - ii.delivered_quantity) as pending_quantity
                 FROM issue_items ii
                 INNER JOIN products p ON p.id = ii.product_id
                 LEFT JOIN units u ON u.id = p.unit_id
@@ -292,13 +303,14 @@ class IssueController
                 'summary' => [
                     'total_items' => count($items),
                     'total_quantity' => array_sum(array_column($items, 'quantity')),
-                    'total_cost' => array_sum(array_column($items, 'total_cost'))
+                    'total_cost' => array_sum(array_column($items, 'total_cost')),
+                    'pending_quantity' => array_sum(array_column($items, 'pending_quantity'))
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Issue show error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -436,10 +448,10 @@ class IssueController
                 'issue_no' => $issueNo
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Issue create error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -482,22 +494,6 @@ class IssueController
             // بدء المعاملة
             $this->db->beginTransaction();
 
-            // تحديث بيانات الإذن
-            $data = [
-                'warehouse_id' => $input['warehouse_id'] ?? $issue['warehouse_id'],
-                'recipient_id' => $input['recipient_id'] ?? $issue['recipient_id'],
-                'issue_date' => $input['issue_date'] ?? $issue['issue_date'],
-                'issue_time' => $input['issue_time'] ?? $issue['issue_time'],
-                'required_date' => $input['required_date'] ?? $issue['required_date'],
-                'reference_number' => $input['reference_number'] ?? $issue['reference_number'],
-                'department' => $input['department'] ?? $issue['department'],
-                'project_code' => $input['project_code'] ?? $issue['project_code'],
-                'notes' => $input['notes'] ?? $issue['notes'],
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
-
-            $this->db->update('issues', $data, ['id' => $id]);
-
             // إلغاء حجز الكميات القديمة
             $oldItems = $this->db->query(
                 "SELECT product_id, quantity FROM issue_items WHERE issue_id = :issue_id",
@@ -516,6 +512,22 @@ class IssueController
                     'quantity' => $oldItem['quantity']
                 ]);
             }
+
+            // تحديث بيانات الإذن
+            $data = [
+                'warehouse_id' => $input['warehouse_id'] ?? $issue['warehouse_id'],
+                'recipient_id' => $input['recipient_id'] ?? $issue['recipient_id'],
+                'issue_date' => $input['issue_date'] ?? $issue['issue_date'],
+                'issue_time' => $input['issue_time'] ?? $issue['issue_time'],
+                'required_date' => $input['required_date'] ?? $issue['required_date'],
+                'reference_number' => $input['reference_number'] ?? $issue['reference_number'],
+                'department' => $input['department'] ?? $issue['department'],
+                'project_code' => $input['project_code'] ?? $issue['project_code'],
+                'notes' => $input['notes'] ?? $issue['notes'],
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            $this->db->update('issues', $data, ['id' => $id]);
 
             // حذف التفاصيل القديمة
             $this->db->delete('issue_items', ['issue_id' => $id]);
@@ -583,16 +595,16 @@ class IssueController
 
             successResponse('تم تحديث إذن الصرف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Issue update error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
     /**
      * POST /api/issues/{id}/approve
-     * اعتماد إذن صرف
+     * اعتماد إذن صرف (تنفيذ حركات الخصم)
      */
     public function approve(int $id): void
     {
@@ -635,6 +647,23 @@ class IssueController
             if (empty($items)) {
                 errorResponse('لا توجد أصناف في الإذن');
                 return;
+            }
+
+            // التحقق من توفر الكميات (مرة أخرى للتأكد)
+            foreach ($items as $item) {
+                $balance = $this->db->queryValue("
+                    SELECT COALESCE(quantity, 0) 
+                    FROM stock_balances 
+                    WHERE product_id = :product_id AND warehouse_id = :warehouse_id
+                ", [
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $issue['warehouse_id']
+                ]);
+
+                if ($balance < $item['quantity']) {
+                    errorResponse("الكمية غير متوفرة للصنف (الكمية المتاحة: {$balance})");
+                    return;
+                }
             }
 
             // بدء المعاملة
@@ -731,14 +760,14 @@ class IssueController
             $this->db->commit();
 
             // التحقق من التنبيهات (مخزون منخفض، نفذ)
-            $this->checkLowStockAlerts($issue['warehouse_id']);
+            $this->checkStockAlerts($issue['warehouse_id']);
 
             successResponse('تم اعتماد إذن الصرف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Issue approve error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -800,9 +829,9 @@ class IssueController
 
             successResponse('تم تسليم إذن الصرف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Issue deliver error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -893,10 +922,10 @@ class IssueController
 
             successResponse('تم رفض إذن الصرف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Issue reject error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -984,10 +1013,63 @@ class IssueController
 
             successResponse('تم إلغاء إذن الصرف بنجاح');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->db->rollback();
             error_log('Issue cancel error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/issues/{id}/print
+     * طباعة إذن صرف
+     */
+    public function print(int $id): void
+    {
+        try {
+            $userId = $_REQUEST['user_id'] ?? null;
+            
+            if (!$userId) {
+                errorResponse('غير مصرح', 401);
+                return;
+            }
+
+            if (!$this->auth->hasPermission($userId, 'issues.view')) {
+                errorResponse('ليس لديك صلاحية لعرض إذون الصرف', 403);
+                return;
+            }
+
+            $issue = $this->getIssueById($id);
+            if (!$issue) {
+                errorResponse('إذن الصرف غير موجود');
+                return;
+            }
+
+            // جلب تفاصيل الإذن
+            $items = $this->db->query("
+                SELECT 
+                    ii.*,
+                    p.code as product_code,
+                    p.name as product_name,
+                    u.name as unit_name
+                FROM issue_items ii
+                INNER JOIN products p ON p.id = ii.product_id
+                LEFT JOIN units u ON u.id = p.unit_id
+                WHERE ii.issue_id = :issue_id
+            ", ['issue_id' => $id]);
+
+            // HTML للطباعة
+            $html = $this->generateIssuePrintHTML($issue, $items);
+            
+            successResponse('تم جلب بيانات الطباعة', [
+                'html' => $html,
+                'issue' => $issue,
+                'items' => $items
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Issue print error: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1039,39 +1121,16 @@ class IssueController
             ]);
 
             if ($format === 'csv') {
-                header('Content-Type: text/csv; charset=utf-8');
-                header('Content-Disposition: attachment; filename="issues_' . date('Y-m-d') . '.csv"');
-                
-                $output = fopen('php://output', 'w');
-                fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-                
-                fputcsv($output, ['رقم الإذن', 'التاريخ', 'المخزن', 'المستلم', 'عدد الأصناف', 'الكمية', 'القيمة', 'الحالة', 'تم الإنشاء بواسطة', 'تاريخ الإنشاء', 'تاريخ التسليم']);
-                
-                foreach ($issues as $row) {
-                    fputcsv($output, [
-                        $row['issue_no'],
-                        $row['issue_date'],
-                        $row['warehouse'],
-                        $row['recipient'],
-                        $row['total_items'],
-                        $row['total_quantity'],
-                        $row['total_cost'],
-                        $row['status'],
-                        $row['created_by'],
-                        $row['created_at'],
-                        $row['delivered_date'] ?? ''
-                    ]);
-                }
-                
-                fclose($output);
-                exit;
+                $this->exportCSV($issues);
+            } elseif ($format === 'excel') {
+                $this->exportExcel($issues);
+            } else {
+                successResponse('تم جلب بيانات التصدير', $issues);
             }
 
-            successResponse('تم جلب بيانات التصدير', $issues);
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log('Issue export error: ' . $e->getMessage());
-            errorResponse('حدث خطأ: ' . $e->getMessage());
+            errorResponse('حدث خطأ: ' . $e->getMessage(), 500);
         }
     }
 
@@ -1089,6 +1148,7 @@ class IssueController
                 i.*,
                 w.name as warehouse_name,
                 r.name as recipient_name,
+                r.type as recipient_type,
                 u.full_name as user_name,
                 a.full_name as approved_by_name
             FROM issues i
@@ -1139,29 +1199,41 @@ class IssueController
             return;
         }
         
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $index => $item) {
             if (empty($item['product_id'])) {
-                errorResponse('الصنف مطلوب');
+                errorResponse("الصنف مطلوب في العنصر " . ($index + 1));
                 return;
             }
             
             if (empty($item['quantity']) || $item['quantity'] <= 0) {
-                errorResponse('الكمية يجب أن تكون أكبر من صفر');
+                errorResponse("الكمية يجب أن تكون أكبر من صفر في العنصر " . ($index + 1));
                 return;
             }
             
             if (!isset($item['unit_cost']) || $item['unit_cost'] < 0) {
-                errorResponse('سعر الوحدة غير صحيح');
+                errorResponse("سعر الوحدة غير صحيح في العنصر " . ($index + 1));
+                return;
+            }
+            
+            // التحقق من وجود المنتج
+            $product = $this->db->queryValue(
+                "SELECT id FROM products WHERE id = :id AND deleted_at IS NULL",
+                ['id' => $item['product_id']]
+            );
+            
+            if (!$product) {
+                errorResponse("المنتج غير موجود في العنصر " . ($index + 1));
                 return;
             }
         }
     }
 
     /**
-     * التحقق من تنبيهات المخزون المنخفض
+     * التحقق من تنبيهات المخزون
      */
-    private function checkLowStockAlerts(int $warehouseId): void
+    private function checkStockAlerts(int $warehouseId): void
     {
+        // جلب الأصناف منخفضة المخزون
         $lowStockItems = $this->db->query("
             SELECT 
                 p.id,
@@ -1177,20 +1249,17 @@ class IssueController
         ", ['warehouse_id' => $warehouseId]);
 
         foreach ($lowStockItems as $item) {
-            // إنشاء تنبيه للمخزون المنخفض
-            $this->db->insert('notifications', [
-                'user_id' => 1, // سيتم إرساله للمديرين
-                'type' => 'low_stock',
-                'title' => "تنبيه: مخزون منخفض - {$item['name']}",
-                'message' => "المنتج '{$item['name']}' في المخزن وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
-                'priority' => 'high',
-                'reference_type' => 'product',
-                'reference_id' => $item['id'],
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
+            $this->createNotification(
+                'low_stock',
+                "تنبيه: مخزون منخفض - {$item['name']}",
+                "المنتج '{$item['name']}' في المخزن وصل للحد الأدنى ({$item['quantity']} / {$item['min_stock']})",
+                'high',
+                $item['id'],
+                $warehouseId
+            );
         }
 
-        // الأصناف المنفذة
+        // جلب الأصناف المنفذة
         $outOfStockItems = $this->db->query("
             SELECT 
                 p.id,
@@ -1203,16 +1272,198 @@ class IssueController
         ", ['warehouse_id' => $warehouseId]);
 
         foreach ($outOfStockItems as $item) {
+            $this->createNotification(
+                'out_of_stock',
+                "⚠️ نفاذ المخزون - {$item['name']}",
+                "المنتج '{$item['name']}' نفد من المخزون",
+                'critical',
+                $item['id'],
+                $warehouseId
+            );
+        }
+    }
+
+    /**
+     * إنشاء تنبيه
+     */
+    private function createNotification(string $type, string $title, string $message, string $priority, int $productId, int $warehouseId): void
+    {
+        // جلب المستخدمين الذين يحتاجون التنبيه
+        $users = $this->db->query("
+            SELECT id FROM users 
+            WHERE is_active = 1 
+              AND role_id IN (SELECT id FROM roles WHERE name IN ('admin', 'warehouse_manager', 'warehouse_supervisor'))
+        ");
+
+        foreach ($users as $user) {
             $this->db->insert('notifications', [
-                'user_id' => 1,
-                'type' => 'out_of_stock',
-                'title' => "⚠️ نفاذ المخزون - {$item['name']}",
-                'message' => "المنتج '{$item['name']}' نفد من المخزون",
-                'priority' => 'critical',
+                'user_id' => $user['id'],
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
                 'reference_type' => 'product',
-                'reference_id' => $item['id'],
+                'reference_id' => $productId,
                 'created_at' => date('Y-m-d H:i:s')
             ]);
         }
     }
+
+    /**
+     * تصدير CSV
+     */
+    private function exportCSV(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="issues_' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        $headers = array_keys($data[0]);
+        fputcsv($output, $headers);
+        
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * تصدير Excel
+     */
+    private function exportExcel(array $data): void
+    {
+        if (empty($data)) {
+            errorResponse('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="issues_' . date('Y-m-d') . '.xls"');
+        
+        echo '<table border="1">';
+        echo '<tr style="background:#667eea;color:#fff;font-weight:bold;">';
+        foreach (array_keys($data[0]) as $header) {
+            echo '<th>' . $header . '</th>';
+        }
+        echo '</tr>';
+        
+        foreach ($data as $row) {
+            echo '<tr>';
+            foreach ($row as $value) {
+                echo '<td>' . $value . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
+    }
+
+    /**
+     * توليد HTML للطباعة
+     */
+    private function generateIssuePrintHTML(array $issue, array $items): string
+    {
+        $html = '<!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="UTF-8">
+            <title>إذن صرف #' . $issue['issue_no'] . '</title>
+            <style>
+                body { font-family: "Tajawal", sans-serif; padding: 40px; background: #fff; }
+                .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 20px; }
+                .header h1 { color: #667eea; margin: 0; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 8px; background: #f8f9fa; border-radius: 5px; }
+                .info-item .label { color: #666; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th { background: #667eea; color: #fff; padding: 10px; text-align: right; }
+                td { padding: 10px; border-bottom: 1px solid #ddd; }
+                .total-row { background: #f8f9fa; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }
+                .status-approved { color: #28a745; }
+                .status-draft { color: #ffc107; }
+                .status-rejected { color: #dc3545; }
+                .status-delivered { color: #17a2b8; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>إذن صرف</h1>
+                <p>' . $issue['issue_no'] . '</p>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">المخزن:</span> ' . $issue['warehouse_name'] . '</div>
+                <div class="info-item"><span class="label">الجهة المستلمة:</span> ' . $issue['recipient_name'] . '</div>
+                <div class="info-item"><span class="label">نوع الجهة:</span> ' . $issue['recipient_type'] . '</div>
+                <div class="info-item"><span class="label">التاريخ:</span> ' . $issue['issue_date'] . '</div>
+                <div class="info-item"><span class="label">الحالة:</span> <span class="status-' . $issue['status'] . '">' . $issue['status_label'] . '</span></div>
+                <div class="info-item"><span class="label">تم الإنشاء بواسطة:</span> ' . $issue['user_name'] . '</div>
+                <div class="info-item"><span class="label">تاريخ الإنشاء:</span> ' . $issue['created_at'] . '</div>
+                ' . (!empty($issue['department']) ? '<div class="info-item"><span class="label">القسم:</span> ' . $issue['department'] . '</div>' : '') . '
+                ' . (!empty($issue['project_code']) ? '<div class="info-item"><span class="label">المشروع:</span> ' . $issue['project_code'] . '</div>' : '') . '
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>الكود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>الوحدة</th>
+                        <th>سعر الوحدة</th>
+                        <th>الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        $index = 1;
+        foreach ($items as $item) {
+            $html .= '<tr>
+                <td>' . $index++ . '</td>
+                <td>' . $item['product_code'] . '</td>
+                <td>' . $item['product_name'] . '</td>
+                <td>' . $item['quantity'] . '</td>
+                <td>' . $item['unit_name'] . '</td>
+                <td>' . number_format($item['unit_cost'], 2) . '</td>
+                <td>' . number_format($item['total_cost'], 2) . '</td>
+            </tr>';
+        }
+        
+        $html .= '
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align:left;">الإجمالي</td>
+                        <td>' . number_format($issue['total_cost'], 2) . '</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            ' . (!empty($issue['notes']) ? '<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;"><strong>ملاحظات:</strong> ' . $issue['notes'] . '</div>' : '') . '
+            
+            <div class="footer">
+                <p>نظام إدارة المخازن والمخزون المتقدم v5.0</p>
+                <p>تم الطباعة في ' . date('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+        
+        return $html;
+    }
 }
+
+// ================================================================
+// انتهى الملف
+// ================================================================
