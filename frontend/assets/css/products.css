@@ -1,0 +1,574 @@
+/* ================================================================
+   Logistox - أنماط صفحة الأصناف
+   نظام إدارة المخازن والمخزون v5.0
+   ================================================================ */
+
+/* ================================================================
+   ترويسة الصفحة
+   ================================================================ */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header .page-title h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header .page-title h1 i {
+    color: var(--primary);
+}
+
+.page-header .page-title p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 5px 0 0;
+}
+
+.page-header .page-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ================================================================
+   شريط الفلاتر
+   ================================================================ */
+.filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-bar .filter-group label {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.filters-bar .filter-group select,
+.filters-bar .filter-group input {
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.filters-bar .filter-group select:focus,
+.filters-bar .filter-group input:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+/* ================================================================
+   جدول الأصناف
+   ================================================================ */
+.products-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.products-table thead {
+    background: var(--table-header-bg);
+}
+
+.products-table thead th {
+    padding: 14px 15px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.products-table tbody tr {
+    transition: var(--transition);
+    border-bottom: 1px solid var(--border);
+}
+
+.products-table tbody tr:hover {
+    background: var(--table-hover-bg);
+}
+
+.products-table tbody td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.products-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ================================================================
+   خلايا محددة
+   ================================================================ */
+.product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.product-cell .product-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.product-cell .product-info {
+    min-width: 0;
+}
+
+.product-cell .product-info .product-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.product-cell .product-info .product-code {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   شارات الحالة
+   ================================================================ */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.status-badge.inactive {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.status-badge.low-stock {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.status-badge.out-of-stock {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.status-badge .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-badge.active .status-dot {
+    background: var(--success);
+}
+
+.status-badge.inactive .status-dot {
+    background: var(--danger);
+}
+
+.status-badge.low-stock .status-dot {
+    background: var(--warning);
+}
+
+.status-badge.out-of-stock .status-dot {
+    background: var(--danger);
+}
+
+/* ================================================================
+   أزرار الإجراءات
+   ================================================================ */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.table-actions .btn-action {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-secondary);
+    transition: var(--transition);
+    font-size: 14px;
+}
+
+.table-actions .btn-action:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.table-actions .btn-action.edit:hover {
+    border-color: var(--info);
+    color: var(--info);
+}
+
+.table-actions .btn-action.delete:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+/* ================================================================
+   مودال إضافة/تعديل صنف
+   ================================================================ */
+.product-modal .modal-body {
+    padding: 20px 0;
+}
+
+.product-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.product-form .form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.product-form .form-group label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.product-form .form-group input,
+.product-form .form-group select,
+.product-form .form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+}
+
+.product-form .form-group input:focus,
+.product-form .form-group select:focus,
+.product-form .form-group textarea:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+.product-form .form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* ================================================================
+   رفع الصور
+   ================================================================ */
+.image-upload {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.image-upload:hover {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.05);
+}
+
+.image-upload i {
+    font-size: 32px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.image-upload .upload-text {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.image-preview {
+    max-width: 100px;
+    max-height: 100px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    margin-top: 10px;
+}
+
+/* ================================================================
+   الباركود
+   ================================================================ */
+.barcode-display {
+    background: #fff;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.barcode-display img {
+    max-width: 200px;
+    height: auto;
+}
+
+.barcode-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.barcode-input input {
+    flex: 1;
+}
+
+.barcode-input .btn-scan {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.barcode-input .btn-scan:hover {
+    background: var(--primary-dark);
+}
+
+/* ================================================================
+   عرض المنتج
+   ================================================================ */
+.product-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.product-details .detail-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.product-details .detail-group .detail-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.product-details .detail-group .detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ================================================================
+   الترقيم
+   ================================================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 20px 0;
+}
+
+.pagination .page-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pagination .page-btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    border-color: var(--primary);
+}
+
+.pagination .page-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.pagination .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination .page-dots {
+    color: var(--text-muted);
+    padding: 0 5px;
+}
+
+/* ================================================================
+   حالة فارغة
+   ================================================================ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 15px;
+    opacity: 0.3;
+}
+
+.empty-state h3 {
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* ================================================================
+   استجابة
+   ================================================================ */
+@media (max-width: 992px) {
+    .product-form {
+        grid-template-columns: 1fr;
+    }
+
+    .product-form .form-group.full-width {
+        grid-column: 1;
+    }
+
+    .filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters-bar .filter-group {
+        width: 100%;
+    }
+
+    .filters-bar .filter-group select,
+    .filters-bar .filter-group input {
+        flex: 1;
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .products-table {
+        font-size: 13px;
+    }
+
+    .products-table thead th,
+    .products-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .product-cell .product-info .product-name {
+        max-width: 120px;
+    }
+
+    .table-actions {
+        gap: 4px;
+    }
+
+    .table-actions .btn-action {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+}
+
+/* ================================================================
+   نهاية الملف
+   ================================================================ */

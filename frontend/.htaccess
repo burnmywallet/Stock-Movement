@@ -1,54 +1,19 @@
-# ================================================================
-# نظام إدارة المخازن والمخزون المتقدم
-# الملف: frontend/.htaccess
-# الوصف: إعدادات Apache لواجهة المستخدم
-# الإصدار: 2.0 Production Ready
-# التاريخ: 2026-08-20
-# ================================================================
-
-# ================================================================
-# 1. إعادة التوجيه إلى index.html
-# ================================================================
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    
-    # إعادة توجيه الصفحة الرئيسية إلى login.html
-    RewriteRule ^$ pages/login.html [L]
-    
-    # إعادة توجيه المسارات غير الموجودة إلى index.html
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ index.html [QSA,L]
+
+    # لو الطلب على ملف موجود، اخدمه
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # لو الطلب على مجلد موجود، اخدمه
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # ===== API Routes =====
+    # لو الطلب على /api/... حوله للـBackend
+    RewriteRule ^api/(.*)$ ../backend/public/index.php?route=$1 [QSA,L]
+
+    # ===== Frontend =====
+    # أي طلب تاني يروح للـindex.html
+    RewriteRule ^ index.html [L]
 </IfModule>
-
-# ================================================================
-# 2. التخزين المؤقت
-# ================================================================
-
-<IfModule mod_expires.c>
-    ExpiresActive On
-    ExpiresByType text/html "access plus 1 hour"
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType image/jpeg "access plus 1 year"
-    ExpiresByType image/png "access plus 1 year"
-    ExpiresByType image/gif "access plus 1 year"
-    ExpiresByType image/webp "access plus 1 year"
-    ExpiresByType font/woff2 "access plus 1 year"
-</IfModule>
-
-# ================================================================
-# 3. الضغط
-# ================================================================
-
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/json
-</IfModule>
-
-# ================================================================
-# نهاية ملف .htaccess
-# ================================================================

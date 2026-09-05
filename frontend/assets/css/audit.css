@@ -1,0 +1,431 @@
+/* ================================================================
+   Logistox - أنماط صفحة سجل التدقيق
+   نظام إدارة المخازن والمخزون v5.0
+   ================================================================ */
+
+/* ================================================================
+   ترويسة الصفحة
+   ================================================================ */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header .page-title h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header .page-title h1 i {
+    color: var(--secondary);
+}
+
+.page-header .page-title p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 5px 0 0;
+}
+
+.page-header .page-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ================================================================
+   شريط الفلاتر
+   ================================================================ */
+.filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-bar .filter-group label {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.filters-bar .filter-group select,
+.filters-bar .filter-group input {
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.filters-bar .filter-group select:focus,
+.filters-bar .filter-group input:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+/* ================================================================
+   جدول سجل التدقيق
+   ================================================================ */
+.audit-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.audit-table thead {
+    background: var(--table-header-bg);
+}
+
+.audit-table thead th {
+    padding: 14px 15px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.audit-table tbody tr {
+    transition: var(--transition);
+    border-bottom: 1px solid var(--border);
+}
+
+.audit-table tbody tr:hover {
+    background: var(--table-hover-bg);
+}
+
+.audit-table tbody td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.audit-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ================================================================
+   خلايا سجل التدقيق
+   ================================================================ */
+.audit-id-cell {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.audit-user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.audit-user-cell .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.audit-user-cell .user-info {
+    min-width: 0;
+}
+
+.audit-user-cell .user-info .user-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.audit-user-cell .user-info .user-username {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   شارة نوع الحدث
+   ================================================================ */
+.action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.action-badge.login {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.action-badge.logout {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.action-badge.create {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.action-badge.update {
+    background: rgba(var(--info-rgb), 0.1);
+    color: var(--info);
+}
+
+.action-badge.delete {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.action-badge.movement {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+}
+
+.action-badge.settings {
+    background: rgba(var(--secondary-rgb), 0.1);
+    color: var(--secondary);
+}
+
+.action-badge.permissions {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+/* ================================================================
+   تفاصيل الحدث
+   ================================================================ */
+.audit-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.audit-details .detail-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.audit-details .detail-group .detail-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.audit-details .detail-group .detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.audit-details .old-values {
+    background: rgba(var(--danger-rgb), 0.05);
+    border: 1px solid rgba(var(--danger-rgb), 0.2);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.audit-details .old-values .detail-label {
+    font-size: 12px;
+    color: var(--danger);
+    margin-bottom: 5px;
+}
+
+.audit-details .old-values pre {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.audit-details .new-values {
+    background: rgba(var(--success-rgb), 0.05);
+    border: 1px solid rgba(var(--success-rgb), 0.2);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.audit-details .new-values .detail-label {
+    font-size: 12px;
+    color: var(--success);
+    margin-bottom: 5px;
+}
+
+.audit-details .new-values pre {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* ================================================================
+   حالة فارغة
+   ================================================================ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 15px;
+    opacity: 0.3;
+}
+
+.empty-state h3 {
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* ================================================================
+   الترقيم
+   ================================================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 20px 0;
+}
+
+.pagination .page-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pagination .page-btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    border-color: var(--primary);
+}
+
+.pagination .page-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.pagination .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination .page-dots {
+    color: var(--text-muted);
+    padding: 0 5px;
+}
+
+/* ================================================================
+   استجابة
+   ================================================================ */
+@media (max-width: 992px) {
+    .filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters-bar .filter-group {
+        width: 100%;
+    }
+
+    .filters-bar .filter-group select,
+    .filters-bar .filter-group input {
+        flex: 1;
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .audit-table {
+        font-size: 13px;
+    }
+
+    .audit-table thead th,
+    .audit-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .audit-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ================================================================
+   نهاية الملف
+   ================================================================ */

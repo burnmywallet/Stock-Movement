@@ -1,0 +1,793 @@
+/* ================================================================
+   Logistox - أنماط صفحة المستخدمين
+   نظام إدارة المخازن والمخزون v5.0
+   ================================================================ */
+
+/* ================================================================
+   ترويسة الصفحة
+   ================================================================ */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header .page-title h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header .page-title h1 i {
+    color: var(--primary);
+}
+
+.page-header .page-title p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 5px 0 0;
+}
+
+.page-header .page-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ================================================================
+   شريط الفلاتر
+   ================================================================ */
+.filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-bar .filter-group label {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.filters-bar .filter-group select,
+.filters-bar .filter-group input {
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.filters-bar .filter-group select:focus,
+.filters-bar .filter-group input:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+/* ================================================================
+   جدول المستخدمين
+   ================================================================ */
+.users-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table thead {
+    background: var(--table-header-bg);
+}
+
+.users-table thead th {
+    padding: 14px 15px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.users-table tbody tr {
+    transition: var(--transition);
+    border-bottom: 1px solid var(--border);
+}
+
+.users-table tbody tr:hover {
+    background: var(--table-hover-bg);
+}
+
+.users-table tbody td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.users-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ================================================================
+   خلايا المستخدم
+   ================================================================ */
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-cell .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.user-cell .user-avatar:hover {
+    transform: scale(1.1);
+}
+
+.user-cell .user-info {
+    min-width: 0;
+}
+
+.user-cell .user-info .user-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.user-cell .user-info .user-username {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   شارة الدور
+   ================================================================ */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.role-badge.admin {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.role-badge.manager {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+}
+
+.role-badge.supervisor {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.role-badge.staff {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.role-badge.viewer {
+    background: rgba(var(--info-rgb), 0.1);
+    color: var(--info);
+}
+
+.role-badge.auditor {
+    background: rgba(var(--secondary-rgb), 0.1);
+    color: var(--secondary);
+}
+
+/* ================================================================
+   شارات الحالة
+   ================================================================ */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.status-badge.inactive {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.status-badge.locked {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.status-badge .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-badge.active .status-dot {
+    background: var(--success);
+}
+
+.status-badge.inactive .status-dot {
+    background: var(--danger);
+}
+
+.status-badge.locked .status-dot {
+    background: var(--warning);
+}
+
+/* ================================================================
+   أزرار الإجراءات
+   ================================================================ */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.table-actions .btn-action {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-secondary);
+    transition: var(--transition);
+    font-size: 14px;
+}
+
+.table-actions .btn-action:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.table-actions .btn-action.edit:hover {
+    border-color: var(--info);
+    color: var(--info);
+}
+
+.table-actions .btn-action.delete:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.table-actions .btn-action.lock:hover {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+/* ================================================================
+   مودال إضافة/تعديل مستخدم
+   ================================================================ */
+.user-modal .modal-body {
+    padding: 20px 0;
+}
+
+.user-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.user-form .form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.user-form .form-group label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.user-form .form-group input,
+.user-form .form-group select,
+.user-form .form-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+}
+
+.user-form .form-group input:focus,
+.user-form .form-group select:focus,
+.user-form .form-group textarea:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+.user-form .form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* ================================================================
+   إعدادات الأمان
+   ================================================================ */
+.security-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.security-section .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.security-section .section-title i {
+    color: var(--primary);
+}
+
+.security-questions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.security-questions .form-group {
+    margin-bottom: 15px;
+}
+
+.security-questions .form-group label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.security-questions .form-group input,
+.security-questions .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+}
+
+.security-questions .form-group input:focus,
+.security-questions .form-group select:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+/* ================================================================
+   ملف المستخدم
+   ================================================================ */
+.user-profile {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+}
+
+.user-profile .profile-sidebar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+}
+
+.user-profile .profile-sidebar .profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: #fff;
+    margin: 0 auto 15px;
+    font-weight: 700;
+}
+
+.user-profile .profile-sidebar .profile-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 5px;
+}
+
+.user-profile .profile-sidebar .profile-role {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.user-profile .profile-sidebar .profile-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: right;
+}
+
+.user-profile .profile-sidebar .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+}
+
+.user-profile .profile-sidebar .contact-item i {
+    color: var(--primary);
+    width: 20px;
+    text-align: center;
+}
+
+.user-profile .profile-sidebar .contact-item .contact-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.user-profile .profile-sidebar .contact-item .contact-value {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.user-profile .profile-content {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+}
+
+.user-profile .profile-content .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-profile .profile-content .section-title i {
+    color: var(--primary);
+}
+
+.user-profile .profile-content .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.user-profile .profile-content .info-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.user-profile .profile-content .info-group .info-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.user-profile .profile-content .info-group .info-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.user-profile .profile-content .info-group.full-width {
+    grid-column: 1 / -1;
+}
+
+/* ================================================================
+   نشاط المستخدم
+   ================================================================ */
+.activity-timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.activity-timeline::before {
+    content: '';
+    position: absolute;
+    right: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+}
+
+.activity-item {
+    position: relative;
+    padding-right: 50px;
+    margin-bottom: 20px;
+}
+
+.activity-item .activity-dot {
+    position: absolute;
+    right: 8px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid var(--card);
+}
+
+.activity-item .activity-dot.success {
+    background: var(--success);
+}
+
+.activity-item .activity-dot.warning {
+    background: var(--warning);
+}
+
+.activity-item .activity-dot.danger {
+    background: var(--danger);
+}
+
+.activity-item .activity-dot.info {
+    background: var(--info);
+}
+
+.activity-item .activity-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 15px;
+}
+
+.activity-item .activity-content .activity-text {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 5px;
+}
+
+.activity-item .activity-content .activity-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   حالة فارغة
+   ================================================================ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 15px;
+    opacity: 0.3;
+}
+
+.empty-state h3 {
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* ================================================================
+   الترقيم
+   ================================================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 20px 0;
+}
+
+.pagination .page-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pagination .page-btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    border-color: var(--primary);
+}
+
+.pagination .page-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.pagination .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination .page-dots {
+    color: var(--text-muted);
+    padding: 0 5px;
+}
+
+/* ================================================================
+   استجابة
+   ================================================================ */
+@media (max-width: 992px) {
+    .user-form {
+        grid-template-columns: 1fr;
+    }
+
+    .user-form .form-group.full-width {
+        grid-column: 1;
+    }
+
+    .security-questions {
+        grid-template-columns: 1fr;
+    }
+
+    .user-profile {
+        grid-template-columns: 1fr;
+    }
+
+    .filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters-bar .filter-group {
+        width: 100%;
+    }
+
+    .filters-bar .filter-group select,
+    .filters-bar .filter-group input {
+        flex: 1;
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .users-table {
+        font-size: 13px;
+    }
+
+    .users-table thead th,
+    .users-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .user-cell .user-info .user-name {
+        max-width: 120px;
+    }
+
+    .table-actions {
+        gap: 4px;
+    }
+
+    .table-actions .btn-action {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 400px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ================================================================
+   نهاية الملف
+   ================================================================ */

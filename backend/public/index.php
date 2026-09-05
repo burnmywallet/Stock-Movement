@@ -1,357 +1,805 @@
 <?php
-// ================================================================
-// نظام إدارة المخازن والمخزون المتقدم v5.0
-// الملف: backend/public/index.php
-// الوصف: مدخل API الرئيسي - نقطة الدخول الوحيدة للنظام
-// التاريخ: 2026-08-22
-// ================================================================
+/**
+ * ============================================================================
+ * Logistox / Stock-Movement
+ * Advanced Inventory Management System
+ * ============================================================================
+ *
+ * File:
+ *     backend/public/index.php
+ *
+ * Purpose:
+ *     API Front Controller
+ *
+ * Responsibilities:
+ *     - Load environment configuration
+ *     - Configure PHP/API security
+ *     - Configure CORS
+ *     - Register project autoloading
+ *     - Load Router / Response
+ *     - Load API routes
+ *     - Dispatch the request
+ *
+ * IMPORTANT:
+ *     هذا الملف لا يحتوي على Business Logic.
+ *     لا يحتوي على بيانات وهمية.
+ *     لا يحتوي على Login تجريبي.
+ *     لا يحتوي على بيانات أصناف ثابتة.
+ *
+ * Architecture:
+ *
+ *     Frontend
+ *         |
+ *         v
+ *     /api/*
+ *         |
+ *         v
+ *     backend/public/index.php
+ *         |
+ *         v
+ *     backend/routes/api.php
+ *         |
+ *         v
+ *     Controllers / Services
+ *         |
+ *         v
+ *     Models
+ *         |
+ *         v
+ *     MySQL
+ *
+ * ============================================================================
+ */
 
-// ================================================================
-// 1. إعدادات PHP الأساسية
-// ================================================================
+declare(strict_types=1);
 
-error_reporting(E_ALL);
 
-// ✅ تم الإصلاح: إخفاء الأخطاء في Production
-$isProduction = ($_ENV['APP_ENV'] ?? 'production') === 'production';
-ini_set('display_errors', $isProduction ? '0' : '1');
-ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
+// ============================================================================
+// 1. PATHS
+// ============================================================================
 
-ini_set('memory_limit', '256M');
-ini_set('max_execution_time', '300');
-ini_set('max_input_time', '300');
-ini_set('upload_max_filesize', '50M');
-ini_set('post_max_size', '50M');
+/**
+ * backend/
+ */
+const BACKEND_PATH = __DIR__ . '/..';
 
-// ✅ تم الإصلاح: Timezone من .env
-$timezone = $_ENV['APP_TIMEZONE'] ?? $_ENV['timezone'] ?? 'Asia/Riyadh';
-date_default_timezone_set($timezone);
+/**
+ * project root
+ *
+ * inventory-system/
+ */
+const PROJECT_ROOT = __DIR__ . '/../..';
 
-// ================================================================
-// 2. تعريف الثوابت
-// ================================================================
+/**
+ * API base path
+ */
+const API_BASE_PATH = '/api';
 
-define('BASE_PATH', dirname(__DIR__));
-define('PUBLIC_PATH', __DIR__);
-define('DS', DIRECTORY_SEPARATOR);
-define('START_TIME', microtime(true));
-define('VERSION', '5.0.0');
 
-// ================================================================
-// 3. تحميل ملف .env
-// ================================================================
+// ============================================================================
+// 2. LOAD ENVIRONMENT
+// ============================================================================
 
-$envFile = BASE_PATH . DS . '.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile);
+/**
+ * Load .env manually.
+ *
+ * في المرحلة الحالية المشروع لا يعتمد على Composer dotenv.
+ * لذلك يتم تحميل المتغيرات من .env بطريقة بسيطة وآمنة نسبيًا.
+ *
+ * ملاحظة:
+ * لا نطبع أي قيمة من قيم البيئة للمستخدم.
+ */
+function loadEnvironment(string $envFile): void
+{
+    if (!is_file($envFile) || !is_readable($envFile)) {
+        return;
+    }
+
+    $lines = file(
+        $envFile,
+        FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES
+    );
+
+    if ($lines === false) {
+        return;
+    }
+
     foreach ($lines as $line) {
+
         $line = trim($line);
-        if (empty($line) || strpos($line, '#') === 0) {
+
+        // Skip empty lines
+        if ($line === '') {
             continue;
         }
-        $parts = explode('=', $line, 2);
-        if (count($parts) === 2) {
-            $key = trim($parts[0]);
-            $value = trim($parts[1]);
-            $_ENV[$key] = $value;
-            putenv("$key=$value");
+
+        // Skip comments
+        if (str_starts_with($line, '#')) {
+            continue;
         }
-    }
-}
 
-// ================================================================
-// 4. تحميل Autoloader
-// ================================================================
-
-spl_autoload_register(function ($class) {
-    $base_dir = BASE_PATH . DS;
-    
-    // التحقق من وجود Namespace
-    if (strpos($class, '\\') !== false) {
-        $parts = explode('\\', $class);
-        $className = array_pop($parts);
-        $namespace = implode(DS, $parts);
-        
-        $directories = ['core', 'controllers', 'models', 'middleware', 'services', 'helpers', 'validators', 'repositories'];
-        foreach ($directories as $dir) {
-            $file = $base_dir . $dir . DS . $className . '.php';
-            if (file_exists($file)) {
-                require_once $file;
-                return;
-            }
+        // Ignore invalid lines
+        if (!str_contains($line, '=')) {
+            continue;
         }
-    } else {
-        $directories = ['core', 'controllers', 'models', 'middleware', 'services', 'helpers', 'validators', 'repositories'];
-        foreach ($directories as $dir) {
-            $file = $base_dir . $dir . DS . $class . '.php';
-            if (file_exists($file)) {
-                require_once $file;
-                return;
-            }
+
+        [$key, $value] = explode('=', $line, 2);
+
+        $key = trim($key);
+        $value = trim($value);
+
+        if ($key === '') {
+            continue;
         }
+
+        /**
+         * إزالة quotation marks البسيطة.
+         *
+         * مثال:
+         *
+         * APP_ENV="production"
+         *
+         * تصبح:
+         *
+         * production
+         */
+        if (
+            strlen($value) >= 2 &&
+            (
+                ($value[0] === '"' && $value[strlen($value) - 1] === '"') ||
+                ($value[0] === "'" && $value[strlen($value) - 1] === "'")
+            )
+        ) {
+            $value = substr($value, 1, -1);
+        }
+
+        /**
+         * لا نستبدل Environment Variable موجود بالفعل.
+         *
+         * هذا يسمح بتجاوز .env من إعدادات النظام.
+         */
+        if (getenv($key) !== false) {
+            continue;
+        }
+
+        putenv($key . '=' . $value);
+
+        $_ENV[$key] = $value;
     }
-});
+}
 
-// ================================================================
-// 5. دوال مساعدة عامة
-// ================================================================
+
+$envFile = PROJECT_ROOT . '/.env';
+
+loadEnvironment($envFile);
+
+
+// ============================================================================
+// 3. APPLICATION CONFIGURATION
+// ============================================================================
+
+$appDebug = filter_var(
+    getenv('APP_DEBUG') ?: 'false',
+    FILTER_VALIDATE_BOOLEAN
+);
+
+$appTimezone = getenv('APP_TIMEZONE') ?: 'Africa/Cairo';
+
+$appVersion = getenv('APP_VERSION') ?: '5.0.0';
+
+
+// ============================================================================
+// 4. PHP ERROR CONFIGURATION
+// ============================================================================
 
 /**
- * إرسال استجابة JSON متقدمة
+ * تسجيل كل الأخطاء.
+ *
+ * في Production:
+ *     لا يتم عرض الخطأ للمستخدم.
+ *
+ * في Development:
+ *     يمكن السماح بعرض الأخطاء إذا كان APP_DEBUG=true.
  */
-function jsonResponse($success, $message, $data = null, $code = 200, $meta = null, $errors = null) {
-    header('Content-Type: application/json');
-    http_response_code($code);
-    
-    $response = [
-        'success' => $success,
-        'message' => $message,
-        'timestamp' => date('Y-m-d H:i:s'),
-        'version' => VERSION,
-        'execution_time' => round((microtime(true) - START_TIME) * 1000, 2) . 'ms'
-    ];
-    
-    if ($data !== null) $response['data'] = $data;
-    if ($meta !== null) $response['meta'] = $meta;
-    if ($errors !== null) $response['errors'] = $errors;
-    
-    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    exit;
-}
+error_reporting(E_ALL);
 
-/**
- * استجابة نجاح
- */
-function successResponse($message, $data = null, $meta = null) {
-    jsonResponse(true, $message, $data, 200, $meta);
-}
+ini_set(
+    'display_errors',
+    $appDebug ? '1' : '0'
+);
 
-/**
- * استجابة خطأ
- */
-function errorResponse($message, $code = 400, $data = null, $errors = null) {
-    jsonResponse(false, $message, $data, $code, null, $errors);
-}
+ini_set(
+    'display_startup_errors',
+    $appDebug ? '1' : '0'
+);
 
-/**
- * استجابة 404
- */
-function notFoundResponse($message = 'المسار غير موجود') {
-    jsonResponse(false, $message, null, 404);
-}
+ini_set(
+    'log_errors',
+    '1'
+);
 
-/**
- * استجابة 401 (غير مصرح)
- */
-function unauthorizedResponse($message = 'غير مصرح') {
-    jsonResponse(false, $message, null, 401);
-}
 
-/**
- * استجابة 403 (ممنوع)
- */
-function forbiddenResponse($message = 'ليس لديك صلاحية') {
-    jsonResponse(false, $message, null, 403);
-}
+// ============================================================================
+// 5. TIMEZONE
+// ============================================================================
 
-/**
- * تسجيل الأخطاء
- */
-function logError($message, $context = []) {
-    $logFile = BASE_PATH . DS . 'logs' . DS . 'error.log';
-    $logDir = dirname($logFile);
-    
-    if (!is_dir($logDir)) {
-        mkdir($logDir, 0777, true);
-    }
-    
-    $log = date('Y-m-d H:i:s') . ' - ' . $message . ' - ' . json_encode($context, JSON_UNESCAPED_UNICODE) . PHP_EOL;
-    error_log($log, 3, $logFile);
-}
-
-/**
- * الحصول على IP العميل
- */
-function getClientIP() {
-    $ip = '0.0.0.0';
-    
-    if (isset($_SERVER['HTTP_CLIENT_IP']) && !empty($_SERVER['HTTP_CLIENT_IP'])) {
-        $ip = $_SERVER['HTTP_CLIENT_IP'];
-    } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-        $ip = trim($ips[0]);
-    } elseif (isset($_SERVER['REMOTE_ADDR']) && !empty($_SERVER['REMOTE_ADDR'])) {
-        $ip = $_SERVER['REMOTE_ADDR'];
-    }
-    
-    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
-}
-
-// ================================================================
-// 6. معالجة CORS (مُحدّث)
-// ================================================================
-
-// ✅ تم الإصلاح: استخدام الإعدادات من .env
-$allowedOrigins = [];
-$corsOrigins = $_ENV['CORS_ALLOWED_ORIGINS'] ?? '';
-if (!empty($corsOrigins)) {
-    $allowedOrigins = array_map('trim', explode(',', $corsOrigins));
-}
-
-// إضافة النطاقات المحلية دائماً للتطوير
-$allowedOrigins[] = 'http://localhost';
-$allowedOrigins[] = 'http://localhost:8080';
-$allowedOrigins[] = 'http://localhost:8081';
-$allowedOrigins[] = 'http://127.0.0.1';
-$allowedOrigins[] = 'http://127.0.0.1:8080';
-
-// إزالة التكرارات
-$allowedOrigins = array_unique($allowedOrigins);
-
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-
-// التحقق من Origin
-if (in_array('*', $allowedOrigins)) {
-    header('Access-Control-Allow-Origin: *');
-} elseif (!empty($origin) && in_array($origin, $allowedOrigins)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
+if (
+    in_array(
+        $appTimezone,
+        timezone_identifiers_list(),
+        true
+    )
+) {
+    date_default_timezone_set($appTimezone);
 } else {
-    // في الإنتاج، منع الطلبات من نطاقات غير مسموحة
-    $isProduction = ($_ENV['APP_ENV'] ?? 'production') === 'production';
-    if (!$isProduction && !empty($origin)) {
-        // في التطوير، نسمح مؤقتاً
-        header('Access-Control-Allow-Origin: ' . $origin);
-        header('Access-Control-Allow-Credentials: true');
-        header('X-CORS-Warning: Development mode - origin auto-allowed');
-    }
+    date_default_timezone_set('Africa/Cairo');
 }
 
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
-header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Requested-With, Origin, X-CSRF-Token');
-header('Access-Control-Expose-Headers: Authorization, X-Session-Id, X-User-Id');
-header('Access-Control-Max-Age: 86400');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+// ============================================================================
+// 6. RESPONSE HEADERS
+// ============================================================================
+
+header(
+    'Content-Type: application/json; charset=UTF-8'
+);
+
+header(
+    'X-Content-Type-Options: nosniff'
+);
+
+header(
+    'X-Frame-Options: SAMEORIGIN'
+);
+
+header(
+    'Referrer-Policy: strict-origin-when-cross-origin'
+);
+
+header(
+    'Cache-Control: no-store, no-cache, must-revalidate, max-age=0'
+);
+
+header(
+    'Pragma: no-cache'
+);
+
+
+// ============================================================================
+// 7. CORS
+// ============================================================================
+
+/**
+ * Allowed origins are read from:
+ *
+ * CORS_ALLOWED_ORIGINS
+ *
+ * Example:
+ *
+ * CORS_ALLOWED_ORIGINS=http://192.168.1.8,http://localhost
+ */
+$origin = trim(
+    $_SERVER['HTTP_ORIGIN'] ?? ''
+);
+
+$allowedOriginsRaw = getenv(
+    'CORS_ALLOWED_ORIGINS'
+) ?: '';
+
+$allowedOrigins = [];
+
+if ($allowedOriginsRaw !== '') {
+
+    $allowedOrigins = array_values(
+        array_filter(
+            array_map(
+                'trim',
+                explode(',', $allowedOriginsRaw)
+            ),
+            static function (string $value): bool {
+                return $value !== '';
+            }
+        )
+    );
+}
+
+
+/**
+ * لا نستخدم:
+ *
+ * Access-Control-Allow-Origin: *
+ *
+ * لأن المشروع يستخدم Authentication / Sessions.
+ */
+if (
+    $origin !== '' &&
+    in_array($origin, $allowedOrigins, true)
+) {
+
+    header(
+        'Access-Control-Allow-Origin: ' . $origin
+    );
+
+    header(
+        'Access-Control-Allow-Credentials: true'
+    );
+
+    header(
+        'Vary: Origin'
+    );
+}
+
+
+header(
+    'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS'
+);
+
+header(
+    'Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With'
+);
+
+header(
+    'Access-Control-Max-Age: 86400'
+);
+
+
+// ============================================================================
+// 8. OPTIONS / PREFLIGHT
+// ============================================================================
+
+$requestMethod = strtoupper(
+    $_SERVER['REQUEST_METHOD'] ?? 'GET'
+);
+
+if ($requestMethod === 'OPTIONS') {
+
+    http_response_code(204);
+
     exit;
 }
 
-// ================================================================
-// 7. معالجة الأخطاء
-// ================================================================
 
-// معالجة الأخطاء غير المتوقعة
-set_exception_handler(function($e) {
-    logError($e->getMessage(), [
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString()
-    ]);
-    
-    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-    if ($isDebug) {
-        errorResponse($e->getMessage(), 500, [
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
-        ]);
-    } else {
-        errorResponse('حدث خطأ داخلي في الخادم', 500);
+// ============================================================================
+// 9. HTTP METHOD VALIDATION
+// ============================================================================
+
+$allowedMethods = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'HEAD',
+];
+
+if (
+    !in_array(
+        $requestMethod,
+        $allowedMethods,
+        true
+    )
+) {
+
+    apiError(
+        'طريقة الطلب غير مسموحة',
+        'METHOD_NOT_ALLOWED',
+        405
+    );
+}
+
+
+// ============================================================================
+// 10. AUTOLOADER
+// ============================================================================
+
+/**
+ * Simple PSR-like autoloader.
+ *
+ * Current namespace:
+ *
+ *     Core\
+ *
+ * Example:
+ *
+ *     Core\Database
+ *
+ * will load:
+ *
+ *     backend/core/Database.php
+ */
+spl_autoload_register(
+    static function (string $class): void {
+
+        $prefix = 'Core\\';
+
+        if (
+            strncmp(
+                $class,
+                $prefix,
+                strlen($prefix)
+            ) !== 0
+        ) {
+            return;
+        }
+
+        $relativeClass = substr(
+            $class,
+            strlen($prefix)
+        );
+
+        $file = BACKEND_PATH .
+            '/core/' .
+            str_replace(
+                '\\',
+                '/',
+                $relativeClass
+            ) .
+            '.php';
+
+        if (
+            is_file($file) &&
+            is_readable($file)
+        ) {
+            require_once $file;
+        }
     }
-});
+);
 
-// معالجة الأخطاء العادية
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    logError($errstr, ['file' => $errfile, 'line' => $errline, 'code' => $errno]);
-    
-    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-    if ($isDebug) {
-        errorResponse($errstr, 500, ['file' => $errfile, 'line' => $errline]);
+
+// ============================================================================
+// 11. LOAD REQUIRED CORE CLASSES
+// ============================================================================
+
+$responseClass = BACKEND_PATH . '/core/Response.php';
+$routerClass   = BACKEND_PATH . '/core/Router.php';
+
+if (
+    !is_file($responseClass) ||
+    !is_readable($responseClass)
+) {
+
+    apiError(
+        'ملف Response غير موجود',
+        'CORE_RESPONSE_MISSING',
+        500
+    );
+}
+
+if (
+    !is_file($routerClass) ||
+    !is_readable($routerClass)
+) {
+
+    apiError(
+        'ملف Router غير موجود',
+        'CORE_ROUTER_MISSING',
+        500
+    );
+}
+
+require_once $responseClass;
+require_once $routerClass;
+
+
+use Core\Router;
+
+
+// ============================================================================
+// 12. COMMON API ERROR FUNCTION
+// ============================================================================
+
+/**
+ * Return a standardized API error.
+ *
+ * Standard:
+ *
+ * {
+ *     "success": false,
+ *     "data": null,
+ *     "message": "...",
+ *     "code": "...",
+ *     "timestamp": "...",
+ *     "version": "..."
+ * }
+ */
+function apiError(
+    string $message,
+    string $code,
+    int $status = 500
+): never {
+
+    /**
+     * حماية من HTTP status غير صالح.
+     */
+    if (
+        $status < 100 ||
+        $status > 599
+    ) {
+        $status = 500;
     }
-    
-    return true;
-});
 
-// ================================================================
-// 8. التوجيه
-// ================================================================
+    http_response_code($status);
+
+    $response = [
+        'success'   => false,
+        'data'      => null,
+        'message'   => $message,
+        'code'      => $code,
+        'timestamp' => date('Y-m-d H:i:s'),
+        'version'   => getenv('APP_VERSION') ?: '5.0.0',
+    ];
+
+    echo json_encode(
+        $response,
+        JSON_UNESCAPED_UNICODE |
+        JSON_UNESCAPED_SLASHES |
+        JSON_INVALID_UTF8_SUBSTITUTE
+    );
+
+    exit;
+}
+
+
+// ============================================================================
+// 13. REQUEST URI NORMALIZATION
+// ============================================================================
+
+/**
+ * Apache .htaccess قد يحول:
+ *
+ *     /api/products
+ *
+ * إلى:
+ *
+ *     /backend/public/index.php?route=products
+ *
+ * لذلك نعيد بناء REQUEST_URI.
+ */
+if (
+    isset($_GET['route']) &&
+    $_GET['route'] !== ''
+) {
+
+    $route = trim(
+        (string) $_GET['route'],
+        '/'
+    );
+
+    /**
+     * منع path traversal.
+     *
+     * لا يجب أن يحتوي route على:
+     *
+     * ../
+     * ..\
+     */
+    if (
+        str_contains($route, '..') ||
+        str_contains($route, '\\')
+    ) {
+
+        apiError(
+            'مسار الطلب غير صالح',
+            'INVALID_ROUTE',
+            400
+        );
+    }
+
+    $_SERVER['REQUEST_URI'] =
+        API_BASE_PATH .
+        '/' .
+        $route;
+}
+
+
+// ============================================================================
+// 14. ROUTES FILE
+// ============================================================================
+
+$routesFile =
+    BACKEND_PATH .
+    '/routes/api.php';
+
+
+if (
+    !is_file($routesFile) ||
+    !is_readable($routesFile)
+) {
+
+    apiError(
+        'ملف مسارات API غير موجود',
+        'ROUTES_FILE_MISSING',
+        500
+    );
+}
+
+
+// ============================================================================
+// 15. CREATE ROUTER
+// ============================================================================
 
 try {
-    // الحصول على المسار والطريقة
-    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $method = $_SERVER['REQUEST_METHOD'];
-    
-    // ✅ تم الإصلاح: معالجة Base Path ديناميكياً
-    $basePath = $_ENV['BASE_PATH'] ?? '';
-    if (!empty($basePath) && strpos($path, $basePath) === 0) {
-        $path = substr($path, strlen($basePath));
-        $path = '/' . ltrim($path, '/');
-    }
-    
-    // ✅ تم الإصلاح: دعم المسارات بدون base path
-    if (empty($path) || $path === '/') {
-        $path = '/';
-    }
-    
-    // معالجة الطلبات المباشرة للملفات الثابتة
-    if (strpos($path, '/frontend/') === 0) {
-        $file = BASE_PATH . '/../frontend/' . substr($path, 10);
-        if (file_exists($file) && !is_dir($file)) {
-            $ext = pathinfo($file, PATHINFO_EXTENSION);
-            $mimeTypes = [
-                'html' => 'text/html',
-                'css' => 'text/css',
-                'js' => 'application/javascript',
-                'png' => 'image/png',
-                'jpg' => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'gif' => 'image/gif',
-                'svg' => 'image/svg+xml',
-                'ico' => 'image/x-icon',
-                'json' => 'application/json',
-                'woff' => 'font/woff',
-                'woff2' => 'font/woff2',
-                'ttf' => 'font/ttf'
-            ];
-            header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
-            header('Cache-Control: public, max-age=86400');
-            readfile($file);
-            exit;
-        }
-    }
-    
-    // تحميل ملف التوجيه
-    $routerFile = BASE_PATH . DS . 'routes' . DS . 'api.php';
-    
-    if (!file_exists($routerFile)) {
-        throw new Exception('ملف التوجيه غير موجود: ' . $routerFile);
-    }
-    
-    $router = require_once $routerFile;
-    
-    if (!isset($router) || !is_object($router)) {
-        throw new Exception('ملف التوجيه يجب أن يعيد كائن Router');
-    }
-    
-    // تنفيذ التوجيه
-    $router->dispatch($method, $path);
-    
-} catch (Exception $e) {
-    logError('Routing error: ' . $e->getMessage(), [
-        'path' => $path ?? 'unknown',
-        'method' => $method ?? 'unknown'
-    ]);
-    
-    $isDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-    if ($isDebug) {
-        errorResponse($e->getMessage(), 500);
-    } else {
-        errorResponse('حدث خطأ في معالجة الطلب', 500);
-    }
+
+    $router = new Router(
+        API_BASE_PATH
+    );
+
+} catch (Throwable $exception) {
+
+    error_log(
+        '[API ROUTER INIT] ' .
+        $exception->getMessage()
+    );
+
+    apiError(
+        $appDebug
+            ? $exception->getMessage()
+            : 'تعذر تشغيل نظام المسارات',
+        'ROUTER_INIT_ERROR',
+        500
+    );
 }
 
-// ================================================================
-// انتهى الملف
-// ================================================================
+
+// ============================================================================
+// 16. NOT FOUND HANDLER
+// ============================================================================
+
+$router->setNotFoundHandler(
+    static function (): void {
+
+        apiError(
+            'المسار غير موجود',
+            'ROUTE_NOT_FOUND',
+            404
+        );
+    }
+);
+
+
+// ============================================================================
+// 17. ROUTER ERROR HANDLER
+// ============================================================================
+
+$router->setErrorHandler(
+    static function (
+        Throwable $exception
+    ) use ($appDebug): void {
+
+        error_log(
+            sprintf(
+                '[API ROUTER ERROR] %s in %s:%d',
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            )
+        );
+
+        /**
+         * Development
+         */
+        if ($appDebug) {
+
+            apiError(
+                $exception->getMessage(),
+                'INTERNAL_ERROR',
+                500
+            );
+        }
+
+        /**
+         * Production
+         */
+        apiError(
+            'حدث خطأ داخلي في الخادم',
+            'INTERNAL_ERROR',
+            500
+        );
+    }
+);
+
+
+// ============================================================================
+// 18. LOAD API ROUTES
+// ============================================================================
+
+try {
+
+    /**
+     * api.php يجب أن يقوم بتسجيل المسارات على:
+     *
+     * $router
+     *
+     * ولا يجب أن يحتوي على:
+     *
+     * - Database queries
+     * - HTML
+     * - Mock data
+     * - Business logic
+     * - Passwords
+     * - Hardcoded users
+     */
+
+    require $routesFile;
+
+} catch (Throwable $exception) {
+
+    error_log(
+        sprintf(
+            "[API ROUTES LOAD] %s in %s:%d\n%s",
+            $exception->getMessage(),
+            $exception->getFile(),
+            $exception->getLine(),
+            $exception->getTraceAsString()
+        )
+    );
+
+    apiError(
+        $appDebug
+            ? $exception->getMessage()
+            : 'تعذر تحميل مسارات النظام',
+        'ROUTES_LOAD_ERROR',
+        500
+    );
+}
+
+
+// ============================================================================
+// 19. DISPATCH REQUEST
+// ============================================================================
+
+try {
+
+    $router->dispatch();
+
+} catch (Throwable $exception) {
+
+    error_log(
+        sprintf(
+            "[API DISPATCH] %s in %s:%d\n%s",
+            $exception->getMessage(),
+            $exception->getFile(),
+            $exception->getLine(),
+            $exception->getTraceAsString()
+        )
+    );
+
+    if ($appDebug) {
+
+        apiError(
+            $exception->getMessage(),
+            'DISPATCH_ERROR',
+            500
+        );
+    }
+
+    apiError(
+        'حدث خطأ داخلي في الخادم',
+        'INTERNAL_ERROR',
+        500
+    );
+}
+
+
+// ============================================================================
+// 20. SAFETY FALLBACK
+// ============================================================================
+
+/**
+ * في الحالة الطبيعية Router::dispatch()
+ * يجب أن ينهي الطلب أو يرسل Response.
+ *
+ * إذا رجع بدون Response لأي سبب،
+ * لا نترك الطلب بدون JSON response.
+ */
+if (
+    !headers_sent() &&
+    http_response_code() === 200
+) {
+
+    apiError(
+        'لم يتم إنشاء استجابة صحيحة من API',
+        'EMPTY_API_RESPONSE',
+        500
+    );
+}

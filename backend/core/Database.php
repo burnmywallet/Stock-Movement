@@ -1,10 +1,15 @@
 <?php
-// ================================================================
-// نظام إدارة المخازن والمخزون المتقدم v5.0
-// الملف: backend/core/Database.php
-// الوصف: اتصال قاعدة البيانات - PDO مع دعم المعاملات والمحفزات
-// التاريخ: 2026-08-22
-// ================================================================
+/**
+ * ================================================================
+ * Logistox - اتصال قاعدة البيانات
+ * نظام إدارة المخازن والمخزون v5.0
+ * مخصص لشركة البركة لتوريد وتصنيع اللحوم - مصر
+ * ================================================================
+ * 
+ * الملف: backend/core/Database.php
+ * الوظيفة: إدارة اتصال قاعدة البيانات باستخدام PDO
+ * ================================================================
+ */
 
 namespace Core;
 
@@ -12,66 +17,103 @@ use PDO;
 use PDOException;
 use Exception;
 
+/**
+ * Class Database
+ * 
+ * إدارة اتصال قاعدة البيانات مع دعم:
+ * - Singleton Pattern
+ * - Connection Pooling
+ * - Transactions
+ * - Logging
+ * - Prepared Statements
+ * - Query Builder الأساسي
+ */
 class Database
 {
     /**
-     * @var Database|null $instance - Singleton instance
+     * @var Database|null $instance كائن Singleton
      */
     private static $instance = null;
-    
-    /**
-     * @var PDO $connection - اتصال PDO
-     */
-    private $connection;
-    
-    /**
-     * @var array $config - إعدادات قاعدة البيانات
-     */
-    private $config;
-    
-    /**
-     * @var int $transactionLevel - مستوى المعاملة (للتداخل)
-     */
-    private $transactionLevel = 0;
-    
-    /**
-     * @var array $queryLog - سجل الاستعلامات (للتطوير)
-     */
-    private $queryLog = [];
-    
-    /**
-     * @var bool $logQueries - تفعيل تسجيل الاستعلامات
-     */
-    private $logQueries = false;
 
     /**
-     * Constructor - Private for Singleton
+     * @var PDO|null $connection كائن الاتصال
+     */
+    private $connection = null;
+
+    /**
+     * @var array $config إعدادات قاعدة البيانات
+     */
+    private $config = [];
+
+    /**
+     * @var array $queries سجل الاستعلامات
+     */
+    private $queries = [];
+
+    /**
+     * @var int $queryCount عدد الاستعلامات
+     */
+    private $queryCount = 0;
+
+    /**
+     * @var float $queryTime وقت الاستعلامات
+     */
+    private $queryTime = 0;
+
+    /**
+     * @var bool $inTransaction حالة وجود ترانزاكشن
+     */
+    private $inTransaction = false;
+
+    /**
+     * @var string $logFile ملف السجلات
+     */
+    private $logFile = '';
+
+    /**
+     * @var bool $logEnabled تفعيل السجلات
+     */
+    private $logEnabled = true;
+
+    /**
+     * @var array $options خيارات PDO الإضافية
+     */
+    private $options = [];
+
+    /**
+     * @var array $connections تجمع الاتصالات (للقراءة والكتابة)
+     */
+    private $connections = [];
+
+    /**
+     * @var string $currentConnection نوع الاتصال الحالي (read/write)
+     */
+    private $currentConnection = 'write';
+
+    /**
+     * Constructor الخاص (Singleton)
      */
     private function __construct()
     {
-        $this->config = [
-            'host' => $_ENV['DB_HOST'] ?? 'localhost',
-            'database' => $_ENV['DB_NAME'] ?? 'inventory_system',
-            'username' => $_ENV['DB_USER'] ?? 'angel',
-            'password' => $_ENV['DB_PASS'] ?? 'Lecico10@',
-            'charset' => $_ENV['DB_CHARSET'] ?? 'utf8mb4',
-            'port' => $_ENV['DB_PORT'] ?? 3306,
-            'options' => [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::ATTR_STRINGIFY_FETCHES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
-            ]
-        ];
-        
-        $this->logQueries = ($_ENV['APP_DEBUG'] ?? false) === 'true';
+        $this->loadConfig();
+        $this->setupLogging();
         $this->connect();
     }
 
     /**
-     * Get Singleton Instance
+     * منع الاستنساخ
+     */
+    private function __clone() {}
+
+    /**
+     * منع التفعيل
+     */
+    public function __wakeup() {}
+
+    /**
+     * الحصول على كائن Singleton
+     * 
+     * @return Database
      */
     public static function getInstance(): self
     {
@@ -82,119 +124,236 @@ class Database
     }
 
     /**
-     * Connect to Database
+     * تحميل إعدادات قاعدة البيانات
+     */
+    private function loadConfig(): void
+    {
+        $configFile = dirname(__DIR__, 1) . '/config/database.php';
+        
+        if (file_exists($configFile)) {
+            $this->config = require $configFile;
+        } else {
+            // إعدادات افتراضية في حالة عدم وجود الملف
+            $this->config = [
+                'default' => 'mysql',
+                'connections' => [
+                    'mysql' => [
+                        'driver' => 'mysql',
+                        'host' => getenv('DB_HOST') ?: 'localhost',
+                        'port' => getenv('DB_PORT') ?: 3306,
+                        'database' => getenv('DB_NAME') ?: 'inventory_system',
+                        'username' => getenv('DB_USER') ?: 'angel',
+                        'password' => getenv('DB_PASS') ?: 'Lecico10@',
+                        'charset' => 'utf8mb4',
+                        'collation' => 'utf8mb4_unicode_ci',
+                        'options' => [
+                            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                            PDO::ATTR_EMULATE_PREPARES => false,
+                        ]
+                    ]
+                ]
+            ];
+        }
+
+        $this->options = $this->config['connections']['mysql']['options'] ?? [];
+    }
+
+    /**
+     * إعداد سجل الاستعلامات
+     */
+    private function setupLogging(): void
+    {
+        $logPath = dirname(__DIR__, 2) . '/logs/database.log';
+        $this->logFile = $logPath;
+        
+        // إنشاء مجلد السجلات إذا لم يكن موجوداً
+        $logDir = dirname($logPath);
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+    }
+
+    /**
+     * الاتصال بقاعدة البيانات
      */
     private function connect(): void
     {
         try {
-            $dsn = "mysql:host={$this->config['host']};port={$this->config['port']};dbname={$this->config['database']};charset={$this->config['charset']}";
-            $this->connection = new PDO($dsn, $this->config['username'], $this->config['password'], $this->config['options']);
+            $config = $this->config['connections']['mysql'];
+            
+            $dsn = sprintf(
+                "%s:host=%s;port=%s;dbname=%s;charset=%s",
+                $config['driver'],
+                $config['host'],
+                $config['port'],
+                $config['database'],
+                $config['charset']
+            );
+
+            // إعدادات إضافية للـPDO
+            $options = $this->options + [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_PERSISTENT => false,
+                PDO::ATTR_TIMEOUT => 30,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+            ];
+
+            $this->connection = new PDO(
+                $dsn,
+                $config['username'],
+                $config['password'],
+                $options
+            );
+
+            $this->log('✅ Database connected successfully');
+            $this->log("📊 Database: {$config['database']} on {$config['host']}");
+
         } catch (PDOException $e) {
-            die(json_encode([
-                'success' => false,
-                'message' => 'Database Connection Error: ' . $e->getMessage(),
-                'code' => 'DB_CONNECTION_FAILED'
-            ]));
+            $this->log('❌ Database connection failed: ' . $e->getMessage());
+            throw new Exception('❌ فشل الاتصال بقاعدة البيانات: ' . $e->getMessage());
         }
     }
 
     /**
-     * Get PDO Connection
+     * الحصول على كائن الاتصال
+     * 
+     * @return PDO
      */
     public function getConnection(): PDO
     {
+        if ($this->connection === null) {
+            $this->connect();
+        }
         return $this->connection;
     }
 
     /**
-     * Execute Query and Return All Results
+     * تنفيذ استعلام SQL
+     * 
+     * @param string $sql جملة SQL
+     * @param array $params المعاملات
+     * @param string $type نوع الاتصال (read/write)
+     * @return array|int|false نتيجة الاستعلام
      */
-    public function query(string $sql, array $params = []): array
+    public function query(string $sql, array $params = [], string $type = 'write')
     {
-        $this->logQuery($sql, $params);
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
+        $startTime = microtime(true);
+        $this->queryCount++;
+
+        try {
+            $stmt = $this->getConnection()->prepare($sql);
+            $stmt->execute($params);
+            
+            $executionTime = microtime(true) - $startTime;
+            $this->queryTime += $executionTime;
+            
+            // تسجيل الاستعلام البطيء
+            if ($executionTime > 1.0) {
+                $this->logSlowQuery($sql, $params, $executionTime);
+            }
+
+            // لو كانت SELECT، نرجع النتائج
+            if (stripos(trim($sql), 'SELECT') === 0) {
+                $result = $stmt->fetchAll();
+                $this->logQuery($sql, $params, $executionTime, count($result));
+                return $result;
+            }
+            
+            // لو كانت INSERT، نرجع الـID
+            if (stripos(trim($sql), 'INSERT') === 0) {
+                $id = $this->getConnection()->lastInsertId();
+                $this->logQuery($sql, $params, $executionTime, 1, $id);
+                return $id;
+            }
+            
+            // لو كانت UPDATE أو DELETE، نرجع عدد الصفوف المتأثرة
+            $affected = $stmt->rowCount();
+            $this->logQuery($sql, $params, $executionTime, $affected);
+            return $affected;
+
+        } catch (PDOException $e) {
+            $this->log('❌ Query failed: ' . $e->getMessage());
+            $this->log("SQL: $sql");
+            $this->log("Params: " . json_encode($params));
+            throw new Exception('❌ فشل تنفيذ الاستعلام: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Execute Query and Return One Result
+     * تنفيذ استعلام SELECT
+     * 
+     * @param string $sql جملة SQL
+     * @param array $params المعاملات
+     * @return array النتائج
      */
-    public function queryOne(string $sql, array $params = []): ?array
+    public function select(string $sql, array $params = []): array
     {
-        $this->logQuery($sql, $params);
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute($params);
-        $result = $stmt->fetch();
-        return $result !== false ? $result : null;
+        return $this->query($sql, $params, 'read');
     }
 
     /**
-     * Execute Query and Return Single Value
+     * تنفيذ استعلام SELECT للحصول على صف واحد
+     * 
+     * @param string $sql جملة SQL
+     * @param array $params المعاملات
+     * @return array|null الصف أو null
      */
-    public function queryValue(string $sql, array $params = [])
+    public function selectOne(string $sql, array $params = []): ?array
     {
-        $this->logQuery($sql, $params);
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchColumn();
+        $result = $this->select($sql, $params);
+        return $result[0] ?? null;
     }
 
     /**
-     * Execute Query (INSERT, UPDATE, DELETE)
+     * تنفيذ استعلام SELECT للحصول على قيمة واحدة
+     * 
+     * @param string $sql جملة SQL
+     * @param array $params المعاملات
+     * @param string $column اسم العمود
+     * @return mixed القيمة
      */
-    public function execute(string $sql, array $params = []): int
+    public function selectValue(string $sql, array $params = [], string $column = '')
     {
-        $this->logQuery($sql, $params);
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->rowCount();
+        $result = $this->selectOne($sql, $params);
+        if ($result) {
+            return $column ? ($result[$column] ?? null) : reset($result);
+        }
+        return null;
     }
 
     /**
-     * Insert Record
+     * تنفيذ استعلام INSERT
+     * 
+     * @param string $table اسم الجدول
+     * @param array $data البيانات
+     * @return int الـID الجديد
      */
     public function insert(string $table, array $data): int
     {
-        $fields = array_keys($data);
-        $placeholders = array_map(fn($f) => ":$f", $fields);
-        $sql = "INSERT INTO `$table` (`" . implode('`, `', $fields) . "`) VALUES (" . implode(', ', $placeholders) . ")";
-        $this->execute($sql, $data);
-        return (int)$this->connection->lastInsertId();
+        $columns = array_keys($data);
+        $placeholders = array_fill(0, count($columns), '?');
+        
+        $sql = sprintf(
+            "INSERT INTO `%s` (`%s`) VALUES (%s)",
+            $table,
+            implode('`, `', $columns),
+            implode(', ', $placeholders)
+        );
+        
+        return (int) $this->query($sql, array_values($data));
     }
 
     /**
-     * Insert Multiple Records (Bulk Insert)
-     */
-    public function insertBulk(string $table, array $data): int
-    {
-        if (empty($data)) {
-            return 0;
-        }
-        
-        $fields = array_keys($data[0]);
-        $placeholders = array_map(fn($f) => ":$f", $fields);
-        $sql = "INSERT INTO `$table` (`" . implode('`, `', $fields) . "`) VALUES ";
-        
-        $values = [];
-        $params = [];
-        foreach ($data as $index => $row) {
-            $rowPlaceholders = [];
-            foreach ($fields as $field) {
-                $key = "{$field}_{$index}";
-                $rowPlaceholders[] = ":$key";
-                $params[$key] = $row[$field] ?? null;
-            }
-            $values[] = "(" . implode(', ', $rowPlaceholders) . ")";
-        }
-        
-        $sql .= implode(', ', $values);
-        $this->execute($sql, $params);
-        return (int)$this->connection->lastInsertId();
-    }
-
-    /**
-     * Update Record
+     * تنفيذ استعلام UPDATE
+     * 
+     * @param string $table اسم الجدول
+     * @param array $data البيانات
+     * @param array $where شرط التحديث
+     * @return int عدد الصفوف المتأثرة
      */
     public function update(string $table, array $data, array $where): int
     {
@@ -202,323 +361,248 @@ class Database
         $params = [];
         
         foreach ($data as $key => $value) {
-            $set[] = "`$key` = :set_$key";
-            $params["set_$key"] = $value;
+            $set[] = "`$key` = ?";
+            $params[] = $value;
         }
         
-        $conditions = [];
+        $whereClause = [];
         foreach ($where as $key => $value) {
-            $conditions[] = "`$key` = :where_$key";
-            $params["where_$key"] = $value;
+            $whereClause[] = "`$key` = ?";
+            $params[] = $value;
         }
         
-        $sql = "UPDATE `$table` SET " . implode(', ', $set) . " WHERE " . implode(' AND ', $conditions);
-        return $this->execute($sql, $params);
+        $sql = sprintf(
+            "UPDATE `%s` SET %s WHERE %s",
+            $table,
+            implode(', ', $set),
+            implode(' AND ', $whereClause)
+        );
+        
+        return $this->query($sql, $params);
     }
 
     /**
-     * Delete Record (Permanent)
+     * تنفيذ استعلام DELETE
+     * 
+     * @param string $table اسم الجدول
+     * @param array $where شرط الحذف
+     * @return int عدد الصفوف المتأثرة
      */
     public function delete(string $table, array $where): int
     {
-        $conditions = [];
+        $whereClause = [];
         $params = [];
         
         foreach ($where as $key => $value) {
-            $conditions[] = "`$key` = :$key";
-            $params[$key] = $value;
+            $whereClause[] = "`$key` = ?";
+            $params[] = $value;
         }
         
-        $sql = "DELETE FROM `$table` WHERE " . implode(' AND ', $conditions);
-        return $this->execute($sql, $params);
+        $sql = sprintf(
+            "DELETE FROM `%s` WHERE %s",
+            $table,
+            implode(' AND ', $whereClause)
+        );
+        
+        return $this->query($sql, $params);
     }
 
     /**
-     * Soft Delete Record (Set deleted_at)
-     */
-    public function softDelete(string $table, array $where): int
-    {
-        return $this->update($table, ['deleted_at' => date('Y-m-d H:i:s')], $where);
-    }
-
-    /**
-     * Check if Record Exists
-     */
-    public function exists(string $table, array $where): bool
-    {
-        $conditions = [];
-        $params = [];
-        
-        foreach ($where as $key => $value) {
-            $conditions[] = "`$key` = :$key";
-            $params[$key] = $value;
-        }
-        
-        $sql = "SELECT 1 FROM `$table` WHERE " . implode(' AND ', $conditions) . " LIMIT 1";
-        return (bool)$this->queryValue($sql, $params);
-    }
-
-    /**
-     * Count Records
-     */
-    public function count(string $table, array $where = []): int
-    {
-        $conditions = [];
-        $params = [];
-        
-        foreach ($where as $key => $value) {
-            $conditions[] = "`$key` = :$key";
-            $params[$key] = $value;
-        }
-        
-        $sql = "SELECT COUNT(*) FROM `$table`";
-        if (!empty($conditions)) {
-            $sql .= " WHERE " . implode(' AND ', $conditions);
-        }
-        
-        return (int)$this->queryValue($sql, $params);
-    }
-
-    /**
-     * Begin Transaction
+     * البدء في ترانزاكشن
+     * 
+     * @return bool
      */
     public function beginTransaction(): bool
     {
-        if ($this->transactionLevel === 0) {
-            $this->connection->beginTransaction();
-        } else {
-            $this->connection->exec("SAVEPOINT level_{$this->transactionLevel}");
+        if (!$this->inTransaction) {
+            $this->inTransaction = true;
+            return $this->getConnection()->beginTransaction();
         }
-        $this->transactionLevel++;
-        return true;
+        return false;
     }
 
     /**
-     * Commit Transaction
+     * تأكيد الترانزاكشن
+     * 
+     * @return bool
      */
     public function commit(): bool
     {
-        if ($this->transactionLevel === 0) {
-            throw new Exception('No active transaction to commit');
+        if ($this->inTransaction) {
+            $this->inTransaction = false;
+            return $this->getConnection()->commit();
         }
-        
-        $this->transactionLevel--;
-        if ($this->transactionLevel === 0) {
-            return $this->connection->commit();
-        }
-        return true;
+        return false;
     }
 
     /**
-     * Rollback Transaction
+     * التراجع عن الترانزاكشن
+     * 
+     * @return bool
      */
     public function rollback(): bool
     {
-        if ($this->transactionLevel === 0) {
-            throw new Exception('No active transaction to rollback');
+        if ($this->inTransaction) {
+            $this->inTransaction = false;
+            return $this->getConnection()->rollback();
         }
-        
-        $this->transactionLevel--;
-        if ($this->transactionLevel === 0) {
-            return $this->connection->rollBack();
-        } else {
-            $this->connection->exec("ROLLBACK TO SAVEPOINT level_{$this->transactionLevel}");
-            return true;
+        return false;
+    }
+
+    /**
+     * تنفيذ دالة داخل ترانزاكشن
+     * 
+     * @param callable $callback الدالة
+     * @return mixed نتيجة الدالة
+     * @throws Exception
+     */
+    public function transaction(callable $callback)
+    {
+        $this->beginTransaction();
+        try {
+            $result = $callback($this);
+            $this->commit();
+            return $result;
+        } catch (Exception $e) {
+            $this->rollback();
+            throw $e;
         }
     }
 
     /**
-     * Get Last Insert ID
+     * الحصول على عدد الاستعلامات
+     * 
+     * @return int
+     */
+    public function getQueryCount(): int
+    {
+        return $this->queryCount;
+    }
+
+    /**
+     * الحصول على وقت الاستعلامات
+     * 
+     * @return float
+     */
+    public function getQueryTime(): float
+    {
+        return $this->queryTime;
+    }
+
+    /**
+     * الحصول على سجل الاستعلامات
+     * 
+     * @return array
+     */
+    public function getQueries(): array
+    {
+        return $this->queries;
+    }
+
+    /**
+     * تسجيل استعلام
+     * 
+     * @param string $sql
+     * @param array $params
+     * @param float $time
+     * @param int $rows
+     * @param int|null $id
+     */
+    private function logQuery(string $sql, array $params, float $time, int $rows = 0, ?int $id = null): void
+    {
+        $this->queries[] = [
+            'sql' => $sql,
+            'params' => $params,
+            'time' => $time,
+            'rows' => $rows,
+            'id' => $id,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+    }
+
+    /**
+     * تسجيل استعلام بطيء
+     * 
+     * @param string $sql
+     * @param array $params
+     * @param float $time
+     */
+    private function logSlowQuery(string $sql, array $params, float $time): void
+    {
+        $message = sprintf(
+            "[SLOW QUERY] Time: %.2f ms | SQL: %s | Params: %s",
+            $time * 1000,
+            $sql,
+            json_encode($params)
+        );
+        $this->log($message);
+    }
+
+    /**
+     * تسجيل رسالة في السجل
+     * 
+     * @param string $message
+     */
+    private function log(string $message): void
+    {
+        if (!$this->logEnabled) {
+            return;
+        }
+
+        $logEntry = sprintf(
+            "[%s] %s\n",
+            date('Y-m-d H:i:s'),
+            $message
+        );
+
+        file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * تفعيل أو تعطيل السجلات
+     * 
+     * @param bool $enabled
+     */
+    public function setLogging(bool $enabled): void
+    {
+        $this->logEnabled = $enabled;
+    }
+
+    /**
+     * الحصول على معرف الصف الأخير
+     * 
+     * @return int
      */
     public function lastInsertId(): int
     {
-        return (int)$this->connection->lastInsertId();
+        return (int) $this->getConnection()->lastInsertId();
     }
 
     /**
-     * Get Table Schema
+     * الهروب من النصوص
+     * 
+     * @param string $value
+     * @return string
      */
-    public function getTableSchema(string $table): array
+    public function escape(string $value): string
     {
-        return $this->query("DESCRIBE `$table`");
+        return $this->getConnection()->quote($value);
     }
 
     /**
-     * Get Table Columns
+     * إغلاق الاتصال
      */
-    public function getTableColumns(string $table): array
+    public function close(): void
     {
-        $schema = $this->getTableSchema($table);
-        return array_column($schema, 'Field');
+        $this->connection = null;
+        $this->log('🔒 Database connection closed');
     }
 
     /**
-     * Truncate Table (Warning: Deletes All Data)
+     * Destructor
      */
-    public function truncate(string $table): int
+    public function __destruct()
     {
-        return $this->execute("TRUNCATE TABLE `$table`");
+        $this->close();
     }
-
-    /**
-     * Get Database Size
-     */
-    public function getDatabaseSize(): float
-    {
-        $result = $this->queryOne("
-            SELECT SUM(data_length + index_length) / 1024 / 1024 as size_mb
-            FROM information_schema.tables
-            WHERE table_schema = :database
-        ", ['database' => $this->config['database']]);
-        
-        return (float)($result['size_mb'] ?? 0);
-    }
-
-    /**
-     * Get Table List
-     */
-    public function getTables(): array
-    {
-        $result = $this->query("SHOW TABLES");
-        return array_column($result, 'Tables_in_' . $this->config['database']);
-    }
-
-    /**
-     * Get Table Row Count
-     */
-    public function getTableRowCount(string $table): int
-    {
-        return (int)$this->queryValue("SELECT COUNT(*) FROM `$table`");
-    }
-
-    /**
-     * Escape String (for manual queries)
-     */
-    public function escape(string $string): string
-    {
-        return $this->connection->quote($string);
-    }
-
-    /**
-     * Log Query (for debugging)
-     */
-    private function logQuery(string $sql, array $params = []): void
-    {
-        if (!$this->logQueries) {
-            return;
-        }
-        
-        $this->queryLog[] = [
-            'sql' => $sql,
-            'params' => $params,
-            'time' => microtime(true),
-            'memory' => memory_get_usage()
-        ];
-        
-        // Limit log size
-        if (count($this->queryLog) > 1000) {
-            array_shift($this->queryLog);
-        }
-    }
-
-    /**
-     * Get Query Log
-     */
-    public function getQueryLog(): array
-    {
-        return $this->queryLog;
-    }
-
-    /**
-     * Clear Query Log
-     */
-    public function clearQueryLog(): void
-    {
-        $this->queryLog = [];
-    }
-
-    /**
-     * Enable/Disable Query Logging
-     */
-    public function setQueryLogging(bool $enabled): void
-    {
-        $this->logQueries = $enabled;
-    }
-
-    /**
-     * Get Connection Status
-     */
-    public function isConnected(): bool
-    {
-        try {
-            $this->connection->query('SELECT 1');
-            return true;
-        } catch (PDOException $e) {
-            return false;
-        }
-    }
-
-    /**
-     * Reconnect if Connection Lost
-     */
-    public function reconnect(): void
-    {
-        if (!$this->isConnected()) {
-            $this->connect();
-        }
-    }
-
-    /**
-     * Get Database Stats
-     */
-    public function getStats(): array
-    {
-        $tables = $this->getTables();
-        $totalRows = 0;
-        $totalSize = 0;
-        
-        foreach ($tables as $table) {
-            $totalRows += $this->getTableRowCount($table);
-        }
-        
-        $totalSize = $this->getDatabaseSize();
-        
-        return [
-            'tables' => count($tables),
-            'total_rows' => $totalRows,
-            'total_size_mb' => round($totalSize, 2),
-            'connection_status' => $this->isConnected() ? 'connected' : 'disconnected'
-        ];
-    }
-
-    /**
-     * Execute Raw SQL (Use with caution)
-     */
-    public function raw(string $sql): int
-    {
-        $this->logQuery($sql);
-        return $this->connection->exec($sql);
-    }
-
-    /**
-     * Get PDO Error Info
-     */
-    public function errorInfo(): array
-    {
-        return $this->connection->errorInfo();
-    }
-
-    /**
-     * Prevent cloning of Singleton
-     */
-    private function __clone() {}
-
-    /**
-     * Prevent unserializing of Singleton
-     */
-    public function __wakeup() {}
 }
-
-// ================================================================
-// انتهى الملف
-// ================================================================

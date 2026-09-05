@@ -1,1481 +1,629 @@
 /**
- * ============================================================
- * التطبيق الرئيسي - نظام المخازن v5.0
- * الملف: frontend/assets/js/app.js
- * الوصف: دوال مساعدة عامة للتطبيق - Toast، Modal، Formatter، إلخ
- * التاريخ: 2026-08-22
- * ============================================================
+ * ================================================================
+ * Logistox - التطبيق الرئيسي
+ * نظام إدارة المخازن والمخزون v5.0
+ * ================================================================
  */
 
-const App = {
-    /**
-     * ============================================================
-     * الإعدادات الأساسية
-     * ============================================================
-     */
-    
-    config: {
-        debug: false,
-        version: '5.0.0',
-        dateFormat: 'Y-m-d',
-        timeFormat: 'H:i:s',
-        currency: 'EGP',
-        currencySymbol: 'ج.م'
-    },
+// منع التكرار
+if (typeof window.initApp === 'undefined') {
 
-    /**
-     * ============================================================
-     * Toast Notifications
-     * ============================================================
-     */
-    
-    toast: {
-        show: function(message, type = 'info', duration = 3500) {
-            const existing = document.querySelector('.toast-custom');
-            if (existing) existing.remove();
+// ================================================================
+// تهيئة التطبيق
+// ================================================================
+function initApp() {
+    console.log('%c📊 Logistox v5.0', 'font-size:22px;font-weight:bold;color:#667eea;');
+    console.log('%c🏢 ' + window.APP_CONFIG.COMPANY.NAME, 'font-size:14px;color:#aaa;');
+    console.log('%c👨‍💻 Developed by ' + window.APP_CONFIG.DEVELOPER.NAME + ' (' + window.APP_CONFIG.DEVELOPER.ALIAS + ')', 'font-size:12px;color:#aaa;');
+    console.log('%c🔗 API URL: ' + window.APP_CONFIG.API.BASE_URL, 'font-size:12px;color:#667eea;');
+    console.log('%c🔐 حالة المصادقة: ' + (window.Auth.isAuthenticated() ? '✅ نشطة' : '❌ غير نشطة'), 'font-size:12px;color:' + (window.Auth.isAuthenticated() ? '#28a745' : '#dc3545') + ';');
 
-            const toast = document.createElement('div');
-            toast.className = `toast-custom ${type}`;
-            const icons = {
-                success: 'fa-check-circle',
-                error: 'fa-exclamation-circle',
-                warning: 'fa-exclamation-triangle',
-                info: 'fa-info-circle'
-            };
-            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
-            document.body.appendChild(toast);
+    // تهيئة الثيم
+    window.ThemeManager.init();
 
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.4s ease';
-                setTimeout(() => toast.remove(), 400);
-            }, duration);
-        },
-
-        success: function(message, duration = 3500) {
-            this.show(message, 'success', duration);
-        },
-
-        error: function(message, duration = 3500) {
-            this.show(message, 'error', duration);
-        },
-
-        warning: function(message, duration = 3500) {
-            this.show(message, 'warning', duration);
-        },
-
-        info: function(message, duration = 3500) {
-            this.show(message, 'info', duration);
-        }
-    },
-
-    /**
-     * ============================================================
-     * Modal
-     * ============================================================
-     */
-    
-    modal: {
-        open: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-        },
-
-        close: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.remove('show');
-                document.body.style.overflow = '';
-            }
-        },
-
-        toggle: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.toggle('show');
-                document.body.style.overflow = modal.classList.contains('show') ? 'hidden' : '';
-            }
-        }
-    },
-
-    /**
-     * ============================================================
-     * Formatter
-     * ============================================================
-     */
-    
-    format: {
-        /**
-         * تنسيق التاريخ
-         */
-        date: function(date, format = null) {
-            if (!date) return '-';
-            const d = new Date(date);
-            if (isNaN(d.getTime())) return '-';
-            
-            format = format || App.config.dateFormat;
-            
-            const map = {
-                'Y': d.getFullYear(),
-                'm': String(d.getMonth() + 1).padStart(2, '0'),
-                'd': String(d.getDate()).padStart(2, '0'),
-                'H': String(d.getHours()).padStart(2, '0'),
-                'i': String(d.getMinutes()).padStart(2, '0'),
-                's': String(d.getSeconds()).padStart(2, '0')
-            };
-            
-            let result = format;
-            for (const [key, value] of Object.entries(map)) {
-                result = result.replace(key, value);
-            }
-            return result;
-        },
-
-        /**
-         * تنسيق الوقت
-         */
-        time: function(date) {
-            return this.date(date, 'H:i:s');
-        },
-
-        /**
-         * تنسيق العملة
-         */
-        currency: function(amount, symbol = null) {
-            if (amount === null || amount === undefined) return '-';
-            symbol = symbol || App.config.currencySymbol;
-            return Number(amount).toLocaleString('ar-EG', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }) + ' ' + symbol;
-        },
-
-        /**
-         * تنسيق الرقم
-         */
-        number: function(number, decimals = 2) {
-            if (number === null || number === undefined) return '-';
-            return Number(number).toLocaleString('ar-EG', {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals
-            });
-        },
-
-        /**
-         * تنسيق الوقت المنقضي
-         */
-        timeAgo: function(date) {
-            if (!date) return '-';
-            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-            
-            if (diff < 60) return 'منذ لحظات';
-            if (diff < 3600) return 'منذ ' + Math.floor(diff / 60) + ' دقيقة';
-            if (diff < 86400) return 'منذ ' + Math.floor(diff / 3600) + ' ساعة';
-            if (diff < 604800) return 'منذ ' + Math.floor(diff / 86400) + ' يوم';
-            if (diff < 2592000) return 'منذ ' + Math.floor(diff / 604800) + ' أسبوع';
-            if (diff < 31536000) return 'منذ ' + Math.floor(diff / 2592000) + ' شهر';
-            return 'منذ ' + Math.floor(diff / 31536000) + ' سنة';
-        },
-
-        /**
-         * اختصار النص
-         */
-        truncate: function(text, length = 100, suffix = '...') {
-            if (!text) return '';
-            if (text.length <= length) return text;
-            return text.substring(0, length) + suffix;
-        },
-
-        /**
-         * تحويل النص إلى HTML آمن
-         */
-        escape: function(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        },
-
-        /**
-         * تحويل النص إلى Slug
-         */
-        slug: function(text) {
-            if (!text) return '';
-            return text
-                .toLowerCase()
-                .replace(/[^\w\s]/g, '')
-                .replace(/\s+/g, '-');
-        }
-    },
-
-    /**
-     * ============================================================
-     * Validation
-     * ============================================================
-     */
-    
-    validate: {
-        /**
-         * التحقق من البريد الإلكتروني
-         */
-        email: function(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        },
-
-        /**
-         * التحقق من رقم الهاتف
-         */
-        phone: function(phone) {
-            return /^[0-9+\-\s()]{7,20}$/.test(phone);
-        },
-
-        /**
-         * التحقق من رقم الهوية
-         */
-        id: function(id) {
-            return /^[0-9]{10,14}$/.test(id);
-        },
-
-        /**
-         * التحقق من كلمة المرور (8 أحرف، حرف كبير، حرف صغير، رقم، رمز خاص)
-         */
-        password: function(password) {
-            return password.length >= 8 &&
-                   /[A-Z]/.test(password) &&
-                   /[a-z]/.test(password) &&
-                   /[0-9]/.test(password) &&
-                   /[!@#$%^&*(),.?":{}|<>]/.test(password);
-        },
-
-        /**
-         * التحقق من التاريخ
-         */
-        date: function(date) {
-            const d = new Date(date);
-            return !isNaN(d.getTime());
-        },
-
-        /**
-         * التحقق من الرقم
-         */
-        number: function(value) {
-            return !isNaN(parseFloat(value)) && isFinite(value);
-        },
-
-        /**
-         * التحقق من الحقل الفارغ
-         */
-        required: function(value) {
-            if (value === null || value === undefined) return false;
-            if (typeof value === 'string') return value.trim() !== '';
-            if (Array.isArray(value)) return value.length > 0;
-            return true;
-        }
-    },
-
-    /**
-     * ============================================================
-     * DOM Helpers
-     * ============================================================
-     */
-    
-    dom: {
-        /**
-         * الحصول على عنصر
-         */
-        get: function(selector) {
-            return document.querySelector(selector);
-        },
-
-        /**
-         * الحصول على جميع العناصر
-         */
-        getAll: function(selector) {
-            return document.querySelectorAll(selector);
-        },
-
-        /**
-         * إضافة مستمع حدث
-         */
-        on: function(selector, event, callback) {
-            const elements = typeof selector === 'string' ? this.getAll(selector) : [selector];
-            elements.forEach(el => {
-                if (el) el.addEventListener(event, callback);
-            });
-        },
-
-        /**
-         * إظهار عنصر
-         */
-        show: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.style.display = '';
-        },
-
-        /**
-         * إخفاء عنصر
-         */
-        hide: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.style.display = 'none';
-        },
-
-        /**
-         * تبديل حالة العنصر
-         */
-        toggle: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) {
-                el.style.display = el.style.display === 'none' ? '' : 'none';
-            }
-        },
-
-        /**
-         * إضافة كلاس
-         */
-        addClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.add(className);
-        },
-
-        /**
-         * إزالة كلاس
-         */
-        removeClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.remove(className);
-        },
-
-        /**
-         * تبديل كلاس
-         */
-        toggleClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.toggle(className);
-        },
-
-        /**
-         * تعيين HTML
-         */
-        html: function(selector, content) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.innerHTML = content;
-        },
-
-        /**
-         * تعيين النص
-         */
-        text: function(selector, content) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.textContent = content;
-        },
-
-        /**
-         * تعيين القيمة
-         */
-        val: function(selector, value) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) {
-                if (value === undefined) return el.value;
-                el.value = value;
-            }
-        }
-    },
-
-    /**
-     * ============================================================
-     * Storage
-     * ============================================================
-     */
-    
-    storage: {
-        /**
-         * تخزين بيانات
-         */
-        set: function(key, value) {
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-            } catch (e) {
-                console.warn('Storage set error:', e);
-            }
-        },
-
-        /**
-         * جلب بيانات
-         */
-        get: function(key, defaultValue = null) {
-            try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : defaultValue;
-            } catch (e) {
-                return defaultValue;
-            }
-        },
-
-        /**
-         * حذف بيانات
-         */
-        remove: function(key) {
-            localStorage.removeItem(key);
-        },
-
-        /**
-         * مسح جميع البيانات
-         */
-        clear: function() {
-            localStorage.clear();
-        },
-
-        /**
-         * التحقق من وجود بيانات
-         */
-        has: function(key) {
-            return localStorage.getItem(key) !== null;
-        }
-    },
-
-    /**
-     * ============================================================
-     * URL Helpers
-     * ============================================================
-     */
-    
-    url: {
-        /**
-         * الحصول على معلمات URL
-         */
-        params: function() {
-            const params = new URLSearchParams(window.location.search);
-            const result = {};
-            for (const [key, value] of params) {
-                result[key] = value;
-            }
-            return result;
-        },
-
-        /**
-         * الحصول على معلمة محددة
-         */
-        param: function(key, defaultValue = null) {
-            const params = new URLSearchParams(window.location.search);
-            return params.get(key) || defaultValue;
-        },
-
-        /**
-         * إضافة معلمة إلى URL
-         */
-        addParam: function(key, value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set(key, value);
-            return url.toString();
-        },
-
-        /**
-         * إزالة معلمة من URL
-         */
-        removeParam: function(key) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete(key);
-            return url.toString();
-        }
-    },
-
-    /**
-     * ============================================================
-     * System Info
-     * ============================================================
-     */
-    
-    system: {
-        /**
-         * الحصول على معلومات النظام
-         */
-        info: function() {
-            return {
-                version: App.config.version,
-                platform: navigator.platform,
-                userAgent: navigator.userAgent,
-                language: navigator.language,
-                screen: {
-                    width: window.innerWidth,
-                    height: window.innerHeight
-                },
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                online: navigator.onLine
-            };
-        },
-
-        /**
-         * التحقق من الاتصال بالإنترنت
-         */
-        isOnline: function() {
-            return navigator.onLine;
-        },
-
-        /**
-         * إعادة تحميل الصفحة
-         */
-        reload: function() {
-            window.location.reload();
-        },
-
-        /**
-         * الانتقال إلى صفحة
-         */
-        redirect: function(url) {
-            window.location.href = url;
-        }
-    },
-
-    /**
-     * ============================================================
-     * عمليات المستخدم
-     * ============================================================
-     */
-    
-    user: {
-        /**
-         * الحصول على بيانات المستخدم
-         */
-        get: function() {
-            try {
-                return JSON.parse(localStorage.getItem('user'));
-            } catch {
-                return null;
-            }
-        },
-
-        /**
-         * التحقق من تسجيل الدخول
-         */
-        isLoggedIn: function() {
-            return !!localStorage.getItem('auth_token');
-        },
-
-        /**
-         * التحقق من الصلاحية
-         */
-        hasPermission: function(permission) {
-            const user = this.get();
-            if (!user) return false;
-            if (user.role === 'admin') return true;
-            return (user.permissions || []).includes(permission);
-        },
-
-        /**
-         * التحقق من الدور
-         */
-        hasRole: function(role) {
-            const user = this.get();
-            if (!user) return false;
-            return user.role === role;
-        },
-
-        /**
-         * تسجيل الخروج
-         */
-        logout: function() {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            window.location.href = '/frontend/pages/login.html';
-        }
-    },
-
-    /**
-     * ============================================================
-     * تهيئة التطبيق
-     * ============================================================
-     */
-    
-    init: function() {
-        console.log('%c🚀 تطبيق المخازن v' + this.config.version + ' جاهز', 'font-size:20px;font-weight:bold;color:#667eea;');
-        console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px;color:#aaa;');
-        console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px;color:#666;');
-        
-        // إضافة حدث للتحقق من الاتصال
-        window.addEventListener('online', function() {
-            App.toast.success('✅ تم استعادة الاتصال بالإنترنت');
-        });
-        window.addEventListener('offline', function() {
-            App.toast.error('❌ تم فقدان الاتصال بالإنترنت');
-        });
-
-        // إضافة حدث للرموز المغلقة تلقائياً
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.toast-custom .close')) {
-                const toast = e.target.closest('.toast-custom');
-                if (toast) {
-                    toast.style.opacity = '0';
-                    toast.style.transition = 'opacity 0.4s ease';
-                    setTimeout(() => toast.remove(), 400);
-                }
-            }
-        });
-
-        return this;
+    // التحقق من المصادقة
+    if (!window.Auth.checkAccess()) {
+        return;
     }
-};
 
-// تهيئة التطبيق تلقائياً
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', function() {
-        App.init();
-    });
-}
+    // تهيئة WebSocket
+    window.WebSocketManager.init();
 
-// تصدير App للاستخدام العالمي
-if (typeof window !== 'undefined') {
-    window.App = App;
+    // تحديث بيانات المستخدم
+    updateUserProfile();
+
+    // إعداد مستمعي الأحداث
+    setupEventListeners();
+
+    // إعداد الإشعارات
+    setupNotifications();
+
+    // إعداد البحث العام
+    setupGlobalSearch();
+
+    // إعداد اختصارات لوحة المفاتيح
+    setupKeyboardShortcuts();
+
+    // إعداد التحديث التلقائي
+    setupAutoRefresh();
+
+    // إعداد اللغة
+    setupLanguage();
+
+    // إعداد وضع النظام
+    setupSystemMode();
+
+    // إعداد النسخ الاحتياطي التلقائي
+    setupAutoBackup();
 }
 
 // ================================================================
-// انتهى الملف
+// تحديث ملف المستخدم
 // ================================================================
-/**
- * ============================================================
- * التطبيق الرئيسي - نظام المخازن v5.0
- * الملف: frontend/assets/js/app.js
- * الوصف: دوال مساعدة عامة مع نظام الثيم المتقدم والإشعارات
- * التاريخ: 2026-08-22
- * ============================================================
- */
-
-const App = {
-    // ============================================================
-    // الإعدادات الأساسية
-    // ============================================================
-    
-    config: {
-        debug: false,
-        version: '5.0.0',
-        dateFormat: 'Y-m-d',
-        timeFormat: 'H:i:s',
-        currency: 'EGP',
-        currencySymbol: 'ج.م',
-        apiBaseUrl: null
-    },
-
-    // ============================================================
-    // التهيئة
-    // ============================================================
-    
-    init: function() {
-        // تحديد مسار API
-        this.config.apiBaseUrl = this.getApiBaseUrl();
-        
-        // تهيئة الثيم
-        this.theme.init();
-        
-        // تهيئة الإشعارات
-        this.notifications.init();
-        
-        // إضافة مستمعي الأحداث العامة
-        this.bindEvents();
-        
-        console.log('%c🚀 تطبيق المخازن v' + this.config.version + ' جاهز', 'font-size:20px;font-weight:bold;color:#667eea;');
-        console.log('%c👨‍💻 المطور: عبد الرحمن خميس (burnMyWallet)', 'font-size:14px;color:#aaa;');
-        console.log('%c📧 abdelrahman.khamis@hotmail.com', 'font-size:12px;color:#666;');
-        console.log('%c🔗 API Base URL: ' + this.config.apiBaseUrl, 'font-size:12px;color:#28a745;');
-        
-        return this;
-    },
-
-    /**
-     * الحصول على مسار API الصحيح
-     */
-    getApiBaseUrl: function() {
-        const currentPath = window.location.pathname;
-        
-        if (currentPath.includes('/pages/')) {
-            return '../../api';
-        }
-        
-        if (currentPath.includes('/frontend/')) {
-            return '../api';
-        }
-        
-        if (currentPath.includes('/Stock-Movement/')) {
-            return '/Stock-Movement/api';
-        }
-        
-        return '/api';
-    },
-
-    /**
-     * ربط الأحداث العامة
-     */
-    bindEvents: function() {
-        // التحقق من الاتصال بالإنترنت
-        window.addEventListener('online', function() {
-            App.toast.success('✅ تم استعادة الاتصال بالإنترنت');
-        });
-        window.addEventListener('offline', function() {
-            App.toast.error('❌ تم فقدان الاتصال بالإنترنت');
-        });
-
-        // إغلاق الـ Toast عند النقر على زر الإغلاق
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.toast-custom .close')) {
-                const toast = e.target.closest('.toast-custom');
-                if (toast) {
-                    toast.style.opacity = '0';
-                    toast.style.transition = 'opacity 0.4s ease';
-                    setTimeout(() => toast.remove(), 400);
-                }
-            }
-        });
-
-        // إغلاق القوائم عند النقر خارجها
-        document.addEventListener('click', function(e) {
-            const sidebar = document.querySelector('.sidebar');
-            const toggle = document.querySelector('.sidebar-toggle');
-            if (sidebar && sidebar.classList.contains('open')) {
-                if (!sidebar.contains(e.target) && !toggle?.contains(e.target)) {
-                    sidebar.classList.remove('open');
-                }
-            }
-        });
-    },
-
-    // ============================================================
-    // نظام الثيم (Dark/Light Mode)
-    // ============================================================
-    
-    theme: {
-        current: 'dark',
-        initialized: false,
-
-        /**
-         * تهيئة الثيم
-         */
-        init: function() {
-            // محاولة جلب الثيم من localStorage أولاً
-            const savedTheme = localStorage.getItem('app_theme');
-            
-            if (savedTheme) {
-                this.current = savedTheme;
-                this.apply(savedTheme);
-                this.initialized = true;
-                return;
-            }
-
-            // إذا لم يكن محفوظاً، جلب من قاعدة البيانات
-            this.loadFromDatabase();
-        },
-
-        /**
-         * جلب الثيم من قاعدة البيانات
-         */
-        loadFromDatabase: async function() {
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (!token) {
-                    this.apply('dark');
-                    return;
-                }
-
-                const baseUrl = App.getApiBaseUrl();
-                const response = await fetch(baseUrl + '/users/theme', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const data = await response.json();
-
-                if (data.success && data.data && data.data.theme) {
-                    this.current = data.data.theme;
-                    this.apply(data.data.theme);
-                    localStorage.setItem('app_theme', data.data.theme);
-                } else {
-                    this.apply('dark');
-                }
-            } catch (error) {
-                console.warn('Could not load theme from database, using default:', error);
-                this.apply('dark');
-            }
-            this.initialized = true;
-        },
-
-        /**
-         * تطبيق الثيم
-         */
-        apply: function(theme) {
-            const root = document.documentElement;
-            
-            if (theme === 'light') {
-                root.style.setProperty('--bg-dark', '#f0f2f5');
-                root.style.setProperty('--bg-card', 'rgba(255,255,255,0.9)');
-                root.style.setProperty('--border-color', 'rgba(0,0,0,0.08)');
-                root.style.setProperty('--text-primary', '#1a2332');
-                root.style.setProperty('--text-secondary', 'rgba(0,0,0,0.6)');
-                root.style.setProperty('--text-muted', 'rgba(0,0,0,0.3)');
-                root.style.setProperty('--sidebar-bg', 'rgba(255,255,255,0.98)');
-                root.style.setProperty('--input-bg', 'rgba(0,0,0,0.04)');
-                root.style.setProperty('--shadow-color', 'rgba(0,0,0,0.1)');
-                
-                // تحديث أيقونة الثيم
-                const themeIcon = document.querySelector('#themeToggle i');
-                if (themeIcon) themeIcon.className = 'fas fa-sun';
-                
-                // إضافة كلاس للـ body
-                document.body.classList.add('light-mode');
-                document.body.classList.remove('dark-mode');
-            } else {
-                // Dark mode (default)
-                root.style.setProperty('--bg-dark', '#0a0e1a');
-                root.style.setProperty('--bg-card', 'rgba(255,255,255,0.03)');
-                root.style.setProperty('--border-color', 'rgba(255,255,255,0.05)');
-                root.style.setProperty('--text-primary', '#ffffff');
-                root.style.setProperty('--text-secondary', 'rgba(255,255,255,0.6)');
-                root.style.setProperty('--text-muted', 'rgba(255,255,255,0.3)');
-                root.style.setProperty('--sidebar-bg', 'rgba(10,14,26,0.97)');
-                root.style.setProperty('--input-bg', 'rgba(255,255,255,0.04)');
-                root.style.setProperty('--shadow-color', 'rgba(0,0,0,0.5)');
-                
-                const themeIcon = document.querySelector('#themeToggle i');
-                if (themeIcon) themeIcon.className = 'fas fa-moon';
-                
-                document.body.classList.add('dark-mode');
-                document.body.classList.remove('light-mode');
-            }
-
-            this.current = theme;
-            localStorage.setItem('app_theme', theme);
-        },
-
-        /**
-         * تبديل الثيم
-         */
-        toggle: async function() {
-            const newTheme = this.current === 'dark' ? 'light' : 'dark';
-            
-            // تطبيق الثيم محلياً
-            this.apply(newTheme);
-            
-            // حفظ في قاعدة البيانات
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (!token) {
-                    App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
-                    return;
-                }
-
-                const baseUrl = App.getApiBaseUrl();
-                const response = await fetch(baseUrl + '/users/theme', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: JSON.stringify({ theme: newTheme })
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    // تحديث بيانات المستخدم
-                    const user = API.getUser ? API.getUser() : null;
-                    if (user) {
-                        user.theme = newTheme;
-                        if (API.setUser) API.setUser(user);
-                    }
-                    App.toast.success('✅ تم تغيير الثيم إلى ' + (newTheme === 'dark' ? 'الداكن' : 'الفاتح'));
-                } else {
-                    App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
-                }
-            } catch (error) {
-                console.warn('Could not save theme to database:', error);
-                App.toast.warning('⚠️ تم تغيير الثيم محلياً فقط');
-            }
-        },
-
-        /**
-         * الحصول على الثيم الحالي
-         */
-        get: function() {
-            return this.current;
-        },
-
-        /**
-         * التحقق من الوضع الداكن
-         */
-        isDark: function() {
-            return this.current === 'dark';
-        },
-
-        /**
-         * التحقق من الوضع الفاتح
-         */
-        isLight: function() {
-            return this.current === 'light';
-        }
-    },
-
-    // ============================================================
-    // نظام الإشعارات (Notifications)
-    // ============================================================
-    
-    notifications: {
-        count: 0,
-        items: [],
-        initialized: false,
-
-        /**
-         * تهيئة الإشعارات
-         */
-        init: function() {
-            // جلب عدد الإشعارات غير المقروءة
-            this.fetchCount();
-            
-            // تحديث كل 60 ثانية
-            setInterval(() => this.fetchCount(), 60000);
-            
-            this.initialized = true;
-        },
-
-        /**
-         * جلب عدد الإشعارات غير المقروءة
-         */
-        fetchCount: async function() {
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (!token) return;
-
-                const baseUrl = App.getApiBaseUrl();
-                const response = await fetch(baseUrl + '/dashboard/notifications', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const data = await response.json();
-
-                if (data.success && data.data) {
-                    this.items = data.data;
-                    this.count = this.items.filter(n => !n.is_read).length;
-                    this.updateBadge();
-                }
-            } catch (error) {
-                console.warn('Could not fetch notifications:', error);
-            }
-        },
-
-        /**
-         * تحديث شارة الإشعارات
-         */
-        updateBadge: function() {
-            const badge = document.getElementById('notifCount');
-            const dot = document.querySelector('#notifBtn .dot');
-            
-            if (this.count > 0) {
-                if (badge) {
-                    badge.textContent = this.count;
-                    badge.style.display = 'flex';
-                }
-                if (dot) dot.style.display = 'block';
-            } else {
-                if (badge) badge.style.display = 'none';
-                if (dot) dot.style.display = 'none';
-            }
-        },
-
-        /**
-         * تعيين إشعار كمقروء
-         */
-        markAsRead: async function(id) {
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (!token) return;
-
-                const baseUrl = App.getApiBaseUrl();
-                const response = await fetch(baseUrl + '/dashboard/notifications/read', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: JSON.stringify({ notification_id: id })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    // تحديث محلياً
-                    const notif = this.items.find(n => n.id === id);
-                    if (notif) {
-                        notif.is_read = 1;
-                        this.count = Math.max(0, this.count - 1);
-                        this.updateBadge();
-                    }
-                    App.toast.success('✅ تم تعيين الإشعار كمقروء');
-                }
-            } catch (error) {
-                console.warn('Could not mark notification as read:', error);
-            }
-        },
-
-        /**
-         * تعيين جميع الإشعارات كمقروءة
-         */
-        markAllAsRead: async function() {
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (!token) return;
-
-                const baseUrl = App.getApiBaseUrl();
-                const response = await fetch(baseUrl + '/dashboard/notifications/read-all', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    this.items.forEach(n => n.is_read = 1);
-                    this.count = 0;
-                    this.updateBadge();
-                    App.toast.success('✅ تم تعيين جميع الإشعارات كمقروءة');
-                }
-            } catch (error) {
-                console.warn('Could not mark all as read:', error);
-            }
-        },
-
-        /**
-         * الحصول على الإشعارات
-         */
-        getItems: function() {
-            return this.items;
-        },
-
-        /**
-         * الحصول على عدد الإشعارات غير المقروءة
-         */
-        getCount: function() {
-            return this.count;
-        }
-    },
-
-    // ============================================================
-    // Toast Notifications
-    // ============================================================
-    
-    toast: {
-        show: function(message, type = 'info', duration = 3500) {
-            const existing = document.querySelector('.toast-custom');
-            if (existing) existing.remove();
-
-            const toast = document.createElement('div');
-            toast.className = `toast-custom ${type}`;
-            const icons = {
-                success: 'fa-check-circle',
-                error: 'fa-exclamation-circle',
-                warning: 'fa-exclamation-triangle',
-                info: 'fa-info-circle'
-            };
-            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
-            
-            // إضافة زر إغلاق
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'close';
-            closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-            closeBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:16px;margin-right:auto;padding:0 4px;';
-            toast.appendChild(closeBtn);
-            
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.4s ease';
-                setTimeout(() => toast.remove(), 400);
-            }, duration);
-        },
-
-        success: function(message, duration = 3500) {
-            this.show(message, 'success', duration);
-        },
-
-        error: function(message, duration = 3500) {
-            this.show(message, 'error', duration);
-        },
-
-        warning: function(message, duration = 3500) {
-            this.show(message, 'warning', duration);
-        },
-
-        info: function(message, duration = 3500) {
-            this.show(message, 'info', duration);
-        }
-    },
-
-    // ============================================================
-    // Modal
-    // ============================================================
-    
-    modal: {
-        open: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-        },
-
-        close: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.remove('show');
-                document.body.style.overflow = '';
-            }
-        },
-
-        toggle: function(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.toggle('show');
-                document.body.style.overflow = modal.classList.contains('show') ? 'hidden' : '';
-            }
-        }
-    },
-
-    // ============================================================
-    // Formatter
-    // ============================================================
-    
-    format: {
-        date: function(date, format = null) {
-            if (!date) return '-';
-            const d = new Date(date);
-            if (isNaN(d.getTime())) return '-';
-            
-            format = format || App.config.dateFormat;
-            
-            const map = {
-                'Y': d.getFullYear(),
-                'm': String(d.getMonth() + 1).padStart(2, '0'),
-                'd': String(d.getDate()).padStart(2, '0'),
-                'H': String(d.getHours()).padStart(2, '0'),
-                'i': String(d.getMinutes()).padStart(2, '0'),
-                's': String(d.getSeconds()).padStart(2, '0')
-            };
-            
-            let result = format;
-            for (const [key, value] of Object.entries(map)) {
-                result = result.replace(key, value);
-            }
-            return result;
-        },
-
-        time: function(date) {
-            return this.date(date, 'H:i:s');
-        },
-
-        currency: function(amount, symbol = null) {
-            if (amount === null || amount === undefined) return '-';
-            symbol = symbol || App.config.currencySymbol;
-            return Number(amount).toLocaleString('ar-EG', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }) + ' ' + symbol;
-        },
-
-        number: function(number, decimals = 2) {
-            if (number === null || number === undefined) return '-';
-            return Number(number).toLocaleString('ar-EG', {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals
-            });
-        },
-
-        timeAgo: function(date) {
-            if (!date) return '-';
-            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-            
-            if (diff < 60) return 'منذ لحظات';
-            if (diff < 3600) return 'منذ ' + Math.floor(diff / 60) + ' دقيقة';
-            if (diff < 86400) return 'منذ ' + Math.floor(diff / 3600) + ' ساعة';
-            if (diff < 604800) return 'منذ ' + Math.floor(diff / 86400) + ' يوم';
-            if (diff < 2592000) return 'منذ ' + Math.floor(diff / 604800) + ' أسبوع';
-            if (diff < 31536000) return 'منذ ' + Math.floor(diff / 2592000) + ' شهر';
-            return 'منذ ' + Math.floor(diff / 31536000) + ' سنة';
-        },
-
-        truncate: function(text, length = 100, suffix = '...') {
-            if (!text) return '';
-            if (text.length <= length) return text;
-            return text.substring(0, length) + suffix;
-        },
-
-        escape: function(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        },
-
-        slug: function(text) {
-            if (!text) return '';
-            return text
-                .toLowerCase()
-                .replace(/[^\w\s]/g, '')
-                .replace(/\s+/g, '-');
-        }
-    },
-
-    // ============================================================
-    // Validation
-    // ============================================================
-    
-    validate: {
-        email: function(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        },
-
-        phone: function(phone) {
-            return /^[0-9+\-\s()]{7,20}$/.test(phone);
-        },
-
-        id: function(id) {
-            return /^[0-9]{10,14}$/.test(id);
-        },
-
-        password: function(password) {
-            return password.length >= 8 &&
-                   /[A-Z]/.test(password) &&
-                   /[a-z]/.test(password) &&
-                   /[0-9]/.test(password) &&
-                   /[!@#$%^&*(),.?":{}|<>]/.test(password);
-        },
-
-        date: function(date) {
-            const d = new Date(date);
-            return !isNaN(d.getTime());
-        },
-
-        number: function(value) {
-            return !isNaN(parseFloat(value)) && isFinite(value);
-        },
-
-        required: function(value) {
-            if (value === null || value === undefined) return false;
-            if (typeof value === 'string') return value.trim() !== '';
-            if (Array.isArray(value)) return value.length > 0;
-            return true;
-        }
-    },
-
-    // ============================================================
-    // DOM Helpers
-    // ============================================================
-    
-    dom: {
-        get: function(selector) {
-            return document.querySelector(selector);
-        },
-
-        getAll: function(selector) {
-            return document.querySelectorAll(selector);
-        },
-
-        on: function(selector, event, callback) {
-            const elements = typeof selector === 'string' ? this.getAll(selector) : [selector];
-            elements.forEach(el => {
-                if (el) el.addEventListener(event, callback);
-            });
-        },
-
-        show: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.style.display = '';
-        },
-
-        hide: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.style.display = 'none';
-        },
-
-        toggle: function(selector) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) {
-                el.style.display = el.style.display === 'none' ? '' : 'none';
-            }
-        },
-
-        addClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.add(className);
-        },
-
-        removeClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.remove(className);
-        },
-
-        toggleClass: function(selector, className) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.classList.toggle(className);
-        },
-
-        html: function(selector, content) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.innerHTML = content;
-        },
-
-        text: function(selector, content) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) el.textContent = content;
-        },
-
-        val: function(selector, value) {
-            const el = typeof selector === 'string' ? this.get(selector) : selector;
-            if (el) {
-                if (value === undefined) return el.value;
-                el.value = value;
-            }
-        }
-    },
-
-    // ============================================================
-    // Storage
-    // ============================================================
-    
-    storage: {
-        set: function(key, value) {
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-            } catch (e) {
-                console.warn('Storage set error:', e);
-            }
-        },
-
-        get: function(key, defaultValue = null) {
-            try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : defaultValue;
-            } catch (e) {
-                return defaultValue;
-            }
-        },
-
-        remove: function(key) {
-            localStorage.removeItem(key);
-        },
-
-        clear: function() {
-            localStorage.clear();
-        },
-
-        has: function(key) {
-            return localStorage.getItem(key) !== null;
-        }
-    },
-
-    // ============================================================
-    // URL Helpers
-    // ============================================================
-    
-    url: {
-        params: function() {
-            const params = new URLSearchParams(window.location.search);
-            const result = {};
-            for (const [key, value] of params) {
-                result[key] = value;
-            }
-            return result;
-        },
-
-        param: function(key, defaultValue = null) {
-            const params = new URLSearchParams(window.location.search);
-            return params.get(key) || defaultValue;
-        },
-
-        addParam: function(key, value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set(key, value);
-            return url.toString();
-        },
-
-        removeParam: function(key) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete(key);
-            return url.toString();
-        },
-
-        redirect: function(url) {
-            window.location.href = url;
-        },
-
-        reload: function() {
-            window.location.reload();
-        }
-    },
-
-    // ============================================================
-    // System Info
-    // ============================================================
-    
-    system: {
-        info: function() {
-            return {
-                version: App.config.version,
-                platform: navigator.platform,
-                userAgent: navigator.userAgent,
-                language: navigator.language,
-                screen: {
-                    width: window.innerWidth,
-                    height: window.innerHeight
-                },
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                online: navigator.onLine
-            };
-        },
-
-        isOnline: function() {
-            return navigator.onLine;
-        }
-    },
-
-    // ============================================================
-    // عمليات المستخدم
-    // ============================================================
-    
-    user: {
-        get: function() {
-            try {
-                return JSON.parse(localStorage.getItem('user'));
-            } catch {
-                return null;
-            }
-        },
-
-        isLoggedIn: function() {
-            return !!localStorage.getItem('auth_token');
-        },
-
-        logout: function() {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('app_theme');
-            window.location.href = '/frontend/pages/login.html';
-        }
+function updateUserProfile() {
+    const user = window.Auth.getUser();
+    if (!user) return;
+
+    // تحديث اسم المستخدم
+    const userName = document.getElementById('userName');
+    if (userName) {
+        userName.textContent = user.full_name || user.username;
     }
-};
 
-// ============================================================
-// تهيئة التطبيق تلقائياً
-// ============================================================
+    // تحديث الدور
+    const userRole = document.getElementById('userRole');
+    if (userRole) {
+        userRole.textContent = user.role_display || user.role || 'مستخدم';
+    }
 
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', function() {
-        App.init();
+    // تحديث الصورة الرمزية
+    const avatar = document.getElementById('userAvatar');
+    if (avatar) {
+        avatar.textContent = (user.full_name || user.username || 'م').charAt(0);
+    }
+}
+
+// ================================================================
+// إعداد مستمعي الأحداث
+// ================================================================
+function setupEventListeners() {
+    // زر تسجيل الخروج
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                await window.Auth.logout();
+            }
+        });
+    }
+
+    // زر تحديث البيانات
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            window.showToast('🔄 جاري تحديث البيانات...', 'warning');
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        });
+    }
+
+    // زر الإشعارات
+    const notifBtn = document.getElementById('notifBtn');
+    if (notifBtn) {
+        notifBtn.addEventListener('click', () => {
+            window.location.href = '/inventory-system/frontend/pages/notifications.html';
+        });
+    }
+
+    // زر تبديل الثيم
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const theme = window.ThemeManager.toggleTheme();
+            window.showToast('🎨 تم التبديل إلى ' + theme.display_name, 'success');
+        });
+    }
+
+    // زر القائمة الجانبية
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('open');
+                sidebarToggle.querySelector('i').classList.toggle('fa-bars');
+                sidebarToggle.querySelector('i').classList.toggle('fa-times');
+            }
+        });
+    }
+
+    // مستمع لتغيير حجم النافذة
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 992) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.remove('open');
+            }
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.querySelector('i').classList.remove('fa-times');
+                sidebarToggle.querySelector('i').classList.add('fa-bars');
+            }
+        }
+    });
+
+    // مستمع لتغيير حالة الاتصال
+    window.addEventListener('online', () => {
+        window.showToast('✅ تم استعادة الاتصال بالإنترنت', 'success');
+        window.WebSocketManager.reconnect();
+    });
+
+    window.addEventListener('offline', () => {
+        window.showToast('⚠️ فقد الاتصال بالإنترنت', 'warning');
+        window.WebSocketManager.disconnect();
+    });
+
+    // مستمع لتغيير المصادقة
+    window.addEventListener('auth:login', () => {
+        window.WebSocketManager.connect();
+        updateUserProfile();
+    });
+
+    window.addEventListener('auth:logout', () => {
+        window.WebSocketManager.disconnect();
     });
 }
 
-// ============================================================
-// تصدير App للاستخدام العالمي
-// ============================================================
+// ================================================================
+// إعداد الإشعارات
+// ================================================================
+function setupNotifications() {
+    // التحقق من صلاحيات إشعارات المتصفح
+    if ('Notification' in window && window.APP_CONFIG.NOTIFICATIONS.BROWSER_ENABLED) {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                console.log('✅ إشعارات المتصفح مفعلة');
+            }
+        });
+    }
 
-if (typeof window !== 'undefined') {
-    window.App = App;
+    // تحديث عداد الإشعارات
+    updateNotificationsBadge();
+    
+    // تحديث دوري لعداد الإشعارات
+    setInterval(updateNotificationsBadge, 60000);
 }
 
-// ============================================================
-// انتهى الملف
-// ============================================================
+// ================================================================
+// تحديث عداد الإشعارات
+// ================================================================
+async function updateNotificationsBadge() {
+    try {
+        const notifications = await window.Api.getNotifications();
+        const unreadCount = notifications.filter(n => !n.is_read).length;
+        
+        const notifCount = document.getElementById('notifCount');
+        const notifDot = document.getElementById('notifDot');
+        
+        if (notifCount) {
+            if (unreadCount > 0) {
+                notifCount.textContent = unreadCount;
+                notifCount.classList.add('active');
+            } else {
+                notifCount.classList.remove('active');
+            }
+        }
+        
+        if (notifDot) {
+            notifDot.classList.toggle('active', unreadCount > 0);
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+// ================================================================
+// إعداد البحث العام
+// ================================================================
+function setupGlobalSearch() {
+    const searchInput = document.getElementById('globalSearch');
+    if (!searchInput) return;
+
+    let searchTimer = null;
+
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        
+        // إلغاء المؤقت السابق
+        clearTimeout(searchTimer);
+        
+        // تأخير البحث 300ms (debounce)
+        searchTimer = setTimeout(async () => {
+            if (query.length >= 2) {
+                await performGlobalSearch(query);
+            } else {
+                hideSearchResults();
+            }
+        }, 300);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            hideSearchResults();
+        }
+    });
+}
+
+// ================================================================
+// تنفيذ البحث العام
+// ================================================================
+async function performGlobalSearch(query) {
+    try {
+        const results = await window.Api.globalSearch(query);
+        
+        const searchResultsContainer = document.getElementById('searchResults');
+        if (searchResultsContainer) {
+            showSearchResults(results, searchResultsContainer);
+        }
+        
+        const currentPage = window.location.pathname.split('/').pop().replace('.html', '');
+        if (currentPage === 'products') {
+            window.loadProducts({ search: query });
+        } else if (currentPage === 'warehouses') {
+            window.loadWarehouses({ search: query });
+        } else if (currentPage === 'users') {
+            window.loadUsers({ search: query });
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+    }
+}
+
+// ================================================================
+// عرض نتائج البحث
+// ================================================================
+function showSearchResults(results, container) {
+    const html = results.map(result => `
+        <div class="search-result-item" onclick="window.location.href='${result.url}'">
+            <i class="fas ${result.icon}"></i>
+            <div>
+                <div class="result-title">${result.title}</div>
+                <div class="result-subtitle">${result.subtitle}</div>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = html;
+    container.classList.add('show');
+}
+
+// ================================================================
+// إخفاء نتائج البحث
+// ================================================================
+function hideSearchResults() {
+    const container = document.getElementById('searchResults');
+    if (container) {
+        container.classList.remove('show');
+        container.innerHTML = '';
+    }
+}
+
+// ================================================================
+// إعداد اختصارات لوحة المفاتيح
+// ================================================================
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl + K للبحث
+        if (e.ctrlKey && e.key === 'k') {
+            e.preventDefault();
+            const searchInput = document.getElementById('globalSearch');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+        
+        // Ctrl + R للتحديث
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.click();
+            }
+        }
+        
+        // Ctrl + T لتبديل الثيم
+        if (e.ctrlKey && e.key === 't') {
+            e.preventDefault();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.click();
+            }
+        }
+        
+        // Ctrl + L لتسجيل الخروج
+        if (e.ctrlKey && e.key === 'l') {
+            e.preventDefault();
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.click();
+            }
+        }
+        
+        // Esc لإغلاق أي مودال
+        if (e.key === 'Escape') {
+            const modals = document.querySelectorAll('.modal-overlay.show');
+            modals.forEach(modal => {
+                modal.classList.remove('show');
+            });
+        }
+    });
+}
+
+// ================================================================
+// إعداد التحديث التلقائي
+// ================================================================
+function setupAutoRefresh() {
+    // تحديث البيانات كل 60 ثانية
+    setInterval(async () => {
+        const currentPage = window.location.pathname.split('/').pop().replace('.html', '');
+        
+        try {
+            switch (currentPage) {
+                case 'dashboard':
+                    if (typeof window.loadDashboard === 'function') await window.loadDashboard();
+                    break;
+                case 'products':
+                    if (typeof window.loadProducts === 'function') await window.loadProducts();
+                    break;
+                case 'warehouses':
+                    if (typeof window.loadWarehouses === 'function') await window.loadWarehouses();
+                    break;
+                case 'users':
+                    if (typeof window.loadUsers === 'function') await window.loadUsers();
+                    break;
+                case 'receipts':
+                    if (typeof window.loadReceipts === 'function') await window.loadReceipts();
+                    break;
+                case 'issues':
+                    if (typeof window.loadIssues === 'function') await window.loadIssues();
+                    break;
+                case 'transfers':
+                    if (typeof window.loadTransfers === 'function') await window.loadTransfers();
+                    break;
+                case 'returns':
+                    if (typeof window.loadReturns === 'function') await window.loadReturns();
+                    break;
+                case 'stock-balances':
+                    if (typeof window.loadStockBalances === 'function') await window.loadStockBalances();
+                    break;
+                case 'stock-movements':
+                    if (typeof window.loadStockMovements === 'function') await window.loadStockMovements();
+                    break;
+                case 'notifications':
+                    if (typeof window.loadNotifications === 'function') await window.loadNotifications();
+                    break;
+            }
+        } catch (error) {
+            console.error('Auto refresh error:', error);
+        }
+    }, 60000);
+}
+
+// ================================================================
+// إعداد اللغة
+// ================================================================
+function setupLanguage() {
+    const savedLang = localStorage.getItem('app_language') || 'ar';
+    applyLanguage(savedLang);
+    
+    window.addEventListener('language:change', (e) => {
+        applyLanguage(e.detail);
+    });
+}
+
+// ================================================================
+// تطبيق اللغة
+// ================================================================
+function applyLanguage(lang) {
+    localStorage.setItem('app_language', lang);
+    
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+    
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        const translation = window.t(key);
+        if (translation) {
+            element.textContent = translation;
+        }
+    });
+    
+    const pageTitle = document.querySelector('.page-title h1');
+    if (pageTitle) {
+        const titleKey = pageTitle.getAttribute('data-i18n');
+        if (titleKey) {
+            pageTitle.textContent = window.t(titleKey);
+        }
+    }
+    
+    document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+        const key = item.getAttribute('data-i18n');
+        if (key) {
+            const textElement = item.querySelector('span');
+            if (textElement) {
+                textElement.textContent = window.t(key);
+            }
+        }
+    });
+    
+    window.dispatchEvent(new CustomEvent('language:applied', { detail: lang }));
+}
+
+// ================================================================
+// إعداد وضع النظام
+// ================================================================
+function setupSystemMode() {
+    const autoTheme = localStorage.getItem('auto_theme');
+    if (autoTheme === 'true') {
+        window.ThemeManager.initAutoTheme();
+    }
+    
+    setInterval(() => {
+        if (localStorage.getItem('auto_theme') === 'true') {
+            window.ThemeManager.initAutoTheme();
+        }
+    }, 300000);
+}
+
+// ================================================================
+// إعداد النسخ الاحتياطي التلقائي
+// ================================================================
+function setupAutoBackup() {
+    const autoBackup = localStorage.getItem('auto_backup') === 'true';
+    if (!autoBackup) return;
+    
+    const lastBackup = localStorage.getItem('last_backup');
+    const now = new Date();
+    
+    if (!lastBackup) {
+        createAutoBackup();
+        return;
+    }
+    
+    const lastBackupDate = new Date(lastBackup);
+    const daysSinceLastBackup = Math.floor((now - lastBackupDate) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceLastBackup >= 1) {
+        createAutoBackup();
+    }
+}
+
+// ================================================================
+// إنشاء نسخة احتياطية تلقائية
+// ================================================================
+async function createAutoBackup() {
+    try {
+        await window.Api.createBackup();
+        localStorage.setItem('last_backup', new Date().toISOString());
+        console.log('✅ تم إنشاء نسخة احتياطية تلقائية');
+    } catch (error) {
+        console.error('Auto backup error:', error);
+    }
+}
+
+// ================================================================
+// عرض بيانات المستخدم
+// ================================================================
+function showUserInfo() {
+    const user = window.Auth.getUser();
+    if (!user) return;
+    
+    const modalBody = document.getElementById('modalBody');
+    if (!modalBody) return;
+    
+    modalBody.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px;">
+            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:32px;color:white;margin:0 auto 15px;">
+                ${(user.full_name || user.username || 'م').charAt(0)}
+            </div>
+            <h3 style="color:var(--text-primary);margin-bottom:5px;">${user.full_name || 'مستخدم'}</h3>
+            <p style="color:var(--text-muted);font-size:13px;">@${user.username}</p>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;">
+            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">الدور</div>
+                <div style="color:var(--text-primary);font-weight:600;">${user.role_display || user.role || 'مستخدم'}</div>
+            </div>
+            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">البريد الإلكتروني</div>
+                <div style="color:var(--text-primary);font-weight:600;">${user.email || 'غير متوفر'}</div>
+            </div>
+            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">الهاتف</div>
+                <div style="color:var(--text-primary);font-weight:600;">${user.phone || 'غير متوفر'}</div>
+            </div>
+            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">المخزن</div>
+                <div style="color:var(--text-primary);font-weight:600;">${user.warehouse || 'الكل'}</div>
+            </div>
+        </div>
+        
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn btn-primary" onclick="window.location.href='${window.APP_CONFIG.PAGES.SETTINGS}'">
+                <i class="fas fa-cog"></i> الإعدادات
+            </button>
+            <button class="btn btn-secondary" onclick="closeModal()">
+                <i class="fas fa-times"></i> إغلاق
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('modalTitle').textContent = '👤 معلومات المستخدم';
+    document.getElementById('activityModal').classList.add('show');
+}
+
+// ================================================================
+// عرض الإعدادات السريعة
+// ================================================================
+function showQuickSettings() {
+    const modalBody = document.getElementById('modalBody');
+    if (!modalBody) return;
+    
+    modalBody.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.ThemeManager.toggleTheme()">
+                <i class="fas fa-palette" style="font-size:28px;color:var(--primary);margin-bottom:10px;"></i>
+                <div style="font-size:14px;font-weight:600;">تغيير الثيم</div>
+            </div>
+            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.SETTINGS}'">
+                <i class="fas fa-cog" style="font-size:28px;color:var(--success);margin-bottom:10px;"></i>
+                <div style="font-size:14px;font-weight:600;">الإعدادات</div>
+            </div>
+            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.REPORTS}'">
+                <i class="fas fa-chart-bar" style="font-size:28px;color:var(--warning);margin-bottom:10px;"></i>
+                <div style="font-size:14px;font-weight:600;">التقارير</div>
+            </div>
+            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.BACKUP}'">
+                <i class="fas fa-database" style="font-size:28px;color:var(--info);margin-bottom:10px;"></i>
+                <div style="font-size:14px;font-weight:600;">النسخ الاحتياطي</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('modalTitle').textContent = '⚡ إعدادات سريعة';
+    document.getElementById('activityModal').classList.add('show');
+}
+
+// ================================================================
+// إغلاق المودال
+// ================================================================
+function closeModal() {
+    document.getElementById('activityModal').classList.remove('show');
+}
+
+// ================================================================
+// تصدير الدوال العامة
+// ================================================================
+window.initApp = initApp;
+window.updateUserProfile = updateUserProfile;
+window.showUserInfo = showUserInfo;
+window.showQuickSettings = showQuickSettings;
+window.closeModal = closeModal;
+window.updateNotificationsBadge = updateNotificationsBadge;
+window.applyLanguage = applyLanguage;
+
+// ================================================================
+// تشغيل التطبيق عند تحميل الصفحة
+// ================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initApp === 'function') {
+        window.initApp();
+    }
+});
+
+} // نهاية منع التكرار

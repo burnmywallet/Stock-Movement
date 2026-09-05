@@ -1,0 +1,446 @@
+/* ================================================================
+   Logistox - أنماط صفحة الحركات المخزنية
+   نظام إدارة المخازن والمخزون v5.0
+   ================================================================ */
+
+/* ================================================================
+   ترويسة الصفحة
+   ================================================================ */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header .page-title h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header .page-title h1 i {
+    color: var(--primary);
+}
+
+.page-header .page-title p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 5px 0 0;
+}
+
+.page-header .page-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ================================================================
+   شريط الفلاتر
+   ================================================================ */
+.filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-bar .filter-group label {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.filters-bar .filter-group select,
+.filters-bar .filter-group input {
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.filters-bar .filter-group select:focus,
+.filters-bar .filter-group input:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 10px var(--input-focus-shadow);
+}
+
+/* ================================================================
+   جدول الحركات
+   ================================================================ */
+.movements-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+
+.movements-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.movements-table thead {
+    background: var(--table-header-bg);
+}
+
+.movements-table thead th {
+    padding: 14px 15px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.movements-table tbody tr {
+    transition: var(--transition);
+    border-bottom: 1px solid var(--border);
+}
+
+.movements-table tbody tr:hover {
+    background: var(--table-hover-bg);
+}
+
+.movements-table tbody td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.movements-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ================================================================
+   خلايا الحركات
+   ================================================================ */
+.movement-number-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.movement-number-cell .movement-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: rgba(var(--primary-rgb), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.movement-number-cell .movement-number {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.movement-number-cell .movement-date {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   أنواع الحركات
+   ================================================================ */
+.movement-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.movement-type-badge.RECEIPT {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+}
+
+.movement-type-badge.ISSUE {
+    background: rgba(var(--danger-rgb), 0.1);
+    color: var(--danger);
+}
+
+.movement-type-badge.TRANSFER_OUT {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.movement-type-badge.TRANSFER_IN {
+    background: rgba(var(--info-rgb), 0.1);
+    color: var(--info);
+}
+
+.movement-type-badge.RETURN_IN {
+    background: rgba(var(--secondary-rgb), 0.1);
+    color: var(--secondary);
+}
+
+.movement-type-badge.RETURN_OUT {
+    background: rgba(var(--secondary-rgb), 0.1);
+    color: var(--secondary);
+}
+
+.movement-type-badge.ADJUSTMENT {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+}
+
+.movement-type-badge.COUNT_CORRECTION {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+}
+
+.movement-type-badge.RESERVATION {
+    background: rgba(var(--warning-rgb), 0.1);
+    color: var(--warning);
+}
+
+.movement-type-badge.RELEASE {
+    background: rgba(var(--info-rgb), 0.1);
+    color: var(--info);
+}
+
+/* ================================================================
+   خلايا الكمية
+   ================================================================ */
+.quantity-cell {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+}
+
+.quantity-cell.positive {
+    color: var(--success);
+}
+
+.quantity-cell.negative {
+    color: var(--danger);
+}
+
+/* ================================================================
+   أزرار الإجراءات
+   ================================================================ */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.table-actions .btn-action {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-secondary);
+    transition: var(--transition);
+    font-size: 14px;
+}
+
+.table-actions .btn-action:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.table-actions .btn-action.view:hover {
+    border-color: var(--info);
+    color: var(--info);
+}
+
+.table-actions .btn-action.print:hover {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+/* ================================================================
+   تفاصيل الحركة
+   ================================================================ */
+.movement-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.movement-details .detail-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+}
+
+.movement-details .detail-group .detail-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.movement-details .detail-group .detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ================================================================
+   حالة فارغة
+   ================================================================ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 15px;
+    opacity: 0.3;
+}
+
+.empty-state h3 {
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* ================================================================
+   الترقيم
+   ================================================================ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 20px 0;
+}
+
+.pagination .page-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pagination .page-btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    border-color: var(--primary);
+}
+
+.pagination .page-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.pagination .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination .page-dots {
+    color: var(--text-muted);
+    padding: 0 5px;
+}
+
+/* ================================================================
+   استجابة
+   ================================================================ */
+@media (max-width: 992px) {
+    .filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters-bar .filter-group {
+        width: 100%;
+    }
+
+    .filters-bar .filter-group select,
+    .filters-bar .filter-group input {
+        flex: 1;
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .movements-table {
+        font-size: 13px;
+    }
+
+    .movements-table thead th,
+    .movements-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .movement-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ================================================================
+   نهاية الملف
+   ================================================================ */

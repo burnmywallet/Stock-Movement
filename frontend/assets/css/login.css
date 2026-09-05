@@ -1,0 +1,735 @@
+/* ================================================================
+   Logistox - أنماط صفحة تسجيل الدخول
+   نظام إدارة المخازن والمخزون v5.0
+   ================================================================ */
+
+/* ================================================================
+   إعدادات أساسية
+   ================================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body.login-page {
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    direction: rtl;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ================================================================
+   الخلفية
+   ================================================================ */
+.login-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+    overflow: hidden;
+}
+
+/* حبيبات متحركة */
+.login-bg::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(var(--primary-rgb), 0.3), transparent 70%);
+    border-radius: 50%;
+    top: -100px;
+    left: -100px;
+    animation: float 6s ease-in-out infinite;
+}
+
+.login-bg::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(var(--secondary-rgb), 0.3), transparent 70%);
+    border-radius: 50%;
+    bottom: -80px;
+    right: -80px;
+    animation: float 8s ease-in-out infinite reverse;
+}
+
+.login-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(rgba(var(--primary-rgb), 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--primary-rgb), 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-30px) scale(1.1);
+    }
+}
+
+/* ================================================================
+   حاوية تسجيل الدخول
+   ================================================================ */
+.login-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 480px;
+    margin: 20px;
+    padding: 50px 40px;
+    background: var(--card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    animation: fadeInUp 0.6s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ================================================================
+   الشعار والترويسة
+   ================================================================ */
+.login-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.login-logo {
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: #fff;
+    box-shadow: 0 10px 40px rgba(var(--primary-rgb), 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-logo::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+.login-header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.login-header h1 span {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.login-header p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* ================================================================
+   رسالة الخطأ
+   ================================================================ */
+.error-message {
+    background: rgba(var(--danger-rgb), 0.1);
+    border: 1px solid rgba(var(--danger-rgb), 0.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    display: none;
+    color: var(--danger);
+    font-size: 14px;
+    text-align: center;
+    animation: shake 0.3s ease;
+}
+
+.error-message.show {
+    display: block;
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+/* ================================================================
+   النماذج
+   ================================================================ */
+.form-group {
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.form-group .input-group {
+    position: relative;
+}
+
+.form-group .input-group i {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 16px;
+    transition: color 0.3s ease;
+    pointer-events: none;
+}
+
+.form-group .input-group:focus-within i {
+    color: var(--primary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 45px 14px 15px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 15px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+    border-color: var(--input-focus-border);
+    background: var(--bg-card-hover);
+    box-shadow: 0 0 20px var(--input-focus-shadow);
+}
+
+.form-group input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-group .password-toggle {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.3s ease;
+    z-index: 10;
+}
+
+.form-group .password-toggle:hover {
+    color: var(--primary);
+}
+
+/* ================================================================
+   مجموعة التحقق
+   ================================================================ */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+}
+
+.checkbox-group a {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.checkbox-group a:hover {
+    text-decoration: underline;
+    color: var(--primary-light);
+}
+
+/* ================================================================
+   زر تسجيل الدخول
+   ================================================================ */
+.btn-login {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Tajawal', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-login::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.btn-login:hover::before {
+    left: 100%;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(var(--primary-rgb), 0.4);
+}
+
+.btn-login:active {
+    transform: translateY(0);
+}
+
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-login i {
+    margin-left: 8px;
+}
+
+/* ================================================================
+   مؤشر التحميل
+   ================================================================ */
+.loading-spinner {
+    display: none;
+    text-align: center;
+    margin-top: 15px;
+}
+
+.loading-spinner.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.loading-spinner i {
+    font-size: 24px;
+    color: var(--primary);
+}
+
+.loading-spinner p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ================================================================
+   تذييل تسجيل الدخول
+   ================================================================ */
+.login-footer {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.login-footer p {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.login-footer .developer {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.login-footer .developer i {
+    color: var(--primary);
+    margin-left: 5px;
+}
+
+.login-footer .developer strong {
+    color: var(--primary);
+}
+
+/* ================================================================
+   وضع الاستعادة (نسيت كلمة المرور)
+   ================================================================ */
+.recovery-step {
+    display: none;
+}
+
+.recovery-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.recovery-title {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.recovery-title i {
+    font-size: 48px;
+    color: var(--primary);
+    margin-bottom: 15px;
+}
+
+.recovery-title h3 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.recovery-title p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.security-question {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.security-question label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.security-question input {
+    width: 100%;
+    padding: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.security-question input:focus {
+    border-color: var(--input-focus-border);
+}
+
+/* ================================================================
+   وضع تغيير كلمة المرور
+   ================================================================ */
+.password-strength {
+    margin-top: 8px;
+    display: flex;
+    gap: 4px;
+}
+
+.password-strength .strength-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--border);
+    transition: all 0.3s ease;
+}
+
+.password-strength .strength-bar.weak {
+    background: var(--danger);
+}
+
+.password-strength .strength-bar.medium {
+    background: var(--warning);
+}
+
+.password-strength .strength-bar.strong {
+    background: var(--success);
+}
+
+.password-strength-text {
+    font-size: 12px;
+    margin-top: 5px;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   إشعارات التوست
+   ================================================================ */
+.toast-custom {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    padding: 14px 24px;
+    border-radius: var(--radius-sm);
+    background: var(--toast-bg);
+    border: 1px solid var(--toast-border);
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--toast-shadow);
+    z-index: 9999;
+    animation: slideUp 0.4s ease;
+    max-width: 90%;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toast-custom.success {
+    border-color: var(--success);
+}
+
+.toast-custom.success i {
+    color: var(--success);
+}
+
+.toast-custom.error {
+    border-color: var(--danger);
+}
+
+.toast-custom.error i {
+    color: var(--danger);
+}
+
+.toast-custom.warning {
+    border-color: var(--warning);
+}
+
+.toast-custom.warning i {
+    color: var(--warning);
+}
+
+.toast-custom.info {
+    border-color: var(--primary);
+}
+
+.toast-custom.info i {
+    color: var(--primary);
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ================================================================
+   تأثيرات إضافية
+   ================================================================ */
+.input-icon {
+    pointer-events: none;
+}
+
+.hint-text {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 25px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.social-login {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.social-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.social-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* ================================================================
+   استجابة الشاشات
+   ================================================================ */
+@media (max-width: 576px) {
+    .login-container {
+        padding: 30px 20px;
+        margin: 15px;
+    }
+
+    .login-header h1 {
+        font-size: 24px;
+    }
+
+    .login-logo {
+        width: 70px;
+        height: 70px;
+        font-size: 32px;
+    }
+
+    .form-group input {
+        padding: 12px 40px 12px 12px;
+        font-size: 14px;
+    }
+
+    .btn-login {
+        padding: 12px;
+        font-size: 15px;
+    }
+
+    .checkbox-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .social-login {
+        gap: 8px;
+    }
+}
+
+@media (max-width: 400px) {
+    .login-container {
+        padding: 20px;
+    }
+
+    .login-logo {
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
+    }
+}
+
+/* ================================================================
+   تأثيرات حركية
+   ================================================================ */
+.pulse-animation {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(0.97);
+    }
+}
+
+/* ================================================================
+   نهاية الملف
+   ================================================================ */

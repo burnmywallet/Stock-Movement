@@ -1,0 +1,876 @@
+-- ================================================================
+-- Logistox / Stock-Movement
+-- قاعدة البيانات النهائية الكاملة - Production Schema v5.1
+-- نظام إدارة المخازن والمخزون
+-- ================================================================
+-- ملاحظات التصميم:
+-- 1. لا Triggers - كل تحديث الرصيد يتم عبر Transaction في PHP.
+-- 2. stock_movements هو المصدر الوحيد للحقيقة (Ledger).
+-- 3. stock_balances هو Cache للرصيد الحالي السريع.
+-- 4. استخدام unit_cost بدلاً من unit_price (نظام مخازن).
+-- 5. warehouse_branches محذوفة (الاعتماد على warehouses.parent_id).
+-- 6. إدارة تعدد الأجهزة تتم عبر PHP Logic وليس DB Constraint.
+-- 7. إزالة current_capacity لتجنب عدم التزامن.
+-- ================================================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET NAMES utf8mb4;
+
+DROP DATABASE IF EXISTS inventory_system;
+CREATE DATABASE inventory_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE inventory_system;
+
+-- ================================================================
+-- 1. جدول الأدوار
+-- ================================================================
+CREATE TABLE roles (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT NULL,
+    is_system TINYINT(1) DEFAULT 0 COMMENT 'لا يمكن حذف الأدوار النظامية',
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    INDEX idx_name (name),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 2. جدول الصلاحيات
+-- ================================================================
+CREATE TABLE permissions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT NULL,
+    module VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_name (name),
+    INDEX idx_module (module)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 3. جدول صلاحيات الأدوار
+-- ================================================================
+CREATE TABLE role_permissions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role_id INT UNSIGNED NOT NULL,
+    permission_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_role_permission (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
+    INDEX idx_role (role_id),
+    INDEX idx_permission (permission_id)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 4. جدول المخازن (بدون current_capacity لتجنب الـ Desync)
+-- ================================================================
+CREATE TABLE warehouses (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    type ENUM('main', 'sub', 'cold', 'freezer') DEFAULT 'main',
+    parent_id INT UNSIGNED NULL COMMENT 'المخزن الرئيسي (للهرمية)',
+    location VARCHAR(255) NULL,
+    address TEXT NULL,
+    manager_id INT UNSIGNED NULL,
+    capacity DECIMAL(15,3) NULL COMMENT 'السعة القصوى',
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    FOREIGN KEY (parent_id) REFERENCES warehouses(id) ON DELETE SET NULL,
+    INDEX idx_code (code),
+    INDEX idx_parent (parent_id),
+    INDEX idx_type (type),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 5. جدول الموردين
+-- ================================================================
+CREATE TABLE suppliers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    contact_person VARCHAR(100) NULL,
+    phone VARCHAR(20) NULL,
+    mobile VARCHAR(20) NULL,
+    email VARCHAR(100) NULL,
+    address TEXT NULL,
+    tax_number VARCHAR(50) NULL,
+    commercial_register VARCHAR(50) NULL,
+    notes TEXT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    INDEX idx_code (code),
+    INDEX idx_name (name),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 6. جدول الجهات المستلمة
+-- ================================================================
+CREATE TABLE recipients (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    type ENUM('department', 'employee', 'external', 'project') DEFAULT 'department',
+    contact_person VARCHAR(100) NULL,
+    phone VARCHAR(20) NULL,
+    email VARCHAR(100) NULL,
+    address TEXT NULL,
+    notes TEXT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    INDEX idx_code (code),
+    INDEX idx_name (name),
+    INDEX idx_type (type),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 7. جدول المستخدمين
+-- ================================================================
+CREATE TABLE users (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NULL UNIQUE,
+    phone VARCHAR(20) NULL UNIQUE,
+    role_id INT UNSIGNED NOT NULL,
+    warehouse_id INT UNSIGNED NULL COMMENT 'المخزن المسؤول عنه',
+    avatar VARCHAR(255) NULL DEFAULT 'avatar-default.png',
+    is_active TINYINT(1) DEFAULT 1,
+    is_locked TINYINT(1) DEFAULT 0,
+    locked_until TIMESTAMP NULL,
+    failed_login_attempts INT DEFAULT 0,
+    last_login_at TIMESTAMP NULL,
+    last_login_ip VARCHAR(45) NULL,
+    remember_token VARCHAR(255) NULL,
+    email_verified_at TIMESTAMP NULL,
+    security_question_1 VARCHAR(255) NULL,
+    security_answer_1_hash VARCHAR(255) NULL, -- تم التغيير إلى hash للأمان
+    security_question_2 VARCHAR(255) NULL,
+    security_answer_2_hash VARCHAR(255) NULL,
+    security_question_3 VARCHAR(255) NULL,
+    security_answer_3_hash VARCHAR(255) NULL,
+    language VARCHAR(10) DEFAULT 'ar',
+    theme VARCHAR(20) DEFAULT 'dark',
+    must_change_password TINYINT(1) DEFAULT 1,
+    allow_multiple_devices TINYINT(1) DEFAULT 1 COMMENT 'يتحكم فيه PHP، ليس DB Constraint',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL,
+    INDEX idx_username (username),
+    INDEX idx_role (role_id),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 8. جدول جلسات المستخدمين (تم إزالة الـ Unique Constraint الإجباري)
+-- ================================================================
+CREATE TABLE user_sessions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    device_id VARCHAR(128) NULL COMMENT 'معرف الجهاز الفريد',
+    device_name VARCHAR(100) NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    last_activity_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP NULL,
+    revoked_reason VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_token (token),
+    INDEX idx_user (user_id),
+    INDEX idx_user_active (user_id, is_active), -- للأداء عند البحث عن الجلسات النشطة
+    INDEX idx_expires_active (expires_at, is_active),
+    INDEX idx_device (device_id),
+    INDEX idx_last_activity (last_activity_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 9. جدول سجل الدخول
+-- ================================================================
+CREATE TABLE login_history (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NULL,
+    username VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    device_id VARCHAR(128) NULL,
+    is_success TINYINT(1) DEFAULT 0,
+    failure_reason VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_username (username),
+    INDEX idx_user (user_id),
+    INDEX idx_success (is_success),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 10. جدول التصنيفات
+-- ================================================================
+CREATE TABLE categories (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NULL UNIQUE,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT NULL,
+    parent_id INT UNSIGNED NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_code (code),
+    INDEX idx_name (name),
+    INDEX idx_parent (parent_id),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 11. جدول الوحدات
+-- ================================================================
+CREATE TABLE units (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NULL UNIQUE,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    symbol VARCHAR(10) NOT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    INDEX idx_code (code),
+    INDEX idx_name (name),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 12. جدول المنتجات
+-- ================================================================
+CREATE TABLE products (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    barcode VARCHAR(100) NULL UNIQUE,
+    sku VARCHAR(50) NULL,
+    name VARCHAR(200) NOT NULL,
+    description TEXT NULL,
+    category_id INT UNSIGNED NULL,
+    unit_id INT UNSIGNED NULL,
+    min_stock DECIMAL(15,3) DEFAULT 0 COMMENT 'الحد الأدنى (تنبيه)',
+    reorder_point DECIMAL(15,3) DEFAULT 0 COMMENT 'نقطة إعادة الطلب',
+    max_stock DECIMAL(15,3) NULL COMMENT 'الحد الأقصى',
+    cost_price DECIMAL(15,3) NULL COMMENT 'سعر التكلفة (للتقييم والتقارير فقط)',
+    barcode_type ENUM('EAN13', 'QR_CODE', 'CODE128') DEFAULT 'EAN13',
+    is_barcode_enabled TINYINT(1) DEFAULT 1,
+    is_sku_enabled TINYINT(1) DEFAULT 1,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL,
+    INDEX idx_code (code),
+    INDEX idx_barcode (barcode),
+    INDEX idx_name (name),
+    INDEX idx_category (category_id),
+    INDEX idx_unit (unit_id),
+    INDEX idx_active (is_active),
+    INDEX idx_min_stock (min_stock)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 13. جدول أرصدة المخازن (Cache)
+-- ================================================================
+CREATE TABLE stock_balances (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id INT UNSIGNED NOT NULL,
+    warehouse_id INT UNSIGNED NOT NULL,
+    quantity DECIMAL(15,3) DEFAULT 0,
+    reserved_quantity DECIMAL(15,3) DEFAULT 0,
+    available_quantity DECIMAL(15,3) GENERATED ALWAYS AS (quantity - reserved_quantity) STORED,
+    last_movement_id INT UNSIGNED NULL,
+    last_movement_date TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_product_warehouse (product_id, warehouse_id),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE,
+    INDEX idx_product (product_id),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_quantity (quantity),
+    INDEX idx_available (available_quantity)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 14. جدول حركات المخزون (Ledger)
+-- ================================================================
+CREATE TABLE stock_movements (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    movement_number VARCHAR(50) NOT NULL UNIQUE,
+    product_id INT UNSIGNED NOT NULL,
+    warehouse_id INT UNSIGNED NOT NULL COMMENT 'المخزن الذي حدثت فيه الحركة',
+    from_warehouse_id INT UNSIGNED NULL,
+    to_warehouse_id INT UNSIGNED NULL,
+    movement_type ENUM(
+        'RECEIPT', 'ISSUE', 
+        'TRANSFER_OUT', 'TRANSFER_IN', 
+        'RETURN_IN', 'RETURN_OUT', 
+        'ADJUSTMENT', 'COUNT_CORRECTION', 
+        'RESERVATION', 'RELEASE'
+    ) NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit_cost DECIMAL(15,3) NULL,
+    total_cost DECIMAL(15,3) NULL,
+    balance_before DECIMAL(15,3) DEFAULT 0,
+    balance_after DECIMAL(15,3) DEFAULT 0,
+    reserved_before DECIMAL(15,3) DEFAULT 0,
+    reserved_after DECIMAL(15,3) DEFAULT 0,
+    reference_type VARCHAR(50) NULL COMMENT 'receipt, issue, transfer, return, count',
+    reference_id INT UNSIGNED NULL,
+    batch_number VARCHAR(100) NULL,
+    expiry_date DATE NULL,
+    notes TEXT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    movement_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (from_warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (to_warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_movement_number (movement_number),
+    INDEX idx_product (product_id),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_type (movement_type),
+    INDEX idx_reference (reference_type, reference_id),
+    INDEX idx_user (user_id),
+    INDEX idx_movement_date (movement_date),
+    INDEX idx_product_warehouse_date (product_id, warehouse_id, movement_date),
+    INDEX idx_warehouse_date (warehouse_id, movement_date)
+) ENGINE=InnoDB;
+
+-- ربط last_movement_id بعد إنشاء stock_movements
+ALTER TABLE stock_balances
+    ADD FOREIGN KEY (last_movement_id) REFERENCES stock_movements(id) ON DELETE SET NULL;
+
+-- ================================================================
+-- 15. جدول إذونات الاستلام
+-- ================================================================
+CREATE TABLE receipts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    receipt_number VARCHAR(50) NOT NULL UNIQUE,
+    warehouse_id INT UNSIGNED NOT NULL,
+    supplier_id INT UNSIGNED NULL,
+    supplier_name VARCHAR(200) NULL COMMENT 'للاحتفاظ بالاسم تاريخياً',
+    supplier_invoice VARCHAR(100) NULL,
+    total_items INT DEFAULT 0,
+    total_quantity DECIMAL(15,3) DEFAULT 0,
+    total_cost DECIMAL(15,3) DEFAULT 0,
+    notes TEXT NULL,
+    status ENUM('pending', 'approved', 'completed', 'cancelled') DEFAULT 'pending',
+    approved_by INT UNSIGNED NULL,
+    approved_at TIMESTAMP NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_receipt_number (receipt_number),
+    INDEX idx_status (status),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_supplier (supplier_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 16. جدول بنود إذونات الاستلام
+-- ================================================================
+CREATE TABLE receipt_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    receipt_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit_cost DECIMAL(15,3) NULL,
+    total_cost DECIMAL(15,3) NULL,
+    batch_number VARCHAR(100) NULL,
+    expiry_date DATE NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (receipt_id) REFERENCES receipts(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_receipt (receipt_id),
+    INDEX idx_product (product_id)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 17. جدول إذونات الصرف
+-- ================================================================
+CREATE TABLE issues (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    issue_number VARCHAR(50) NOT NULL UNIQUE,
+    warehouse_id INT UNSIGNED NOT NULL,
+    recipient_id INT UNSIGNED NULL,
+    department_name VARCHAR(200) NULL,
+    request_number VARCHAR(100) NULL,
+    total_items INT DEFAULT 0,
+    total_quantity DECIMAL(15,3) DEFAULT 0,
+    total_cost DECIMAL(15,3) DEFAULT 0,
+    notes TEXT NULL,
+    status ENUM('pending', 'approved', 'completed', 'cancelled') DEFAULT 'pending',
+    approved_by INT UNSIGNED NULL,
+    approved_at TIMESTAMP NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (recipient_id) REFERENCES recipients(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_issue_number (issue_number),
+    INDEX idx_status (status),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_recipient (recipient_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 18. جدول بنود إذونات الصرف
+-- ================================================================
+CREATE TABLE issue_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    issue_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit_cost DECIMAL(15,3) NULL,
+    total_cost DECIMAL(15,3) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_issue (issue_id),
+    INDEX idx_product (product_id)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 19. جدول التحويلات
+-- ================================================================
+CREATE TABLE transfers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    transfer_number VARCHAR(50) NOT NULL UNIQUE,
+    from_warehouse_id INT UNSIGNED NOT NULL,
+    to_warehouse_id INT UNSIGNED NOT NULL,
+    transfer_reason TEXT NULL,
+    total_items INT DEFAULT 0,
+    total_quantity DECIMAL(15,3) DEFAULT 0,
+    total_cost DECIMAL(15,3) DEFAULT 0,
+    notes TEXT NULL,
+    status ENUM('pending', 'approved', 'completed', 'cancelled') DEFAULT 'pending',
+    approved_by INT UNSIGNED NULL,
+    approved_at TIMESTAMP NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (from_warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (to_warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_transfer_number (transfer_number),
+    INDEX idx_status (status),
+    INDEX idx_from_warehouse (from_warehouse_id),
+    INDEX idx_to_warehouse (to_warehouse_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 20. جدول بنود التحويلات
+-- ================================================================
+CREATE TABLE transfer_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    transfer_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit_cost DECIMAL(15,3) NULL,
+    total_cost DECIMAL(15,3) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transfer_id) REFERENCES transfers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_transfer (transfer_id),
+    INDEX idx_product (product_id)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 21. جدول المرتجعات
+-- ================================================================
+CREATE TABLE returns (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    return_number VARCHAR(50) NOT NULL UNIQUE,
+    return_type ENUM('IN', 'OUT') NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    warehouse_id INT UNSIGNED NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit_cost DECIMAL(15,3) NULL,
+    total_cost DECIMAL(15,3) NULL,
+    reason TEXT NULL,
+    reference_type VARCHAR(50) NULL,
+    reference_id INT UNSIGNED NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_return_number (return_number),
+    INDEX idx_return_type (return_type),
+    INDEX idx_product (product_id),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 22. جدول الجرد
+-- ================================================================
+CREATE TABLE inventory_counts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    count_number VARCHAR(50) NOT NULL UNIQUE,
+    warehouse_id INT UNSIGNED NOT NULL,
+    count_date DATE NOT NULL,
+    status ENUM('draft', 'in_progress', 'completed', 'approved', 'cancelled') DEFAULT 'draft',
+    started_by INT UNSIGNED NOT NULL,
+    approved_by INT UNSIGNED NULL,
+    approved_at TIMESTAMP NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+    FOREIGN KEY (started_by) REFERENCES users(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_count_number (count_number),
+    INDEX idx_warehouse (warehouse_id),
+    INDEX idx_status (status),
+    INDEX idx_count_date (count_date)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 23. جدول بنود الجرد
+-- ================================================================
+CREATE TABLE inventory_count_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    inventory_count_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    system_quantity DECIMAL(15,3) NOT NULL,
+    counted_quantity DECIMAL(15,3) NOT NULL,
+    difference_quantity DECIMAL(15,3) GENERATED ALWAYS AS (counted_quantity - system_quantity) STORED,
+    unit_cost DECIMAL(15,3) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (inventory_count_id) REFERENCES inventory_counts(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_count (inventory_count_id),
+    INDEX idx_product (product_id),
+    UNIQUE KEY unique_count_product (inventory_count_id, product_id)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 24. جدول الإشعارات
+-- ================================================================
+CREATE TABLE notifications (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NULL,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    type ENUM('info', 'success', 'warning', 'error', 'low_stock', 'critical_stock') DEFAULT 'info',
+    module VARCHAR(50) NULL,
+    reference_type VARCHAR(50) NULL,
+    reference_id INT UNSIGNED NULL,
+    is_read TINYINT(1) DEFAULT 0,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_is_read (is_read),
+    INDEX idx_type (type),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 25. جدول سجل التدقيق
+-- ================================================================
+CREATE TABLE audit_logs (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NULL,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50) NULL,
+    entity_id INT UNSIGNED NULL,
+    old_values JSON NULL,
+    new_values JSON NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    description TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user (user_id),
+    INDEX idx_action (action),
+    INDEX idx_entity (entity_type, entity_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 26. جدول الإعدادات
+-- ================================================================
+CREATE TABLE settings (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `key` VARCHAR(100) NOT NULL UNIQUE,
+    `value` TEXT NULL,
+    type ENUM('text', 'number', 'boolean', 'json', 'email') DEFAULT 'text',
+    description TEXT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_key (`key`)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 27. جدول الثيمات
+-- ================================================================
+CREATE TABLE themes (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    display_name VARCHAR(50) NOT NULL,
+    icon VARCHAR(50) NULL,
+    colors JSON NULL,
+    is_default TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_name (name)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- 28. جدول النسخ الاحتياطي
+-- ================================================================
+CREATE TABLE backups (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    file_size BIGINT DEFAULT 0,
+    type ENUM('manual', 'auto') DEFAULT 'manual',
+    status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+    created_by INT UNSIGNED NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_filename (filename),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ================================================================
+-- إصلاح التبعية الدائرية (Circular Dependency)
+-- ================================================================
+-- نربط manager_id في warehouses بـ users.id الآن بعد إنشاء الجدولين
+ALTER TABLE warehouses 
+    ADD FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
+    ADD INDEX idx_manager (manager_id);
+
+-- ربط حقول التتبع (Audit Ownership)
+ALTER TABLE warehouses ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE suppliers ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE recipients ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE categories ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE units ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL, ADD FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+
+-- ================================================================
+-- SEED DATA - البيانات الأولية
+-- ================================================================
+-- (تم الاحتفاظ بنفس بيانات Seed السابقة للأدوار، الصلاحيات، المستخدم admin، المخازن، التصنيفات، الوحدات، الإعدادات، والثيمات)
+-- ملاحظة: تم تغيير security_answer_1 إلى security_answer_1_hash في جدول users، لذا يجب أن تكون البيانات المدخلة هنا عبارة عن Hashes لكلمات المرور.
+-- للتبسيط في هذا السكربت، سأستخدم نفس الـ Hash الافتراضي كمثال، لكن في التطبيق الحقيقي يجب Hashing الإجابات.
+
+INSERT INTO roles (name, display_name, description, is_system) VALUES
+('admin', 'مدير النظام', 'صلاحيات كاملة على النظام', 1),
+('manager', 'مدير المخازن', 'إدارة المخازن والأصناف والحركات', 1),
+('supervisor', 'مشرف مخزن', 'الإشراف على العمليات اليومية', 1),
+('staff', 'موظف مخزن', 'تنفيذ العمليات الأساسية', 1),
+('viewer', 'مشاهدة فقط', 'عرض البيانات بدون تعديل', 1),
+('auditor', 'مدقق', 'مراجعة وتدقيق العمليات', 1);
+
+INSERT INTO permissions (name, display_name, description, module) VALUES
+('products.view', 'عرض الأصناف', 'عرض قائمة الأصناف', 'products'),
+('products.create', 'إضافة صنف', 'إضافة صنف جديد', 'products'),
+('products.update', 'تعديل صنف', 'تعديل بيانات صنف', 'products'),
+('products.delete', 'حذف صنف', 'حذف صنف', 'products'),
+('warehouses.view', 'عرض المخازن', 'عرض قائمة المخازن', 'warehouses'),
+('warehouses.create', 'إضافة مخزن', 'إضافة مخزن جديد', 'warehouses'),
+('warehouses.update', 'تعديل مخزن', 'تعديل بيانات مخزن', 'warehouses'),
+('warehouses.delete', 'حذف مخزن', 'حذف مخزن', 'warehouses'),
+('users.view', 'عرض المستخدمين', 'عرض قائمة المستخدمين', 'users'),
+('users.create', 'إضافة مستخدم', 'إضافة مستخدم جديد', 'users'),
+('users.update', 'تعديل مستخدم', 'تعديل بيانات مستخدم', 'users'),
+('users.delete', 'حذف مستخدم', 'حذف مستخدم', 'users'),
+('receipts.view', 'عرض الاستلام', 'عرض إذونات الاستلام', 'receipts'),
+('receipts.create', 'إنشاء استلام', 'إنشاء إذن استلام', 'receipts'),
+('receipts.update', 'تعديل استلام', 'تعديل إذن استلام', 'receipts'),
+('receipts.delete', 'حذف استلام', 'حذف إذن استلام', 'receipts'),
+('receipts.approve', 'اعتماد استلام', 'اعتماد إذن استلام', 'receipts'),
+('issues.view', 'عرض الصرف', 'عرض إذونات الصرف', 'issues'),
+('issues.create', 'إنشاء صرف', 'إنشاء إذن صرف', 'issues'),
+('issues.update', 'تعديل صرف', 'تعديل إذن صرف', 'issues'),
+('issues.delete', 'حذف صرف', 'حذف إذن صرف', 'issues'),
+('issues.approve', 'اعتماد صرف', 'اعتماد إذن صرف', 'issues'),
+('transfers.view', 'عرض التحويلات', 'عرض التحويلات', 'transfers'),
+('transfers.create', 'إنشاء تحويل', 'إنشاء تحويل مخزني', 'transfers'),
+('transfers.update', 'تعديل تحويل', 'تعديل تحويل مخزني', 'transfers'),
+('transfers.delete', 'حذف تحويل', 'حذف تحويل مخزني', 'transfers'),
+('transfers.approve', 'اعتماد تحويل', 'اعتماد تحويل مخزني', 'transfers'),
+('returns.view', 'عرض المرتجعات', 'عرض المرتجعات', 'returns'),
+('returns.create', 'إنشاء مرتجع', 'إنشاء مرتجع', 'returns'),
+('returns.update', 'تعديل مرتجع', 'تعديل مرتجع', 'returns'),
+('returns.delete', 'حذف مرتجع', 'حذف مرتجع', 'returns'),
+('suppliers.view', 'عرض الموردين', 'عرض قائمة الموردين', 'suppliers'),
+('suppliers.create', 'إضافة مورد', 'إضافة مورد جديد', 'suppliers'),
+('suppliers.update', 'تعديل مورد', 'تعديل بيانات مورد', 'suppliers'),
+('suppliers.delete', 'حذف مورد', 'حذف مورد', 'suppliers'),
+('recipients.view', 'عرض المستلمين', 'عرض قائمة المستلمين', 'recipients'),
+('recipients.create', 'إضافة مستلم', 'إضافة مستلم جديد', 'recipients'),
+('recipients.update', 'تعديل مستلم', 'تعديل بيانات مستلم', 'recipients'),
+('recipients.delete', 'حذف مستلم', 'حذف مستلم', 'recipients'),
+('counts.view', 'عرض الجرد', 'عرض عمليات الجرد', 'counts'),
+('counts.create', 'إنشاء جرد', 'إنشاء عملية جرد', 'counts'),
+('counts.approve', 'اعتماد جرد', 'اعتماد عملية جرد', 'counts'),
+('reports.view', 'عرض التقارير', 'عرض وتصدير التقارير', 'reports'),
+('reports.export', 'تصدير التقارير', 'تصدير التقارير PDF/Excel', 'reports'),
+('audit.view', 'عرض سجل التدقيق', 'عرض سجل التدقيق', 'audit'),
+('settings.view', 'عرض الإعدادات', 'عرض إعدادات النظام', 'settings'),
+('settings.update', 'تعديل الإعدادات', 'تعديل إعدادات النظام', 'settings'),
+('permissions.manage', 'إدارة الصلاحيات', 'إدارة صلاحيات الأدوار', 'permissions'),
+('backup.manage', 'إدارة النسخ الاحتياطي', 'إنشاء واستعادة النسخ الاحتياطية', 'backup');
+
+INSERT INTO role_permissions (role_id, permission_id) SELECT 1, id FROM permissions;
+INSERT INTO role_permissions (role_id, permission_id) SELECT 2, id FROM permissions WHERE module NOT IN ('users', 'permissions', 'backup');
+INSERT INTO role_permissions (role_id, permission_id) SELECT 3, id FROM permissions WHERE name LIKE '%.view' OR name LIKE '%.create' OR name LIKE '%.update' OR name LIKE '%.approve';
+INSERT INTO role_permissions (role_id, permission_id) SELECT 4, id FROM permissions WHERE name LIKE '%.view' OR name LIKE '%.create';
+INSERT INTO role_permissions (role_id, permission_id) SELECT 5, id FROM permissions WHERE name LIKE '%.view';
+INSERT INTO role_permissions (role_id, permission_id) SELECT 6, id FROM permissions WHERE name LIKE '%.view' OR name LIKE 'reports.%' OR name LIKE 'audit.%';
+
+INSERT INTO users (username, password_hash, full_name, email, phone, role_id, is_active, must_change_password, allow_multiple_devices, security_question_1, security_answer_1_hash, security_question_2, security_answer_2_hash, security_question_3, security_answer_3_hash, language, theme)
+VALUES (
+    'admin',
+    '$2y$12$Bw0N17L5sd1GdQ0QVsb.Ze16oFZ7JBixmoL1aaOYGQmnuCffj/q76',
+    'مدير النظام',
+    'admin@logistox.com',
+    '01286187173',
+    1, 1, 1, 1,
+    'اسم والدتك؟', '$2y$12$Bw0N17L5sd1GdQ0QVsb.Ze16oFZ7JBixmoL1aaOYGQmnuCffj/q76',
+    'أول مدرسة التحقت بها؟', '$2y$12$Bw0N17L5sd1GdQ0QVsb.Ze16oFZ7JBixmoL1aaOYGQmnuCffj/q76',
+    'مدينة ميلادك؟', '$2y$12$Bw0N17L5sd1GdQ0QVsb.Ze16oFZ7JBixmoL1aaOYGQmnuCffj/q76',
+    'ar', 'dark'
+);
+
+INSERT INTO warehouses (code, name, type, location, is_active) VALUES
+('WH-001', 'المخزن الرئيسي', 'main', 'القاهرة - مصر', 1),
+('WH-002', 'مخزن التبريد', 'cold', 'الجيزة - مصر', 1),
+('WH-003', 'مخزن التجميد', 'freezer', 'الإسكندرية - مصر', 1);
+
+INSERT INTO categories (code, name, description) VALUES
+('CAT-001', 'لحوم', 'اللحوم الطازجة والمجمدة'),
+('CAT-002', 'دواجن', 'الدواجن والطيور'),
+('CAT-003', 'أسماك', 'الأسماك والمأكولات البحرية'),
+('CAT-004', 'مواد خام', 'المواد الخام المستخدمة في التصنيع'),
+('CAT-005', 'مواد مساعدة', 'المواد المساعدة للإنتاج'),
+('CAT-006', 'تغليف', 'مواد التغليف والتعبئة');
+
+INSERT INTO units (code, name, symbol) VALUES
+('U-001', 'قطعة', 'قطعة'),
+('U-002', 'كيلوجرام', 'كجم'),
+('U-003', 'جرام', 'جم'),
+('U-004', 'لتر', 'لتر'),
+('U-005', 'علبة', 'علبة'),
+('U-006', 'كرتونة', 'كرتونة');
+
+INSERT INTO settings (`key`, `value`, type, description) VALUES
+('company.name', 'شركة البركة لتوريد وتصنيع اللحوم', 'text', 'اسم الشركة'),
+('company.logo', '/frontend/assets/images/logo.png', 'text', 'شعار الشركة'),
+('company.currency', 'EGP', 'text', 'العملة'),
+('company.currency_symbol', 'ج.م', 'text', 'رمز العملة'),
+('company.timezone', 'Africa/Cairo', 'text', 'المنطقة الزمنية'),
+('company.language', 'ar', 'text', 'اللغة الافتراضية'),
+('company.address', 'مصر', 'text', 'عنوان الشركة'),
+('company.phone', '01286187173', 'text', 'هاتف الشركة'),
+('company.email', 'info@logistox.com', 'email', 'بريد الشركة'),
+('auth.max_login_attempts', '5', 'number', 'حد محاولات الدخول'),
+('auth.lockout_duration', '15', 'number', 'مدة القفل بالدقائق'),
+('auth.session_timeout', '30', 'number', 'مدة انتهاء الجلسة بالدقائق'),
+('auth.allow_multiple_devices', '1', 'boolean', 'السماح بتعدد الأجهزة'),
+('auth.password_min_length', '8', 'number', 'الحد الأدنى لطول كلمة المرور'),
+('backup.auto_backup', '1', 'boolean', 'تفعيل النسخ الاحتياطي التلقائي'),
+('backup.frequency', 'daily', 'text', 'تكرار النسخ الاحتياطي'),
+('backup.retention_days', '30', 'number', 'أيام الاحتفاظ بالنسخ'),
+('printing.paper_size', 'A4', 'text', 'حجم الورق'),
+('notifications.sound_enabled', '1', 'boolean', 'تفعيل الأصوات'),
+('notifications.browser_enabled', '1', 'boolean', 'تفعيل إشعارات المتصفح'),
+('themes.default', 'dark', 'text', 'الثيم الافتراضي'),
+('permissions.manage_enabled', '1', 'boolean', 'تفعيل إدارة الصلاحيات');
+
+INSERT INTO themes (name, display_name, icon, colors, is_default) VALUES
+('dark', 'داكن', 'fa-moon', '{"primary":"#667eea","bg":"#0a0e1a"}', 1),
+('light', 'فاتح', 'fa-sun', '{"primary":"#667eea","bg":"#f0f2f5"}', 0),
+('purple', 'بنفسجي', 'fa-gem', '{"primary":"#9b59b6","bg":"#1a0a2e"}', 0),
+('blue', 'أزرق', 'fa-water', '{"primary":"#3498db","bg":"#0a1a2e"}', 0),
+('green', 'أخضر', 'fa-leaf', '{"primary":"#27ae60","bg":"#0a1a0a"}', 0),
+('red', 'أحمر', 'fa-fire', '{"primary":"#e74c3c","bg":"#1a0a0a"}', 0),
+('gold', 'ذهبي', 'fa-crown', '{"primary":"#f39c12","bg":"#1a140a"}', 0),
+('pink', 'وردي', 'fa-heart', '{"primary":"#e91e63","bg":"#1a0a14"}', 0);
+
+-- ================================================================
+-- إعادة تفعيل فحص المفاتيح الأجنبية
+-- ================================================================
+SET FOREIGN_KEY_CHECKS = 1;
+-- ================================================================
+-- انتهى إنشاء قاعدة البيانات بنجاح
+-- ================================================================

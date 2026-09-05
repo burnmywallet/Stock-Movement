@@ -1,720 +1,2032 @@
 <?php
-// ================================================================
-// نظام إدارة المخازن والمخزون المتقدم v5.0
-// الملف: backend/routes/api.php
-// الوصف: مسارات API الرئيسية - جميع نقاط النهاية
-// التاريخ: 2026-08-22
-// ================================================================
+
+declare(strict_types=1);
+
+/**
+ * ============================================================================
+ * Logistox / Stock-Movement
+ * Advanced Inventory Management System v5.0
+ * ============================================================================
+ *
+ * File:
+ *     backend/routes/api.php
+ *
+ * Purpose:
+ *     تسجيل جميع API Routes فقط.
+ *
+ * IMPORTANT:
+ *     هذا الملف لا يحتوي على:
+ *       - Mock Data
+ *       - Hardcoded Users
+ *       - Hardcoded Passwords
+ *       - Database Queries
+ *       - Business Logic
+ *       - أسعار
+ *
+ * Architecture:
+ *
+ *     index.php
+ *        ↓
+ *     api.php
+ *        ↓
+ *     Middleware
+ *        ↓
+ *     Controllers
+ *        ↓
+ *     Services / Models
+ *        ↓
+ *     Database
+ *
+ * ============================================================================
+ */
 
 use Core\Router;
-use Controllers\AuthController;
-use Controllers\DashboardController;
-use Controllers\ProductController;
-use Controllers\WarehouseController;
-use Controllers\UserController;
-use Controllers\ReportController;
-use Controllers\ReceiptController;
-use Controllers\IssueController;
-use Controllers\TransferController;
-use Controllers\ReturnController;
-use Controllers\InventoryController;
-use Controllers\NotificationController;
-use Controllers\SettingController;
-use Controllers\AuditController;
-use Controllers\SupplierController;
-use Controllers\UnitController;
-use Controllers\CategoryController;
-use Controllers\RecipientController;
 
-// إنشاء كائن Router
-$router = new Router();
+/** @var Router $router */
 
-// ================================================================
-// 1. مسارات المصادقة (بدون حماية)
-// ================================================================
 
-$router->group('/api/auth', [], function($router) {
-    // تسجيل الدخول
-    $router->post('/login', [AuthController::class, 'login']);
-    
-    // التحقق من الجلسة
-    $router->get('/validate', [AuthController::class, 'validate']);
-    
-    // تسجيل الخروج
-    $router->post('/logout', [AuthController::class, 'logout']);
-    
-    // تجديد التوكن
-    $router->post('/refresh', [AuthController::class, 'refresh']);
-    
-    // طلب إعادة تعيين كلمة المرور
-    $router->post('/forgot-password', [AuthController::class, 'forgotPassword']);
-    
-    // إعادة تعيين كلمة المرور
-    $router->post('/reset-password', [AuthController::class, 'resetPassword']);
-    
-    // تغيير كلمة المرور (للمستخدم المسجل)
-    $router->post('/change-password', [AuthController::class, 'changePassword']);
-    
-    // جلسات المستخدم النشطة
-    $router->get('/sessions', [AuthController::class, 'sessions']);
-    
-    // إنهاء جلسة محددة
-    $router->post('/sessions/terminate', [AuthController::class, 'terminateSession']);
-    
-    // إنهاء جميع الجلسات
-    $router->post('/sessions/terminate-all', [AuthController::class, 'terminateAllSessions']);
-    
-    // معلومات المستخدم الحالي
-    $router->get('/me', [AuthController::class, 'me']);
-});
+/*
+|--------------------------------------------------------------------------
+| Public Routes
+|--------------------------------------------------------------------------
+|
+| المسارات التي لا تحتاج تسجيل دخول.
+|
+*/
 
-// ================================================================
-// 2. مسارات عامة
-// ================================================================
 
-// اختبار API
-$router->get('/test', function() {
-    successResponse('✅ API يعمل بشكل مثالي!', [
-        'php_version' => PHP_VERSION,
-        'database' => 'connected',
-        'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'PHP Built-in',
-        'environment' => $_ENV['APP_ENV'] ?? 'production',
-        'version' => VERSION,
-        'time' => date('Y-m-d H:i:s')
-    ]);
-});
+/**
+ * Health Check
+ *
+ * يستخدم للتأكد أن API يعمل.
+ */
+$router->get('/health', function (): void {
 
-// التحقق من صحة النظام
-$router->get('/health', function() {
-    successResponse('✅ النظام سليم', [
+    $response = [
         'status' => 'healthy',
+        'application' => 'Logistox',
+        'version' => getenv('APP_VERSION') ?: '5.0.0',
         'php_version' => PHP_VERSION,
-        'database' => 'connected',
-        'memory_usage' => memory_get_usage(true) / 1024 / 1024 . ' MB',
-        'time' => date('Y-m-d H:i:s')
-    ]);
+        'timestamp' => date('Y-m-d H:i:s'),
+    ];
+
+    jsonResponse(
+        true,
+        $response,
+        'النظام يعمل بشكل طبيعي',
+        null,
+        200
+    );
 });
 
-// ================================================================
-// 3. مسارات لوحة التحكم (محمية)
-// ================================================================
 
-$router->group('/api/dashboard', ['AuthMiddleware'], function($router) {
-    $router->get('', [DashboardController::class, 'index']);
-    $router->get('/stats', [DashboardController::class, 'stats']);
-    $router->get('/charts', [DashboardController::class, 'charts']);
-    $router->get('/alerts', [DashboardController::class, 'alerts']);
-    $router->get('/activities', [DashboardController::class, 'activities']);
-    $router->get('/status', [DashboardController::class, 'status']);
+/**
+ * API Test
+ */
+$router->get('/test', function (): void {
+
+    jsonResponse(
+        true,
+        [
+            'api' => 'online',
+            'application' => 'Logistox',
+            'version' => getenv('APP_VERSION') ?: '5.0.0',
+            'php_version' => PHP_VERSION,
+            'environment' => getenv('APP_ENV') ?: 'production',
+            'timestamp' => date('Y-m-d H:i:s'),
+        ],
+        'API يعمل بنجاح',
+        null,
+        200
+    );
 });
 
-// ================================================================
-// 4. مسارات الأصناف (محمية)
-// ================================================================
 
-$router->group('/api/products', ['AuthMiddleware'], function($router) {
-    // جلب جميع الأصناف مع فلترة
-    $router->get('', [ProductController::class, 'index']);
-    
-    // جلب صنف محدد
-    $router->get('/{id}', [ProductController::class, 'show']);
-    
-    // إنشاء صنف جديد
-    $router->post('', [ProductController::class, 'create']);
-    
-    // تحديث صنف
-    $router->put('/{id}', [ProductController::class, 'update']);
-    
-    // حذف صنف
-    $router->delete('/{id}', [ProductController::class, 'delete']);
-    
-    // استيراد أصناف متعددة
-    $router->post('/bulk-import', [ProductController::class, 'bulkImport']);
-    
-    // تصدير الأصناف
-    $router->get('/export', [ProductController::class, 'export']);
-    
-    // جلب التصنيفات
-    $router->get('/categories', [ProductController::class, 'categories']);
-    
-    // جلب الوحدات
-    $router->get('/units', [ProductController::class, 'units']);
-    
-    // جلب أرصدة صنف في المخازن
-    $router->get('/{id}/balances', [ProductController::class, 'balances']);
-    
-    // جلب تاريخ حركات صنف
-    $router->get('/{id}/history', [ProductController::class, 'history']);
-    
-    // طباعة باركود
-    $router->get('/{id}/barcode', [ProductController::class, 'barcode']);
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+|
+| لا نضع auth middleware على login.
+|
+| التنفيذ الحقيقي للمصادقة يجب أن يكون داخل AuthController.
+|
+*/
+
+
+$router->group('/auth', function (Router $router): void {
+
+    /**
+     * Login
+     *
+     * POST /api/auth/login
+     */
+    $router->post('/login', function (): void {
+
+        dispatchController(
+            'AuthController',
+            'login'
+        );
+    });
+
+
+    /**
+     * Logout
+     *
+     * POST /api/auth/logout
+     */
+    $router->post('/logout', function (): void {
+
+        dispatchController(
+            'AuthController',
+            'logout'
+        );
+    });
+
+
+    /**
+     * Current User
+     *
+     * GET /api/auth/me
+     */
+    $router->get('/me', function (): void {
+
+        dispatchController(
+            'AuthController',
+            'me'
+        );
+    });
+
+
+    /**
+     * Validate Session
+     *
+     * GET /api/auth/validate
+     */
+    $router->get('/validate', function (): void {
+
+        dispatchController(
+            'AuthController',
+            'validate'
+        );
+    });
 });
 
-// ================================================================
-// 5. مسارات المخازن (محمية)
-// ================================================================
 
-$router->group('/api/warehouses', ['AuthMiddleware'], function($router) {
-    // جلب جميع المخازن
-    $router->get('', [WarehouseController::class, 'index']);
-    
-    // جلب مخزن محدد
-    $router->get('/{id}', [WarehouseController::class, 'show']);
-    
-    // إنشاء مخزن جديد
-    $router->post('', [WarehouseController::class, 'create']);
-    
-    // تحديث مخزن
-    $router->put('/{id}', [WarehouseController::class, 'update']);
-    
-    // حذف مخزن
-    $router->delete('/{id}', [WarehouseController::class, 'delete']);
-    
-    // جلب مخزون المخزن
-    $router->get('/{id}/stock', [WarehouseController::class, 'stock']);
-    
-    // جلب تقرير المخزن
-    $router->get('/{id}/report', [WarehouseController::class, 'report']);
-    
-    // جلب المخازن الفرعية
-    $router->get('/{id}/sub', [WarehouseController::class, 'subWarehouses']);
-    
-    // عرض مخزن مجمع
-    $router->get('/{id}/summary', [WarehouseController::class, 'summary']);
-    
-    // عرض مخزن تفصيلي
-    $router->get('/{id}/detailed', [WarehouseController::class, 'detailed']);
-});
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
 
-// ================================================================
-// 6. مسارات الاستلام (محمية)
-// ================================================================
 
-$router->group('/api/receipts', ['AuthMiddleware'], function($router) {
-    // جلب جميع إذون الاستلام
-    $router->get('', [ReceiptController::class, 'index']);
-    
-    // جلب إذن استلام محدد
-    $router->get('/{id}', [ReceiptController::class, 'show']);
-    
-    // إنشاء إذن استلام جديد
-    $router->post('', [ReceiptController::class, 'create']);
-    
-    // تحديث إذن استلام
-    $router->put('/{id}', [ReceiptController::class, 'update']);
-    
-    // اعتماد إذن استلام
-    $router->post('/{id}/approve', [ReceiptController::class, 'approve']);
-    
-    // رفض إذن استلام
-    $router->post('/{id}/reject', [ReceiptController::class, 'reject']);
-    
-    // إلغاء إذن استلام
-    $router->post('/{id}/cancel', [ReceiptController::class, 'cancel']);
-    
-    // تصدير إذون الاستلام
-    $router->get('/export', [ReceiptController::class, 'export']);
-    
-    // طباعة إذن استلام
-    $router->get('/{id}/print', [ReceiptController::class, 'print']);
-});
+$router->group(
+    '/dashboard',
+    ['auth'],
+    function (Router $router): void {
 
-// ================================================================
-// 7. مسارات الصرف (محمية)
-// ================================================================
+        /**
+         * Dashboard statistics
+         *
+         * GET /api/dashboard/stats
+         */
+        $router->get('/stats', function (): void {
 
-$router->group('/api/issues', ['AuthMiddleware'], function($router) {
-    // جلب جميع إذون الصرف
-    $router->get('', [IssueController::class, 'index']);
-    
-    // جلب إذن صرف محدد
-    $router->get('/{id}', [IssueController::class, 'show']);
-    
-    // إنشاء إذن صرف جديد
-    $router->post('', [IssueController::class, 'create']);
-    
-    // تحديث إذن صرف
-    $router->put('/{id}', [IssueController::class, 'update']);
-    
-    // اعتماد إذن صرف
-    $router->post('/{id}/approve', [IssueController::class, 'approve']);
-    
-    // تسليم إذن صرف
-    $router->post('/{id}/deliver', [IssueController::class, 'deliver']);
-    
-    // رفض إذن صرف
-    $router->post('/{id}/reject', [IssueController::class, 'reject']);
-    
-    // إلغاء إذن صرف
-    $router->post('/{id}/cancel', [IssueController::class, 'cancel']);
-    
-    // تصدير إذون الصرف
-    $router->get('/export', [IssueController::class, 'export']);
-    
-    // طباعة إذن صرف
-    $router->get('/{id}/print', [IssueController::class, 'print']);
-});
+            dispatchController(
+                'DashboardController',
+                'stats'
+            );
+        });
 
-// ================================================================
-// 8. مسارات التحويلات (محمية)
-// ================================================================
 
-$router->group('/api/transfers', ['AuthMiddleware'], function($router) {
-    // جلب جميع التحويلات
-    $router->get('', [TransferController::class, 'index']);
-    
-    // جلب تحويل محدد
-    $router->get('/{id}', [TransferController::class, 'show']);
-    
-    // إنشاء تحويل جديد
-    $router->post('', [TransferController::class, 'create']);
-    
-    // تحديث تحويل
-    $router->put('/{id}', [TransferController::class, 'update']);
-    
-    // اعتماد تحويل
-    $router->post('/{id}/approve', [TransferController::class, 'approve']);
-    
-    // إكمال تحويل
-    $router->post('/{id}/complete', [TransferController::class, 'complete']);
-    
-    // رفض تحويل
-    $router->post('/{id}/reject', [TransferController::class, 'reject']);
-    
-    // إلغاء تحويل
-    $router->post('/{id}/cancel', [TransferController::class, 'cancel']);
-    
-    // تصدير التحويلات
-    $router->get('/export', [TransferController::class, 'export']);
-    
-    // طباعة تحويل
-    $router->get('/{id}/print', [TransferController::class, 'print']);
-});
+        /**
+         * Dashboard charts
+         *
+         * GET /api/dashboard/charts
+         */
+        $router->get('/charts', function (): void {
 
-// ================================================================
-// 9. مسارات المرتجعات (محمية)
-// ================================================================
+            dispatchController(
+                'DashboardController',
+                'charts'
+            );
+        });
 
-$router->group('/api/returns', ['AuthMiddleware'], function($router) {
-    // جلب جميع المرتجعات
-    $router->get('', [ReturnController::class, 'index']);
-    
-    // جلب مرتجع محدد
-    $router->get('/{id}', [ReturnController::class, 'show']);
-    
-    // إنشاء مرتجع جديد
-    $router->post('', [ReturnController::class, 'create']);
-    
-    // تحديث مرتجع
-    $router->put('/{id}', [ReturnController::class, 'update']);
-    
-    // اعتماد مرتجع
-    $router->post('/{id}/approve', [ReturnController::class, 'approve']);
-    
-    // رفض مرتجع
-    $router->post('/{id}/reject', [ReturnController::class, 'reject']);
-    
-    // إلغاء مرتجع
-    $router->post('/{id}/cancel', [ReturnController::class, 'cancel']);
-    
-    // تصدير المرتجعات
-    $router->get('/export', [ReturnController::class, 'export']);
-    
-    // طباعة مرتجع
-    $router->get('/{id}/print', [ReturnController::class, 'print']);
-});
 
-// ================================================================
-// 10. مسارات الجرد (محمية)
-// ================================================================
+        /**
+         * Dashboard alerts
+         *
+         * GET /api/dashboard/alerts
+         */
+        $router->get('/alerts', function (): void {
 
-$router->group('/api/inventory', ['AuthMiddleware'], function($router) {
-    // جلب جلسات الجرد
-    $router->get('/counts', [InventoryController::class, 'index']);
-    
-    // جلب جلسة جرد محددة
-    $router->get('/counts/{id}', [InventoryController::class, 'show']);
-    
-    // بدء جلسة جرد جديدة
-    $router->post('/counts', [InventoryController::class, 'create']);
-    
-    // إضافة عنصر جرد
-    $router->post('/counts/{id}/items', [InventoryController::class, 'addItem']);
-    
-    // تحديث عنصر جرد
-    $router->put('/counts/{id}/items/{itemId}', [InventoryController::class, 'updateItem']);
-    
-    // اعتماد جلسة جرد
-    $router->post('/counts/{id}/approve', [InventoryController::class, 'approve']);
-    
-    // إلغاء جلسة جرد
-    $router->post('/counts/{id}/cancel', [InventoryController::class, 'cancel']);
-    
-    // تصدير الجرد
-    $router->get('/export', [InventoryController::class, 'export']);
-    
-    // طباعة جرد
-    $router->get('/{id}/print', [InventoryController::class, 'print']);
-});
+            dispatchController(
+                'DashboardController',
+                'alerts'
+            );
+        });
 
-// ================================================================
-// 11. مسارات التقارير (محمية)
-// ================================================================
 
-$router->group('/api/reports', ['AuthMiddleware'], function($router) {
-    // تقرير الأرصدة
-    $router->get('/stock', [ReportController::class, 'stock']);
-    
-    // تقرير الحركات
-    $router->get('/movements', [ReportController::class, 'movements']);
-    
-    // تقرير صنف محدد
-    $router->get('/product/{id}', [ReportController::class, 'product']);
-    
-    // تقرير مخزن محدد
-    $router->get('/warehouse/{id}', [ReportController::class, 'warehouse']);
-    
-    // تقرير سجل التدقيق
-    $router->get('/audit', [ReportController::class, 'audit']);
-    
-    // تقرير ملخص النظام
-    $router->get('/summary', [ReportController::class, 'summary']);
-    
-    // تقرير المستخدمين
-    $router->get('/users', [ReportController::class, 'users']);
-    
-    // تقرير الأصناف الأكثر تداولاً
-    $router->get('/top-products', [ReportController::class, 'topProducts']);
-    
-    // تقرير قيمة المخزون
-    $router->get('/inventory-value', [ReportController::class, 'inventoryValue']);
-    
-    // تقرير حسب الفترة
-    $router->get('/period', [ReportController::class, 'period']);
-    
-    // تقرير حسب الصنف
-    $router->get('/by-product', [ReportController::class, 'byProduct']);
-    
-    // تقرير حسب المورد
-    $router->get('/by-supplier', [ReportController::class, 'bySupplier']);
-    
-    // تقرير حسب رقم الحركة
-    $router->get('/by-movement/{id}', [ReportController::class, 'byMovement']);
-    
-    // تقرير حسب كود الصنف
-    $router->get('/by-product-code/{code}', [ReportController::class, 'byProductCode']);
-    
-    // تقرير حسب كود المورد
-    $router->get('/by-supplier-code/{code}', [ReportController::class, 'bySupplierCode']);
-    
-    // تقرير حسب اسم الصنف
-    $router->get('/by-product-name/{name}', [ReportController::class, 'byProductName']);
-    
-    // تقرير حسب اسم المورد
-    $router->get('/by-supplier-name/{name}', [ReportController::class, 'bySupplierName']);
-});
+        /**
+         * Recent activities
+         *
+         * GET /api/dashboard/activities
+         */
+        $router->get('/activities', function (): void {
 
-// ================================================================
-// 12. مسارات الموردين (محمية)
-// ================================================================
+            dispatchController(
+                'DashboardController',
+                'activities'
+            );
+        });
 
-$router->group('/api/suppliers', ['AuthMiddleware'], function($router) {
-    // جلب جميع الموردين
-    $router->get('', [SupplierController::class, 'index']);
-    
-    // جلب مورد محدد
-    $router->get('/{id}', [SupplierController::class, 'show']);
-    
-    // إنشاء مورد جديد
-    $router->post('', [SupplierController::class, 'create']);
-    
-    // تحديث مورد
-    $router->put('/{id}', [SupplierController::class, 'update']);
-    
-    // حذف مورد
-    $router->delete('/{id}', [SupplierController::class, 'delete']);
-    
-    // تصدير الموردين
-    $router->get('/export', [SupplierController::class, 'export']);
-});
 
-// ================================================================
-// 13. مسارات الوحدات (محمية)
-// ================================================================
+        /**
+         * System status
+         *
+         * GET /api/dashboard/status
+         */
+        $router->get('/status', function (): void {
 
-$router->group('/api/units', ['AuthMiddleware'], function($router) {
-    // جلب جميع الوحدات
-    $router->get('', [UnitController::class, 'index']);
-    
-    // جلب وحدة محددة
-    $router->get('/{id}', [UnitController::class, 'show']);
-    
-    // إنشاء وحدة جديدة
-    $router->post('', [UnitController::class, 'create']);
-    
-    // تحديث وحدة
-    $router->put('/{id}', [UnitController::class, 'update']);
-    
-    // حذف وحدة
-    $router->delete('/{id}', [UnitController::class, 'delete']);
-});
-
-// ================================================================
-// 14. مسارات التصنيفات (محمية)
-// ================================================================
-
-$router->group('/api/categories', ['AuthMiddleware'], function($router) {
-    // جلب جميع التصنيفات
-    $router->get('', [CategoryController::class, 'index']);
-    
-    // جلب تصنيف محدد
-    $router->get('/{id}', [CategoryController::class, 'show']);
-    
-    // إنشاء تصنيف جديد
-    $router->post('', [CategoryController::class, 'create']);
-    
-    // تحديث تصنيف
-    $router->put('/{id}', [CategoryController::class, 'update']);
-    
-    // حذف تصنيف
-    $router->delete('/{id}', [CategoryController::class, 'delete']);
-});
-
-// ================================================================
-// 15. مسارات الجهات المستلمة (محمية)
-// ================================================================
-
-$router->group('/api/recipients', ['AuthMiddleware'], function($router) {
-    // جلب جميع الجهات
-    $router->get('', [RecipientController::class, 'index']);
-    
-    // جلب جهة محددة
-    $router->get('/{id}', [RecipientController::class, 'show']);
-    
-    // إنشاء جهة جديدة
-    $router->post('', [RecipientController::class, 'create']);
-    
-    // تحديث جهة
-    $router->put('/{id}', [RecipientController::class, 'update']);
-    
-    // حذف جهة
-    $router->delete('/{id}', [RecipientController::class, 'delete']);
-});
-
-// ================================================================
-// 16. مسارات المستخدمين (محمية)
-// ================================================================
-
-$router->group('/api/users', ['AuthMiddleware'], function($router) {
-    // جلب جميع المستخدمين
-    $router->get('', [UserController::class, 'index']);
-    
-    // جلب مستخدم محدد
-    $router->get('/{id}', [UserController::class, 'show']);
-    
-    // جلب المستخدم الحالي
-    $router->get('/me', [UserController::class, 'me']);
-    
-    // إنشاء مستخدم جديد
-    $router->post('', [UserController::class, 'create']);
-    
-    // تحديث مستخدم
-    $router->put('/{id}', [UserController::class, 'update']);
-    
-    // حذف مستخدم
-    $router->delete('/{id}', [UserController::class, 'delete']);
-    
-    // استعادة مستخدم محذوف
-    $router->post('/{id}/restore', [UserController::class, 'restore']);
-    
-    // قفل مستخدم
-    $router->post('/{id}/lock', [UserController::class, 'lock']);
-    
-    // فتح قفل مستخدم
-    $router->post('/{id}/unlock', [UserController::class, 'unlock']);
-    
-    // تحديث صلاحيات المستخدم
-    $router->put('/{id}/permissions', [UserController::class, 'permissions']);
-    
-    // جلب صلاحيات المستخدم
-    $router->get('/{id}/permissions', [UserController::class, 'getPermissions']);
-    
-    // تغيير كلمة المرور (للمستخدم العادي)
-    $router->post('/{id}/change-password', [UserController::class, 'changePassword']);
-    
-    // جلب سجل نشاط المستخدم
-    $router->get('/{id}/activities', [UserController::class, 'activities']);
-    
-    // جلب جلسات المستخدم النشطة
-    $router->get('/{id}/sessions', [UserController::class, 'sessions']);
-    
-    // تصدير المستخدمين
-    $router->get('/export', [UserController::class, 'export']);
-});
-
-// ================================================================
-// 17. مسارات سجل التدقيق (محمية)
-// ================================================================
-
-$router->group('/api/audit', ['AuthMiddleware'], function($router) {
-    // جلب سجل التدقيق مع فلترة
-    $router->get('/logs', [AuditController::class, 'logs']);
-    
-    // جلب تفاصيل سجل محدد
-    $router->get('/logs/{id}', [AuditController::class, 'show']);
-    
-    // إحصائيات سجل التدقيق
-    $router->get('/stats', [AuditController::class, 'stats']);
-    
-    // تصدير سجل التدقيق
-    $router->get('/export', [AuditController::class, 'export']);
-    
-    // جلب الوحدات المتاحة
-    $router->get('/modules', [AuditController::class, 'modules']);
-    
-    // جلب الإجراءات المتاحة
-    $router->get('/actions', [AuditController::class, 'actions']);
-    
-    // تنظيف السجلات القديمة
-    $router->post('/cleanup', [AuditController::class, 'cleanup']);
-});
-
-// ================================================================
-// 18. مسارات التنبيهات (محمية)
-// ================================================================
-
-$router->group('/api/notifications', ['AuthMiddleware'], function($router) {
-    // جلب التنبيهات
-    $router->get('', [NotificationController::class, 'index']);
-    
-    // جلب تنبيه محدد
-    $router->get('/{id}', [NotificationController::class, 'show']);
-    
-    // تعيين تنبيه كمقروء
-    $router->post('/{id}/read', [NotificationController::class, 'markAsRead']);
-    
-    // تعيين جميع التنبيهات كمقروءة
-    $router->post('/read-all', [NotificationController::class, 'markAllAsRead']);
-    
-    // حذف تنبيه
-    $router->delete('/{id}', [NotificationController::class, 'delete']);
-    
-    // فحص التنبيهات (مخزون منخفض، منفذ، انتهاء صلاحية)
-    $router->post('/check', [NotificationController::class, 'check']);
-    
-    // إحصائيات التنبيهات
-    $router->get('/stats', [NotificationController::class, 'stats']);
-});
-
-// ================================================================
-// 19. مسارات الإعدادات (محمية - للأدمن فقط)
-// ================================================================
-
-$router->group('/api/settings', ['AuthMiddleware', 'PermissionMiddleware'], function($router) {
-    // جلب جميع الإعدادات
-    $router->get('', [SettingController::class, 'index']);
-    
-    // جلب إعداد محدد
-    $router->get('/{key}', [SettingController::class, 'show']);
-    
-    // تحديث إعداد
-    $router->put('/{key}', [SettingController::class, 'update']);
-    
-    // تحديث إعدادات متعددة
-    $router->post('/batch', [SettingController::class, 'batchUpdate']);
-    
-    // إعادة تعيين الإعدادات
-    $router->post('/reset', [SettingController::class, 'reset']);
-    
-    // جلب إعدادات التطبيق
-    $router->get('/app', [SettingController::class, 'appSettings']);
-    
-    // جلب إعدادات الأمان
-    $router->get('/security', [SettingController::class, 'securitySettings']);
-    
-    // جلب إعدادات التقارير
-    $router->get('/report', [SettingController::class, 'reportSettings']);
-    
-    // جلب إعدادات النسخ الاحتياطي
-    $router->get('/backup', [SettingController::class, 'backupSettings']);
-}, ['permissions' => ['settings.view']]);
-
-// ================================================================
-// 20. مسارات النسخ الاحتياطي (محمية - للأدمن فقط)
-// ================================================================
-
-$router->group('/api/backup', ['AuthMiddleware', 'PermissionMiddleware'], function($router) {
-    // جلب النسخ الاحتياطية
-    $router->get('', [BackupController::class, 'index']);
-    
-    // إنشاء نسخة احتياطية
-    $router->post('/create', [BackupController::class, 'create']);
-    
-    // استعادة نسخة احتياطية
-    $router->post('/restore/{id}', [BackupController::class, 'restore']);
-    
-    // تحميل نسخة احتياطية
-    $router->get('/download/{id}', [BackupController::class, 'download']);
-    
-    // حذف نسخة احتياطية
-    $router->delete('/{id}', [BackupController::class, 'delete']);
-    
-    // جدولة النسخ الاحتياطي
-    $router->post('/schedule', [BackupController::class, 'schedule']);
-}, ['permissions' => ['backup.view']]);
-
-// ================================================================
-// 21. مسارات الملفات الثابتة (Frontend)
-// ================================================================
-
-// خدمة ملفات Frontend
-$router->get('/frontend/{path:.*}', function($path) {
-    $file = BASE_PATH . '/../frontend/' . $path;
-    if (file_exists($file) && !is_dir($file)) {
-        $ext = pathinfo($file, PATHINFO_EXTENSION);
-        $mimeTypes = [
-            'html' => 'text/html',
-            'css' => 'text/css',
-            'js' => 'application/javascript',
-            'png' => 'image/png',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'svg' => 'image/svg+xml',
-            'ico' => 'image/x-icon',
-            'json' => 'application/json',
-            'woff' => 'font/woff',
-            'woff2' => 'font/woff2',
-            'ttf' => 'font/ttf'
-        ];
-        header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
-        header('Cache-Control: public, max-age=86400');
-        readfile($file);
-        exit;
+            dispatchController(
+                'DashboardController',
+                'status'
+            );
+        });
     }
-    notFoundResponse();
-});
+);
 
-// الصفحة الرئيسية
-$router->get('/', function() {
-    $file = BASE_PATH . '/../frontend/index.html';
-    if (file_exists($file)) {
-        readfile($file);
-        exit;
+
+/*
+|--------------------------------------------------------------------------
+| Products
+|--------------------------------------------------------------------------
+|
+| الأصناف.
+|
+*/
+
+
+$router->group(
+    '/products',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * List products
+         *
+         * GET /api/products
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'ProductController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Create product
+         *
+         * POST /api/products
+         */
+        $router->post('', function (): void {
+
+            dispatchController(
+                'ProductController',
+                'store'
+            );
+        });
+
+
+        /**
+         * Search products
+         *
+         * GET /api/products/search
+         */
+        $router->get('/search', function (): void {
+
+            dispatchController(
+                'ProductController',
+                'search'
+            );
+        });
+
+
+        /**
+         * Low stock products
+         *
+         * GET /api/products/low-stock
+         */
+        $router->get('/low-stock', function (): void {
+
+            dispatchController(
+                'ProductController',
+                'lowStock'
+            );
+        });
+
+
+        /**
+         * Product categories
+         *
+         * GET /api/products/categories
+         *
+         * هذا Route للتوافق المؤقت.
+         * لاحقًا يمكن للواجهة استخدام /categories مباشرة.
+         */
+        $router->get('/categories', function (): void {
+
+            dispatchController(
+                'CategoryController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Product units
+         *
+         * GET /api/products/units
+         *
+         * للتوافق مع الواجهة الحالية.
+         */
+        $router->get('/units', function (): void {
+
+            dispatchController(
+                'UnitController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Get product
+         *
+         * GET /api/products/{id}
+         */
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'ProductController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Update product
+         *
+         * PUT /api/products/{id}
+         */
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'ProductController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Partial update product
+         *
+         * PATCH /api/products/{id}
+         */
+        $router->patch('/{id}', function ($id): void {
+
+            dispatchController(
+                'ProductController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Delete / deactivate product
+         *
+         * DELETE /api/products/{id}
+         */
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'ProductController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
     }
-    notFoundResponse();
-});
+);
 
-// ================================================================
-// 22. معالجة المسارات غير الموجودة (404)
-// ================================================================
 
-$router->get('/{path:.*}', function() {
-    notFoundResponse('المسار غير موجود');
-});
+/*
+|--------------------------------------------------------------------------
+| Categories
+|--------------------------------------------------------------------------
+*/
 
-// ================================================================
-// إرجاع الـ Router
-// ================================================================
 
-return $router;
+$router->group(
+    '/categories',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'CategoryController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'CategoryController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'CategoryController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'CategoryController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->patch('/{id}', function ($id): void {
+
+            dispatchController(
+                'CategoryController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'CategoryController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Units
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/units',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'UnitController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'UnitController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'UnitController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'UnitController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->patch('/{id}', function ($id): void {
+
+            dispatchController(
+                'UnitController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'UnitController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Warehouses
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/warehouses',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * List warehouses
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'WarehouseController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Create warehouse
+         */
+        $router->post('', function (): void {
+
+            dispatchController(
+                'WarehouseController',
+                'store'
+            );
+        });
+
+
+        /**
+         * Summary
+         */
+        $router->get('/summary', function (): void {
+
+            dispatchController(
+                'WarehouseController',
+                'summary'
+            );
+        });
+
+
+        /**
+         * Warehouse details
+         */
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'WarehouseController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Update warehouse
+         */
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'WarehouseController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->patch('/{id}', function ($id): void {
+
+            dispatchController(
+                'WarehouseController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Delete / deactivate warehouse
+         */
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'WarehouseController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Warehouse stock
+         */
+        $router->get('/{id}/stock', function ($id): void {
+
+            dispatchController(
+                'WarehouseController',
+                'stock',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Receipts
+|--------------------------------------------------------------------------
+|
+| إذن استلام بضائع.
+|
+*/
+
+
+$router->group(
+    '/receipts',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * List receipts
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'ReceiptController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Create receipt
+         */
+        $router->post('', function (): void {
+
+            dispatchController(
+                'ReceiptController',
+                'store'
+            );
+        });
+
+
+        /**
+         * Receipt details
+         */
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReceiptController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Update receipt
+         *
+         * يفضل منع تعديل مستند مرحّل من Controller.
+         */
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReceiptController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Delete / cancel receipt
+         */
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReceiptController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Issues
+|--------------------------------------------------------------------------
+|
+| أذون صرف / خروج بضائع.
+|
+*/
+
+
+$router->group(
+    '/issues',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'IssueController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'IssueController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'IssueController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'IssueController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'IssueController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Transfers
+|--------------------------------------------------------------------------
+|
+| تحويل بين المخازن.
+|
+*/
+
+
+$router->group(
+    '/transfers',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'TransferController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'TransferController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'TransferController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'TransferController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'TransferController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Returns
+|--------------------------------------------------------------------------
+|
+| المرتجعات.
+|
+*/
+
+
+$router->group(
+    '/returns',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'ReturnController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'ReturnController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReturnController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReturnController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'ReturnController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Stock Balances
+|--------------------------------------------------------------------------
+|
+| الأرصدة الحالية.
+|
+*/
+
+
+$router->group(
+    '/stock-balances',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * All balances
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'StockBalanceController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Product balance
+         */
+        $router->get('/product/{productId}', function ($productId): void {
+
+            dispatchController(
+                'StockBalanceController',
+                'product',
+                [
+                    'product_id' => routeId($productId)
+                ]
+            );
+        });
+
+
+        /**
+         * Warehouse balance
+         */
+        $router->get('/warehouse/{warehouseId}', function ($warehouseId): void {
+
+            dispatchController(
+                'StockBalanceController',
+                'warehouse',
+                [
+                    'warehouse_id' => routeId($warehouseId)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Stock Movements
+|--------------------------------------------------------------------------
+|
+| حركة المخزون.
+|
+*/
+
+
+$router->group(
+    '/stock-movements',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * List movements
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'StockMovementController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Movement details
+         */
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'StockMovementController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Notifications
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/notifications',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * Notifications list
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'NotificationController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Unread notifications
+         */
+        $router->get('/unread', function (): void {
+
+            dispatchController(
+                'NotificationController',
+                'unread'
+            );
+        });
+
+
+        /**
+         * Mark notification as read
+         */
+        $router->patch('/{id}/read', function ($id): void {
+
+            dispatchController(
+                'NotificationController',
+                'markAsRead',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        /**
+         * Mark all as read
+         */
+        $router->post('/read-all', function (): void {
+
+            dispatchController(
+                'NotificationController',
+                'markAllAsRead'
+            );
+        });
+
+
+        /**
+         * Delete notification
+         */
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'NotificationController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Users
+|--------------------------------------------------------------------------
+|
+| إدارة المستخدمين.
+|
+| الحماية الفعلية بالصلاحيات يجب أن تتم داخل Middleware/Controller.
+|
+*/
+
+
+$router->group(
+    '/users',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'UserController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'UserController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'UserController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'UserController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->patch('/{id}', function ($id): void {
+
+            dispatchController(
+                'UserController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'UserController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Roles & Permissions
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/roles',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'RoleController',
+                'index'
+            );
+        });
+
+
+        $router->post('', function (): void {
+
+            dispatchController(
+                'RoleController',
+                'store'
+            );
+        });
+
+
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'RoleController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->put('/{id}', function ($id): void {
+
+            dispatchController(
+                'RoleController',
+                'update',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+
+
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'RoleController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/**
+ * Permissions
+ */
+$router->group(
+    '/permissions',
+    ['auth'],
+    function (Router $router): void {
+
+        $router->get('', function (): void {
+
+            dispatchController(
+                'PermissionController',
+                'index'
+            );
+        });
+
+
+        $router->get('/role/{roleId}', function ($roleId): void {
+
+            dispatchController(
+                'PermissionController',
+                'role',
+                [
+                    'role_id' => routeId($roleId)
+                ]
+            );
+        });
+
+
+        $router->put('/role/{roleId}', function ($roleId): void {
+
+            dispatchController(
+                'PermissionController',
+                'updateRole',
+                [
+                    'role_id' => routeId($roleId)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Reports
+|--------------------------------------------------------------------------
+|
+| تقارير رسمية.
+|
+*/
+
+
+$router->group(
+    '/reports',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * General report
+         */
+        $router->get('/inventory', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'inventory'
+            );
+        });
+
+
+        /**
+         * Stock movements report
+         */
+        $router->get('/movements', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'movements'
+            );
+        });
+
+
+        /**
+         * Receipts report
+         */
+        $router->get('/receipts', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'receipts'
+            );
+        });
+
+
+        /**
+         * Issues report
+         */
+        $router->get('/issues', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'issues'
+            );
+        });
+
+
+        /**
+         * Transfers report
+         */
+        $router->get('/transfers', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'transfers'
+            );
+        });
+
+
+        /**
+         * Returns report
+         */
+        $router->get('/returns', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'returns'
+            );
+        });
+
+
+        /**
+         * Low stock report
+         */
+        $router->get('/low-stock', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'lowStock'
+            );
+        });
+
+
+        /**
+         * Export report
+         */
+        $router->post('/export', function (): void {
+
+            dispatchController(
+                'ReportController',
+                'export'
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Audit Logs
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/audit',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * Audit log list
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'AuditController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Audit log details
+         */
+        $router->get('/{id}', function ($id): void {
+
+            dispatchController(
+                'AuditController',
+                'show',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Settings
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/settings',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * Get settings
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Update settings
+         */
+        $router->put('', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'update'
+            );
+        });
+
+
+        /**
+         * Company information
+         */
+        $router->get('/company', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'company'
+            );
+        });
+
+
+        /**
+         * Update company information
+         */
+        $router->put('/company', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'updateCompany'
+            );
+        });
+
+
+        /**
+         * Themes
+         */
+        $router->get('/themes', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'themes'
+            );
+        });
+
+
+        /**
+         * Update theme
+         */
+        $router->put('/theme', function (): void {
+
+            dispatchController(
+                'SettingsController',
+                'updateTheme'
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Backup
+|--------------------------------------------------------------------------
+*/
+
+
+$router->group(
+    '/backup',
+    ['auth'],
+    function (Router $router): void {
+
+        /**
+         * Backup status
+         */
+        $router->get('/status', function (): void {
+
+            dispatchController(
+                'BackupController',
+                'status'
+            );
+        });
+
+
+        /**
+         * Create database backup
+         */
+        $router->post('/create', function (): void {
+
+            dispatchController(
+                'BackupController',
+                'create'
+            );
+        });
+
+
+        /**
+         * List backups
+         */
+        $router->get('', function (): void {
+
+            dispatchController(
+                'BackupController',
+                'index'
+            );
+        });
+
+
+        /**
+         * Delete backup
+         */
+        $router->delete('/{id}', function ($id): void {
+
+            dispatchController(
+                'BackupController',
+                'destroy',
+                [
+                    'id' => routeId($id)
+                ]
+            );
+        });
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Helper Functions
+|--------------------------------------------------------------------------
+*/
+
+
+/**
+ * Dispatch Controller
+ *
+ * هذه الدالة تفصل الـ Routes عن الـ Controllers.
+ *
+ * مثال:
+ *
+ * dispatchController(
+ *     'ProductController',
+ *     'index'
+ * );
+ *
+ * النتيجة:
+ *
+ * Controller:
+ *     backend/controllers/ProductController.php
+ *
+ * Method:
+ *     index()
+ *
+ * ----------------------------------------------------------------------------
+ */
+function dispatchController(
+    string $controller,
+    string $method,
+    array $parameters = []
+): void {
+
+    /**
+     * Controller directory.
+     */
+    $controllerDirectory =
+        dirname(__DIR__) .
+        '/controllers';
+
+
+    /**
+     * Controller file.
+     */
+    $controllerFile =
+        $controllerDirectory .
+        '/' .
+        $controller .
+        '.php';
+
+
+    /**
+     * لو الـ Controller غير موجود.
+     *
+     * لا نرجع Fatal Error.
+     */
+    if (
+        !is_file($controllerFile) ||
+        !is_readable($controllerFile)
+    ) {
+
+        jsonResponse(
+            false,
+            null,
+            'الخدمة المطلوبة غير متوفرة حاليًا',
+            'CONTROLLER_NOT_IMPLEMENTED',
+            501
+        );
+    }
+
+
+    require_once $controllerFile;
+
+
+    /**
+     * محاولة تحديد Namespace/Class.
+     *
+     * أولاً:
+     *
+     * Controllers\ProductController
+     *
+     * ثم:
+     *
+     * ProductController
+     */
+    $classCandidates = [
+        'Controllers\\' . $controller,
+        'App\\Controllers\\' . $controller,
+        $controller,
+    ];
+
+
+    $resolvedClass = null;
+
+
+    foreach ($classCandidates as $candidate) {
+
+        if (class_exists($candidate)) {
+
+            $resolvedClass = $candidate;
+
+            break;
+        }
+    }
+
+
+    if ($resolvedClass === null) {
+
+        jsonResponse(
+            false,
+            null,
+            'تعريف الـ Controller غير موجود',
+            'CONTROLLER_CLASS_NOT_FOUND',
+            501
+        );
+    }
+
+
+    try {
+
+        $instance = new $resolvedClass();
+
+    } catch (Throwable $exception) {
+
+        error_log(
+            sprintf(
+                '[CONTROLLER INIT] %s: %s',
+                $controller,
+                $exception->getMessage()
+            )
+        );
+
+        jsonResponse(
+            false,
+            null,
+            'تعذر تشغيل الخدمة المطلوبة',
+            'CONTROLLER_INIT_ERROR',
+            500
+        );
+    }
+
+
+    if (
+        !method_exists(
+            $instance,
+            $method
+        )
+    ) {
+
+        jsonResponse(
+            false,
+            null,
+            'العملية المطلوبة غير متوفرة',
+            'CONTROLLER_METHOD_NOT_FOUND',
+            501
+        );
+    }
+
+
+    try {
+
+        /**
+         * تمرير parameters كـ associative array.
+         *
+         * Controller يقدر يستقبل:
+         *
+         * index()
+         * show(array $params)
+         */
+        if (!empty($parameters)) {
+
+            $result = $instance->{$method}(
+                $parameters
+            );
+
+        } else {
+
+            $result = $instance->{$method}();
+        }
+
+
+        /**
+         * لو الـ Controller قام بالفعل بإرسال Response.
+         *
+         * لا نرسل Response ثاني.
+         */
+        if ($result === null) {
+
+            return;
+        }
+
+
+        /**
+         * دعم Controllers التي ترجع array.
+         */
+        if (is_array($result)) {
+
+            jsonResponse(
+                true,
+                $result,
+                null,
+                null,
+                200
+            );
+
+            return;
+        }
+
+
+        /**
+         * دعم Controllers التي ترجع scalar.
+         */
+        jsonResponse(
+            true,
+            $result,
+            null,
+            null,
+            200
+        );
+
+    } catch (Throwable $exception) {
+
+        error_log(
+            sprintf(
+                '[CONTROLLER ERROR] %s::%s - %s in %s:%d',
+                $controller,
+                $method,
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            )
+        );
+
+
+        $debug = filter_var(
+            getenv('APP_DEBUG') ?: 'false',
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+
+        jsonResponse(
+            false,
+            null,
+            $debug
+                ? $exception->getMessage()
+                : 'حدث خطأ أثناء تنفيذ العملية',
+            'CONTROLLER_ERROR',
+            500
+        );
+    }
+}
+
+
+/**
+ * Validate route ID.
+ *
+ * كل IDs في النظام يجب أن تكون أرقام صحيحة موجبة.
+ */
+function routeId($value): int
+{
+    if (
+        !is_numeric($value) ||
+        (int) $value <= 0 ||
+        (string) (int) $value !== (string) $value &&
+        !ctype_digit((string) $value)
+    ) {
+
+        jsonResponse(
+            false,
+            null,
+            'معرف السجل غير صالح',
+            'INVALID_ID',
+            400
+        );
+    }
+
+
+    return (int) $value;
+}
+
+
+/**
+ * Unified JSON Response
+ *
+ * لا نعتمد هنا على Mock Response.
+ *
+ * ويمكن لاحقًا توحيدها بالكامل مع Core\Response.
+ */
+function jsonResponse(
+    bool $success,
+    mixed $data = null,
+    ?string $message = null,
+    ?string $code = null,
+    int $status = 200
+): never {
+
+    http_response_code($status);
+
+
+    $response = [
+        'success' => $success,
+        'data' => $data,
+        'message' => $message,
+    ];
+
+
+    if ($code !== null) {
+
+        $response['code'] = $code;
+    }
+
+
+    $response['timestamp'] =
+        date('Y-m-d H:i:s');
+
+
+    $response['version'] =
+        getenv('APP_VERSION') ?: '5.0.0';
+
+
+    echo json_encode(
+        $response,
+        JSON_UNESCAPED_UNICODE |
+        JSON_UNESCAPED_SLASHES |
+        JSON_INVALID_UTF8_SUBSTITUTE
+    );
+
+
+    exit;
+}

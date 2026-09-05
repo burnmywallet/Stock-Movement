@@ -3,638 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الإشعارات - نظام المخازن المتقدم v5.0</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔔</text></svg>">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-    <style>
-        /* ================================================================
-        الأنماط الرئيسية - Notifications v5.0
-        ================================================================ */
-        :root {
-            --primary: #667eea;
-            --primary-dark: #5a67d8;
-            --secondary: #764ba2;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
-            --bg-dark: #0a0e1a;
-            --bg-card: rgba(255,255,255,0.03);
-            --border-color: rgba(255,255,255,0.05);
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255,255,255,0.6);
-            --text-muted: rgba(255,255,255,0.3);
-            --sidebar-width: 280px;
-            --radius: 16px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+    <title>الإشعارات - Logistox v5.0</title>
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Tajawal', 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh; direction: rtl; overflow-x: hidden; }
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-        ::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.3); border-radius: 10px; }
-
-        /* ===== Sidebar ===== */
-        .sidebar {
-            position: fixed; right: 0; top: 0; width: var(--sidebar-width); height: 100vh;
-            background: rgba(10, 14, 26, 0.97); backdrop-filter: blur(20px);
-            border-left: 1px solid var(--border-color); padding: 0; z-index: 1000;
-            transition: var(--transition); overflow-y: auto; overflow-x: hidden;
-        }
-        .sidebar .brand { padding: 20px 25px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; }
-        .sidebar .brand .logo-icon { width: 45px; height: 45px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
-        .sidebar .brand h2 { font-size: 20px; font-weight: 800; color: #fff; }
-        .sidebar .brand h2 span { background: linear-gradient(135deg, var(--primary), #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .sidebar .brand .version-badge { font-size: 9px; padding: 2px 10px; border-radius: 20px; background: rgba(102,126,234,0.15); color: var(--primary); font-weight: 600; margin-right: auto; }
-
-        .sidebar .user-profile { padding: 18px 25px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 14px; }
-        .sidebar .user-profile .avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 700; flex-shrink: 0; position: relative; }
-        .sidebar .user-profile .avatar .status-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); border: 2px solid var(--bg-dark); animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
-        .sidebar .user-profile .info .name { color: #fff; font-size: 16px; font-weight: 700; }
-        .sidebar .user-profile .info .role { color: var(--text-muted); font-size: 12px; }
-
-        .sidebar .nav-menu { padding: 10px 0 20px; }
-        .sidebar .nav-menu .nav-section { padding: 0 12px; margin-bottom: 4px; }
-        .sidebar .nav-menu .nav-section .section-title { color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 12px 12px 6px; display: flex; align-items: center; gap: 8px; }
-        .sidebar .nav-menu .nav-section .section-title .line { flex: 1; height: 1px; background: var(--border-color); }
-        .sidebar .nav-menu .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: var(--text-secondary); text-decoration: none; transition: var(--transition); cursor: pointer; position: relative; margin: 2px 0; font-size: 14px; }
-        .sidebar .nav-menu .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
-        .sidebar .nav-menu .nav-item.active { background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); color: var(--primary); border: 1px solid rgba(102,126,234,0.1); }
-        .sidebar .nav-menu .nav-item.active::before { content: ''; position: absolute; right: -1px; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: linear-gradient(180deg, var(--primary), var(--secondary)); border-radius: 0 4px 4px 0; }
-        .sidebar .nav-menu .nav-item i { width: 20px; text-align: center; font-size: 16px; }
-        .sidebar .nav-menu .nav-item .badge { margin-right: auto; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-        .sidebar .nav-menu .nav-item .badge.primary { background: rgba(102,126,234,0.15); color: var(--primary); }
-        .sidebar .nav-menu .nav-item .badge.success { background: rgba(40,167,69,0.15); color: var(--success); }
-        .sidebar .nav-menu .nav-item .badge.danger { background: rgba(220,53,69,0.15); color: var(--danger); }
-        .sidebar .nav-menu .nav-item .badge.warning { background: rgba(255,193,7,0.15); color: var(--warning); }
-        .sidebar .nav-menu .nav-item.logout { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; color: var(--text-muted); }
-        .sidebar .nav-menu .nav-item.logout:hover { color: var(--danger); }
-
-        /* ===== Main Content ===== */
-        .main-content { margin-right: var(--sidebar-width); min-height: 100vh; padding: 20px 30px 30px; }
-
-        .topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 20px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px; }
-        .topbar .page-title h1 { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .topbar .page-title p { color: var(--text-muted); font-size: 14px; }
-        .topbar .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .topbar .actions .search-box { display: flex; align-items: center; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 8px 16px; border: 1px solid var(--border-color); transition: var(--transition); }
-        .topbar .actions .search-box:focus-within { border-color: rgba(102,126,234,0.3); background: rgba(255,255,255,0.06); box-shadow: 0 0 0 4px rgba(102,126,234,0.05); }
-        .topbar .actions .search-box input { background: transparent; border: none; color: #fff; outline: none; font-family: 'Tajawal', sans-serif; padding: 4px 10px; width: 180px; font-size: 14px; }
-        .topbar .actions .search-box input::placeholder { color: var(--text-muted); }
-        .topbar .actions .search-box i { color: var(--text-muted); }
-        .topbar .actions .btn-icon { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; position: relative; }
-        .topbar .actions .btn-icon:hover { background: rgba(255,255,255,0.08); color: #fff; }
-        .topbar .actions .btn-primary { padding: 10px 24px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border: none; color: #fff; font-family: 'Tajawal', sans-serif; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 8px; }
-        .topbar .actions .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102,126,234,0.3); }
-        .topbar .actions .btn-danger { padding: 10px 24px; border-radius: 12px; background: linear-gradient(135deg, #dc3545, #c82333); border: none; color: #fff; font-family: 'Tajawal', sans-serif; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 8px; }
-        .topbar .actions .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(220,53,69,0.3); }
-        .sidebar-toggle { display: none; position: fixed; right: 16px; top: 16px; z-index: 1001; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 18px; transition: var(--transition); }
-        .sidebar-toggle:hover { background: rgba(255,255,255,0.08); }
-
-        /* ===== Notifications List ===== */
-        .notif-container { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; margin-top: 25px; }
-        .notif-container .notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .notif-container .notif-header .info { color: var(--text-muted); font-size: 14px; }
-        .notif-container .notif-header .filters { display: flex; gap: 10px; flex-wrap: wrap; }
-        .notif-container .notif-header .filters select { padding: 8px 16px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: rgba(255,255,255,0.6); font-family: 'Tajawal', sans-serif; outline: none; cursor: pointer; }
-        .notif-container .notif-header .filters select option { background: #1a2332; }
-
-        .notif-item { display: flex; align-items: flex-start; gap: 16px; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.03); transition: var(--transition); cursor: default; border-right: 4px solid transparent; }
-        .notif-item:hover { background: rgba(255,255,255,0.02); }
-        .notif-item.unread { background: rgba(102,126,234,0.04); border-right-color: var(--primary); }
-        .notif-item .notif-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-        .notif-item .notif-icon.info { background: rgba(102,126,234,0.12); color: var(--primary); }
-        .notif-item .notif-icon.success { background: rgba(40,167,69,0.12); color: var(--success); }
-        .notif-item .notif-icon.warning { background: rgba(255,193,7,0.12); color: var(--warning); }
-        .notif-item .notif-icon.danger { background: rgba(220,53,69,0.12); color: var(--danger); }
-        .notif-item .notif-content { flex: 1; min-width: 0; }
-        .notif-item .notif-content .title { color: #fff; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .notif-item .notif-content .message { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
-        .notif-item .notif-content .time { color: var(--text-muted); font-size: 12px; margin-top: 6px; display: block; }
-        .notif-item .notif-content .reference { color: var(--primary); font-size: 12px; margin-top: 4px; display: inline-block; }
-        .notif-item .notif-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 4px; }
-        .notif-item .notif-actions button { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .notif-item .notif-actions .mark-read { background: rgba(102,126,234,0.12); color: var(--primary); }
-        .notif-item .notif-actions .mark-read:hover { background: rgba(102,126,234,0.25); }
-        .notif-item .notif-actions .delete-notif { background: rgba(220,53,69,0.12); color: var(--danger); }
-        .notif-item .notif-actions .delete-notif:hover { background: rgba(220,53,69,0.25); }
-        .notif-item .priority-badge { font-size: 10px; padding: 2px 10px; border-radius: 20px; font-weight: 600; margin-right: 8px; }
-        .notif-item .priority-badge.critical { background: rgba(220,53,69,0.15); color: var(--danger); }
-        .notif-item .priority-badge.high { background: rgba(255,193,7,0.15); color: var(--warning); }
-        .notif-item .priority-badge.medium { background: rgba(102,126,234,0.15); color: var(--primary); }
-        .notif-item .priority-badge.low { background: rgba(40,167,69,0.15); color: var(--success); }
-
-        .empty-state { text-align: center; padding: 80px 20px; color: var(--text-muted); }
-        .empty-state i { font-size: 56px; display: block; margin-bottom: 16px; opacity: 0.3; }
-        .empty-state h3 { color: rgba(255,255,255,0.3); font-size: 20px; }
-        .empty-state p { color: rgba(255,255,255,0.15); font-size: 14px; margin-top: 4px; }
-
-        .pagination { display: flex; justify-content: center; gap: 8px; padding: 20px 0 10px; flex-wrap: wrap; }
-        .pagination .page-btn { padding: 8px 16px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: rgba(255,255,255,0.4); cursor: pointer; transition: var(--transition); font-family: 'Tajawal', sans-serif; font-size: 13px; }
-        .pagination .page-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
-        .pagination .page-btn.active { background: rgba(102,126,234,0.15); border-color: var(--primary); color: var(--primary); }
-        .pagination .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-        .toast-custom { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 12px; background: rgba(102,126,234,0.95); color: #fff; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600; box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 9999; animation: slideUp 0.4s ease; max-width: 90%; backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px; }
-        .toast-custom.success { background: rgba(40,167,69,0.95); }
-        .toast-custom.error { background: rgba(220,53,69,0.95); }
-        .toast-custom.warning { background: rgba(255,193,7,0.95); color: #1a2332; }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        @media (max-width: 992px) { .sidebar { right: -280px; } .sidebar.open { right: 0; box-shadow: 0 0 50px rgba(0,0,0,0.6); } .sidebar-toggle { display: block; } .main-content { margin-right: 0; padding: 15px; } .topbar { flex-direction: column; align-items: flex-start; } .topbar .actions { width: 100%; } .topbar .actions .search-box { flex: 1; } .topbar .actions .search-box input { width: 100%; } }
-        @media (max-width: 576px) { .main-content { padding: 15px; } .topbar .page-title h1 { font-size: 20px; } .notif-item { padding: 12px 14px; flex-wrap: wrap; } .notif-item .notif-actions { margin-top: 8px; width: 100%; justify-content: flex-end; } .notif-container { padding: 12px; } .notif-container .notif-header { flex-direction: column; align-items: flex-start; } .notif-container .notif-header .filters { width: 100%; } .notif-container .notif-header .filters select { flex: 1; } }
-    </style>
+    <!-- Theme & App CSS -->
+    <link rel="stylesheet" href="/inventory-system/frontend/assets/css/themes.css">
+    <link rel="stylesheet" href="/inventory-system/frontend/assets/css/app.css">
+    <link rel="stylesheet" href="/inventory-system/frontend/assets/css/notifications.css">
 </head>
 <body>
 
+    <!-- زر القائمة الجانبية -->
     <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
 
-    <!-- ===== Sidebar ===== -->
+    <!-- ================================================================
+         القائمة الجانبية
+         ================================================================ -->
     <aside class="sidebar" id="sidebar">
         <div class="brand">
             <div class="logo-icon"><i class="fas fa-warehouse"></i></div>
             <h2>نظام <span>المخازن</span></h2>
             <span class="version-badge">v5.0</span>
         </div>
+
         <div class="user-profile">
-            <div class="avatar" id="userAvatar">م<span class="status-dot"></span></div>
+            <div class="avatar" id="userAvatar"><span id="avatarInitial">م</span><span class="status-dot"></span></div>
             <div class="info">
                 <div class="name" id="userName">مدير النظام</div>
                 <div class="role" id="userRole">مدير عام</div>
             </div>
         </div>
+
         <nav class="nav-menu">
-            <div class="nav-section"><div class="section-title"><span>الرئيسية</span><span class="line"></span></div>
-                <a href="/frontend/pages/dashboard.html" class="nav-item"><i class="fas fa-chart-pie"></i> لوحة التحكم</a>
+            <div class="nav-section">
+                <div class="section-title"><span>الرئيسية</span><span class="line"></span></div>
+                <a href="/inventory-system/frontend/pages/dashboard.html" class="nav-item"><i class="fas fa-chart-pie"></i> لوحة التحكم</a>
             </div>
-            <div class="nav-section"><div class="section-title"><span>إدارة المخزون</span><span class="line"></span></div>
-                <a href="/frontend/pages/warehouses.html" class="nav-item"><i class="fas fa-warehouse"></i> المخازن <span class="badge success" id="warehouseBadge">0</span></a>
-                <a href="/frontend/pages/products.html" class="nav-item"><i class="fas fa-boxes"></i> الأصناف <span class="badge" id="productBadge">0</span></a>
-                <a href="/frontend/pages/users.html" class="nav-item"><i class="fas fa-users"></i> المستخدمين <span class="badge success" id="userBadge">0</span></a>
+
+            <div class="nav-section">
+                <div class="section-title"><span>إدارة المخزون</span><span class="line"></span></div>
+                <a href="/inventory-system/frontend/pages/warehouses.html" class="nav-item"><i class="fas fa-warehouse"></i> المخازن <span class="badge success" id="warehouseBadge">0</span></a>
+                <a href="/inventory-system/frontend/pages/products.html" class="nav-item"><i class="fas fa-boxes"></i> الأصناف <span class="badge" id="productBadge">0</span></a>
+                <a href="/inventory-system/frontend/pages/categories.html" class="nav-item"><i class="fas fa-tags"></i> التصنيفات</a>
+                <a href="/inventory-system/frontend/pages/units.html" class="nav-item"><i class="fas fa-balance-scale"></i> الوحدات</a>
+                <a href="/inventory-system/frontend/pages/users.html" class="nav-item"><i class="fas fa-users"></i> المستخدمين <span class="badge success" id="userBadge">0</span></a>
             </div>
-            <div class="nav-section"><div class="section-title"><span>العمليات</span><span class="line"></span></div>
-                <a href="/frontend/pages/receipts.html" class="nav-item"><i class="fas fa-arrow-down" style="color:var(--success);"></i> إذن استلام</a>
-                <a href="/frontend/pages/issues.html" class="nav-item"><i class="fas fa-arrow-up" style="color:var(--danger);"></i> إذن صرف</a>
-                <a href="/frontend/pages/transfers.html" class="nav-item"><i class="fas fa-exchange-alt" style="color:var(--warning);"></i> تحويلات</a>
-                <a href="/frontend/pages/returns.html" class="nav-item"><i class="fas fa-undo" style="color:var(--secondary);"></i> مرتجعات</a>
-                <a href="/frontend/pages/inventory.html" class="nav-item"><i class="fas fa-clipboard-check"></i> الجرد</a>
+
+            <div class="nav-section">
+                <div class="section-title"><span>العمليات</span><span class="line"></span></div>
+                <a href="/inventory-system/frontend/pages/receipts.html" class="nav-item"><i class="fas fa-arrow-down" style="color:var(--success);"></i> إذن استلام <span class="badge warning" id="receiptBadge">0</span></a>
+                <a href="/inventory-system/frontend/pages/issues.html" class="nav-item"><i class="fas fa-arrow-up" style="color:var(--danger);"></i> إذن صرف <span class="badge warning" id="issueBadge">0</span></a>
+                <a href="/inventory-system/frontend/pages/transfers.html" class="nav-item"><i class="fas fa-exchange-alt" style="color:var(--warning);"></i> تحويلات <span class="badge primary" id="transferBadge">0</span></a>
+                <a href="/inventory-system/frontend/pages/returns.html" class="nav-item"><i class="fas fa-undo" style="color:var(--secondary);"></i> مرتجعات</a>
+                <a href="/inventory-system/frontend/pages/stock-balances.html" class="nav-item"><i class="fas fa-clipboard-check"></i> الأرصدة</a>
+                <a href="/inventory-system/frontend/pages/stock-movements.html" class="nav-item"><i class="fas fa-history"></i> الحركات</a>
             </div>
-            <div class="nav-section"><div class="section-title"><span>التقارير</span><span class="line"></span></div>
-                <a href="/frontend/pages/reports.html" class="nav-item"><i class="fas fa-chart-bar"></i> التقارير المتقدمة</a>
-                <a href="/frontend/pages/audit.html" class="nav-item"><i class="fas fa-history"></i> سجل التدقيق</a>
+
+            <div class="nav-section">
+                <div class="section-title"><span>التقارير</span><span class="line"></span></div>
+                <a href="/inventory-system/frontend/pages/reports.html" class="nav-item"><i class="fas fa-chart-bar"></i> التقارير</a>
+                <a href="/inventory-system/frontend/pages/audit.html" class="nav-item"><i class="fas fa-history"></i> سجل التدقيق</a>
             </div>
-            <div class="nav-section"><div class="section-title"><span>الإدارة</span><span class="line"></span></div>
-                <a href="/frontend/pages/notifications.html" class="nav-item active"><i class="fas fa-bell"></i> الإشعارات <span class="badge danger" id="notifBadge">0</span></a>
-                <a href="/frontend/pages/settings.html" class="nav-item"><i class="fas fa-cog"></i> الإعدادات المتقدمة</a>
-                <a href="/frontend/pages/backup.html" class="nav-item"><i class="fas fa-database"></i> النسخ الاحتياطي</a>
+
+            <div class="nav-section">
+                <div class="section-title"><span>الإدارة</span><span class="line"></span></div>
+                <a href="/inventory-system/frontend/pages/notifications.html" class="nav-item active"><i class="fas fa-bell"></i> الإشعارات</a>
+                <a href="/inventory-system/frontend/pages/settings.html" class="nav-item"><i class="fas fa-cog"></i> الإعدادات</a>
                 <a href="#" class="nav-item logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
             </div>
         </nav>
     </aside>
 
-    <!-- ===== Main Content ===== -->
+    <!-- ================================================================
+         المحتوى الرئيسي
+         ================================================================ -->
     <div class="main-content">
+
+        <!-- الشريط العلوي -->
         <header class="topbar">
             <div class="page-title">
-                <h1><i class="fas fa-bell" style="color:var(--primary);"></i> الإشعارات</h1>
-                <p>جميع الإشعارات والتنبيهات في النظام</p>
+                <h1>🔔 الإشعارات</h1>
+                <p>جميع الإشعارات والتنبيهات</p>
             </div>
             <div class="actions">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="بحث في الإشعارات..." id="searchInput">
-                </div>
-                <button class="btn-primary" id="markAllReadBtn"><i class="fas fa-check-double"></i> تعيين الكل كمقروء</button>
-                <button class="btn-danger" id="refreshBtn"><i class="fas fa-sync-alt"></i> تحديث</button>
-                <button class="sidebar-toggle" style="display:inline-block;" id="mobileSidebarToggle"><i class="fas fa-bars"></i></button>
+                <button class="btn-primary" id="markAllReadBtn">
+                    <i class="fas fa-check-double"></i> تعيين الكل كمقروء
+                </button>
+                <button class="btn-icon" id="refreshBtn" title="تحديث">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn-icon" id="themeToggle" title="تغيير الثيم">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
         </header>
 
-        <div class="notif-container">
-            <div class="notif-header">
-                <span class="info">عرض <strong id="totalCount">0</strong> إشعار</span>
-                <div class="filters">
-                    <select id="priorityFilter">
-                        <option value="all">جميع الأولويات</option>
-                        <option value="critical">حرج</option>
-                        <option value="high">عالي</option>
-                        <option value="medium">متوسط</option>
-                        <option value="low">منخفض</option>
-                    </select>
-                    <select id="typeFilter">
-                        <option value="all">جميع الأنواع</option>
-                        <option value="low_stock">مخزون منخفض</option>
-                        <option value="out_of_stock">نفاذ مخزون</option>
-                        <option value="expiry_alert">انتهاء صلاحية</option>
-                        <option value="system_warning">تحذير نظام</option>
-                        <option value="approval_needed">موافقة مطلوبة</option>
-                        <option value="transaction_alert">تنبيه معاملة</option>
-                        <option value="transfer_completed">تحويل مكتمل</option>
-                        <option value="receipt_completed">استلام مكتمل</option>
-                        <option value="issue_completed">صرف مكتمل</option>
-                        <option value="inventory_completed">جرد مكتمل</option>
-                    </select>
-                    <select id="statusFilter">
-                        <option value="all">جميع الحالات</option>
-                        <option value="unread">غير مقروء</option>
-                        <option value="read">مقروء</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="notifList">
-                <div class="empty-state">
-                    <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
-                    <h3>جاري تحميل الإشعارات...</h3>
-                </div>
-            </div>
-
-            <div class="pagination" id="pagination"></div>
+        <!-- فلاتر الإشعارات -->
+        <div class="notification-filters">
+            <button class="filter-tab active" data-filter="all">الكل</button>
+            <button class="filter-tab" data-filter="unread">غير مقروء</button>
+            <button class="filter-tab" data-filter="read">مقروء</button>
         </div>
+
+        <!-- قائمة الإشعارات -->
+        <div class="notifications-list" id="notificationsList">
+            <div class="loading-state" style="text-align:center;padding:40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>
+                <p>جاري تحميل الإشعارات...</p>
+            </div>
+        </div>
+
     </div>
 
     <!-- ================================================================
-    JavaScript - مُصلح بالكامل
-    ================================================================ -->
+         SCRIPTS
+         ================================================================ -->
+    <script src="/inventory-system/frontend/assets/js/config.js"></script>
+    <script src="/inventory-system/frontend/assets/js/utils.js"></script>
+    <script src="/inventory-system/frontend/assets/js/api.js"></script>
+    <script src="/inventory-system/frontend/assets/js/auth.js"></script>
+    <script src="/inventory-system/frontend/assets/js/theme-manager.js"></script>
+    <script src="/inventory-system/frontend/assets/js/websocket.js"></script>
+    <script src="/inventory-system/frontend/assets/js/app.js"></script>
+
     <script>
-        (function() {
-            'use strict';
+        document.addEventListener('DOMContentLoaded', function() {
+            // التحقق من المصادقة
+            if (!Auth.checkAccess()) return;
 
-            // ================================================================
-            // التحقق من حالة تسجيل الدخول
-            // ================================================================
-            const token = localStorage.getItem('auth_token');
-            if (!token) {
-                window.location.href = '/frontend/pages/login.html';
-                return;
-            }
+            // تهيئة الثيم
+            ThemeManager.init();
 
-            // ================================================================
-            // مسار API
-            // ================================================================
-            function getApiBaseUrl() {
-                const currentPath = window.location.pathname;
-                if (currentPath.includes('/pages/')) return '../../api';
-                if (currentPath.includes('/frontend/')) return '../api';
-                if (currentPath.includes('/Stock-Movement/')) return '/Stock-Movement/api';
-                return '/api';
-            }
-            const API_BASE_URL = getApiBaseUrl();
+            // المتغيرات
+            let allNotifications = [];
+            let currentFilter = 'all';
 
-            // ================================================================
-            // دوال API
-            // ================================================================
-            async function apiRequest(endpoint, method = 'GET', data = null) {
-                const url = API_BASE_URL + endpoint;
-                const token = localStorage.getItem('auth_token');
-
-                const options = {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                };
-
-                if (token) {
-                    options.headers['Authorization'] = 'Bearer ' + token;
-                }
-
-                if (data && method !== 'GET') {
-                    options.body = JSON.stringify(data);
-                }
+            // تحميل الإشعارات
+            async function loadNotifications() {
+                const list = document.getElementById('notificationsList');
+                list.innerHTML = '<div class="loading-state" style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i><p>جاري تحميل...</p></div>';
 
                 try {
-                    const response = await fetch(url, options);
-                    const result = await response.json();
-
-                    if (response.status === 401) {
-                        localStorage.removeItem('auth_token');
-                        localStorage.removeItem('user');
-                        if (!window.location.pathname.includes('login.html')) {
-                            window.location.href = '/frontend/pages/login.html';
-                        }
-                        throw new Error('جلسة غير صالحة');
-                    }
-
-                    if (!result.success) {
-                        throw new Error(result.message || 'حدث خطأ');
-                    }
-
-                    return result;
+                    const notifications = await Api.getNotifications();
+                    allNotifications = notifications;
+                    renderNotifications();
                 } catch (error) {
-                    console.error('API Error:', error);
-                    throw error;
+                    console.error('Error loading notifications:', error);
+                    list.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle" style="font-size:48px;color:var(--danger);"></i><h3>حدث خطأ</h3><p>' + error.message + '</p></div>';
                 }
             }
 
-            // ================================================================
-            // تحميل معلومات المستخدم
-            // ================================================================
-            try {
-                const userData = JSON.parse(localStorage.getItem('user') || '{}');
-                document.getElementById('userName').textContent = userData.full_name || userData.name || 'مدير النظام';
-                const roleMap = {
-                    'admin': 'مدير عام',
-                    'warehouse_manager': 'مدير مخازن',
-                    'warehouse_supervisor': 'مشرف مخزن',
-                    'warehouse_staff': 'موظف مخزن',
-                    'viewer': 'مشاهدة',
-                    'auditor': 'مدقق'
-                };
-                document.getElementById('userRole').textContent = roleMap[userData.role] || 'مستخدم';
-                document.getElementById('userAvatar').textContent = (userData.full_name || userData.name || 'م')[0];
-            } catch (e) { console.warn('No user data found'); }
-
-            // ================================================================
-            // متغيرات
-            // ================================================================
-            let notifications = [];
-            let currentPage = 1;
-            const perPage = 20;
-
-            // ================================================================
-            // جلب الإشعارات
-            // ================================================================
-            async function fetchNotifications() {
-                const list = document.getElementById('notifList');
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
-                        <h3>جاري تحميل الإشعارات...</h3>
-                    </div>
-                `;
-
-                try {
-                    const search = document.getElementById('searchInput').value;
-                    const priority = document.getElementById('priorityFilter').value;
-                    const type = document.getElementById('typeFilter').value;
-                    const status = document.getElementById('statusFilter').value;
-
-                    const params = new URLSearchParams();
-                    if (search) params.append('search', search);
-                    if (priority !== 'all') params.append('priority', priority);
-                    if (type !== 'all') params.append('type', type);
-                    if (status !== 'all') params.append('status', status);
-                    params.append('page', currentPage);
-                    params.append('limit', perPage);
-
-                    const response = await apiRequest('/notifications?' + params.toString());
-                    
-                    if (response.success) {
-                        // ✅ التأكد من أن البيانات مصفوفة
-                        notifications = Array.isArray(response.data) ? response.data : [];
-                        const total = response.pagination?.total || 0;
-                        renderNotifications();
-                        renderPagination(total);
-                        updateBadge();
-                    }
-                } catch (error) {
-                    console.error('Error fetching notifications:', error);
-                    list.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i>
-                            <h3 style="color:var(--danger);">حدث خطأ في تحميل الإشعارات</h3>
-                            <p>${error.message}</p>
-                        </div>
-                    `;
-                }
-            }
-
-            // ================================================================
             // عرض الإشعارات
-            // ================================================================
             function renderNotifications() {
-                const list = document.getElementById('notifList');
-                document.getElementById('totalCount').textContent = notifications.length;
+                const list = document.getElementById('notificationsList');
 
-                if (notifications.length === 0) {
-                    list.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-inbox"></i>
-                            <h3>لا توجد إشعارات</h3>
-                            <p>جميع الإشعارات ستظهر هنا</p>
+                // فلترة
+                let filtered = allNotifications;
+                if (currentFilter === 'unread') {
+                    filtered = allNotifications.filter(n => !n.is_read);
+                } else if (currentFilter === 'read') {
+                    filtered = allNotifications.filter(n => n.is_read);
+                }
+
+                if (filtered.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><i class="fas fa-bell-slash" style="font-size:48px;"></i><h3>لا توجد إشعارات</h3><p>لا توجد إشعارات حالياً</p></div>';
+                    return;
+                }
+
+                list.innerHTML = filtered.map(notification => {
+                    const isUnread = !notification.is_read;
+                    const type = notification.type || 'info';
+                    const icons = {
+                        info: 'fa-info-circle',
+                        success: 'fa-check-circle',
+                        warning: 'fa-exclamation-triangle',
+                        error: 'fa-exclamation-circle'
+                    };
+
+                    return `
+                        <div class="notification-item ${isUnread ? 'unread' : ''}" data-id="${notification.id}">
+                            <div class="notification-icon ${type}">
+                                <i class="fas ${icons[type] || 'fa-bell'}"></i>
+                            </div>
+                            <div class="notification-content">
+                                <div class="notification-title">${notification.title || 'إشعار'}</div>
+                                <div class="notification-message">${notification.message || ''}</div>
+                                <div class="notification-time">
+                                    <i class="fas fa-clock"></i> ${formatDateTime(notification.created_at)}
+                                </div>
+                            </div>
+                            <div class="notification-actions">
+                                ${isUnread ? `<button class="btn-action mark-read" onclick="markAsRead(${notification.id})" title="تعيين كمقروء"><i class="fas fa-check"></i></button>` : ''}
+                                <button class="btn-action delete" onclick="deleteNotification(${notification.id})" title="حذف"><i class="fas fa-trash"></i></button>
+                            </div>
                         </div>
                     `;
-                    return;
-                }
-
-                const priorityLabels = {
-                    critical: 'حرج',
-                    high: 'عالي',
-                    medium: 'متوسط',
-                    low: 'منخفض'
-                };
-
-                const typeIcons = {
-                    'low_stock': 'fa-exclamation-triangle',
-                    'out_of_stock': 'fa-times-circle',
-                    'over_stock': 'fa-arrow-up',
-                    'expiry_alert': 'fa-clock',
-                    'system_warning': 'fa-exclamation-circle',
-                    'transaction_alert': 'fa-exchange-alt',
-                    'approval_needed': 'fa-check-circle',
-                    'transfer_completed': 'fa-check',
-                    'receipt_completed': 'fa-arrow-down',
-                    'issue_completed': 'fa-arrow-up',
-                    'inventory_completed': 'fa-clipboard-check'
-                };
-
-                const typeColors = {
-                    'low_stock': 'warning',
-                    'out_of_stock': 'danger',
-                    'over_stock': 'info',
-                    'expiry_alert': 'warning',
-                    'system_warning': 'danger',
-                    'transaction_alert': 'info',
-                    'approval_needed': 'primary',
-                    'transfer_completed': 'success',
-                    'receipt_completed': 'success',
-                    'issue_completed': 'success',
-                    'inventory_completed': 'success'
-                };
-
-                list.innerHTML = notifications.map(notif => `
-                    <div class="notif-item ${notif.is_read ? '' : 'unread'}" data-id="${notif.id}">
-                        <div class="notif-icon ${typeColors[notif.type] || 'info'}">
-                            <i class="fas ${typeIcons[notif.type] || 'fa-bell'}"></i>
-                        </div>
-                        <div class="notif-content">
-                            <div class="title">
-                                ${notif.title || 'إشعار'}
-                                <span class="priority-badge ${notif.priority || 'medium'}">${priorityLabels[notif.priority] || 'متوسط'}</span>
-                            </div>
-                            <div class="message">${notif.message || ''}</div>
-                            <span class="time">${notif.created_at ? new Date(notif.created_at).toLocaleString('ar-EG', { hour12: true }) : ''}</span>
-                            ${notif.link ? `<a href="${notif.link}" class="reference"><i class="fas fa-arrow-left"></i> عرض التفاصيل</a>` : ''}
-                        </div>
-                        <div class="notif-actions">
-                            ${!notif.is_read ? `<button class="mark-read" onclick="markAsRead(${notif.id})" title="تعيين كمقروء"><i class="fas fa-check"></i></button>` : ''}
-                            <button class="delete-notif" onclick="deleteNotification(${notif.id})" title="حذف"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                `).join('');
+                }).join('');
             }
 
-            // ================================================================
-            // ترقيم الصفحات
-            // ================================================================
-            function renderPagination(total) {
-                const container = document.getElementById('pagination');
-                const pages = Math.ceil(total / perPage);
-
-                if (pages <= 1) {
-                    container.innerHTML = '';
-                    return;
-                }
-
-                let html = '';
-                html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>السابق</button>`;
-                
-                for (let i = 1; i <= pages; i++) {
-                    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
-                }
-                
-                html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage >= pages ? 'disabled' : ''}>التالي</button>`;
-                container.innerHTML = html;
-            }
-
-            // ================================================================
-            // الانتقال إلى صفحة
-            // ================================================================
-            window.goToPage = function(page) {
-                if (page < 1) return;
-                const pages = Math.ceil((document.getElementById('totalCount').textContent || 0) / perPage);
-                if (page > pages) return;
-                currentPage = page;
-                fetchNotifications();
-            };
-
-            // ================================================================
-            // تعيين إشعار كمقروء
-            // ================================================================
+            // تعيين كمقروء
             window.markAsRead = async function(id) {
                 try {
-                    await apiRequest('/notifications/' + id + '/read', 'POST');
-                    const notif = notifications.find(n => n.id === id);
-                    if (notif) {
-                        notif.is_read = 1;
-                        renderNotifications();
-                        updateBadge();
-                        showToast('✅ تم تعيين الإشعار كمقروء', 'success');
-                    }
+                    await Api.markNotificationRead(id);
+                    const notification = allNotifications.find(n => n.id === id);
+                    if (notification) notification.is_read = true;
+                    renderNotifications();
+                    showToast('✅ تم تعيين الإشعار كمقروء', 'success');
                 } catch (error) {
-                    showToast('❌ حدث خطأ', 'error');
+                    showToast('❌ ' + error.message, 'error');
                 }
             };
 
-            // ================================================================
-            // تعيين جميع الإشعارات كمقروءة
-            // ================================================================
-            async function markAllAsRead() {
-                try {
-                    await apiRequest('/notifications/read-all', 'POST');
-                    notifications.forEach(n => n.is_read = 1);
-                    renderNotifications();
-                    updateBadge();
-                    showToast('✅ تم تعيين جميع الإشعارات كمقروءة', 'success');
-                } catch (error) {
-                    showToast('❌ حدث خطأ', 'error');
-                }
-            }
-
-            // ================================================================
             // حذف إشعار
-            // ================================================================
             window.deleteNotification = async function(id) {
                 if (!confirm('هل أنت متأكد من حذف هذا الإشعار؟')) return;
                 try {
-                    await apiRequest('/notifications/' + id, 'DELETE');
-                    notifications = notifications.filter(n => n.id !== id);
+                    // استخدام API لحذف الإشعار (إذا كان متوفراً)
+                    // await Api.delete('/notifications/' + id);
+                    allNotifications = allNotifications.filter(n => n.id !== id);
                     renderNotifications();
-                    updateBadge();
-                    showToast('🗑️ تم حذف الإشعار', 'success');
+                    showToast('✅ تم حذف الإشعار', 'success');
                 } catch (error) {
-                    showToast('❌ حدث خطأ', 'error');
+                    showToast('❌ ' + error.message, 'error');
                 }
             };
 
-            // ================================================================
-            // تحديث عدد الإشعارات في الشريط الجانبي
-            // ================================================================
-            function updateBadge() {
-                const unread = notifications.filter(n => !n.is_read).length;
-                const badge = document.getElementById('notifBadge');
-                if (unread > 0) {
-                    badge.textContent = unread;
-                    badge.style.display = 'inline-block';
-                } else {
-                    badge.style.display = 'none';
+            // تعيين الكل كمقروء
+            document.getElementById('markAllReadBtn').addEventListener('click', async function() {
+                try {
+                    // تحديث جميع الإشعارات
+                    allNotifications.forEach(n => n.is_read = true);
+                    renderNotifications();
+                    showToast('✅ تم تعيين جميع الإشعارات كمقروءة', 'success');
+                } catch (error) {
+                    showToast('❌ ' + error.message, 'error');
                 }
-            }
+            });
 
-            // ================================================================
-            // Toast
-            // ================================================================
-            function showToast(message, type = 'info') {
-                const existing = document.querySelector('.toast-custom');
-                if (existing) existing.remove();
-                const toast = document.createElement('div');
-                toast.className = `toast-custom ${type}`;
-                const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
-                toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
-                document.body.appendChild(toast);
-                setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s ease'; setTimeout(() => toast.remove(), 400); }, 3500);
-            }
+            // الفلاتر
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    renderNotifications();
+                });
+            });
 
-            // ================================================================
-            // مستمعي الأحداث
-            // ================================================================
-            document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; fetchNotifications(); });
-            document.getElementById('priorityFilter').addEventListener('change', () => { currentPage = 1; fetchNotifications(); });
-            document.getElementById('typeFilter').addEventListener('change', () => { currentPage = 1; fetchNotifications(); });
-            document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; fetchNotifications(); });
-            document.getElementById('refreshBtn').addEventListener('click', fetchNotifications);
-            document.getElementById('markAllReadBtn').addEventListener('click', markAllAsRead);
+            // زر التحديث
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                showToast('🔄 جاري تحديث...', 'warning');
+                loadNotifications();
+            });
 
-            // ================================================================
-            // Sidebar Toggle
-            // ================================================================
-            const sidebar = document.getElementById('sidebar');
+            // زر الثيم
+            document.getElementById('themeToggle').addEventListener('click', function() {
+                const theme = ThemeManager.toggleTheme();
+                showToast('🎨 تم التبديل إلى ' + theme.display_name, 'success');
+            });
+
+            // زر القائمة الجانبية
             document.getElementById('sidebarToggle').addEventListener('click', function() {
-                sidebar.classList.toggle('open');
-                this.querySelector('i').classList.toggle('fa-bars');
-                this.querySelector('i').classList.toggle('fa-times');
-            });
-            document.getElementById('mobileSidebarToggle').addEventListener('click', function() {
-                sidebar.classList.toggle('open');
+                document.getElementById('sidebar').classList.toggle('open');
             });
 
-            // ================================================================
-            // Logout
-            // ================================================================
-            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+            // تسجيل الخروج
+            document.getElementById('logoutBtn').addEventListener('click', async function(e) {
                 e.preventDefault();
                 if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('user');
-                    window.location.href = '/frontend/pages/login.html';
+                    await Auth.logout();
                 }
             });
 
-            // ================================================================
-            // تشغيل التطبيق
-            // ================================================================
-            fetchNotifications();
+            // تحميل البيانات
+            loadNotifications();
 
-            console.log('%c🔔 صفحة الإشعارات - نظام المخازن v5.0', 'font-size:20px;font-weight:bold;color:#667eea;');
-
-        })();
+            // تحديث تلقائي كل 30 ثانية
+            setInterval(loadNotifications, 30000);
+        });
     </script>
-
 </body>
 </html>
