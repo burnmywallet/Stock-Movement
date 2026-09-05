@@ -1,0 +1,36 @@
+/**
+ * ============================================================================
+ * Logistox - Light Theme
+ * ============================================================================
+ */
+
+ [data-theme="light"] {
+    --bg-color: #f5f7fa;
+    --text-color: #2c3e50;
+    --text-muted: #7f8c8d;
+    --card-bg: #ffffff;
+    --sidebar-bg: #ffffff;
+    --sidebar-color: #2c3e50;
+    --navbar-bg: #ffffff;
+    --border-color: #e9ecef;
+    --table-header-bg: #f8f9fa;
+    --input-bg: #ffffff;
+    --input-color: #2c3e50;
+}
+
+[data-theme="light"] .sidebar {
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
+    border-left: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .sidebar-link:hover {
+    background: rgba(52, 152, 219, 0.1);
+}
+
+[data-theme="light"] .sidebar-link.active {
+    background: rgba(52, 152, 219, 0.15);
+}
+
+[data-theme="light"] .sidebar-section-title {
+    color: #95a5a6;
+}

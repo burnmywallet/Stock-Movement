@@ -1,629 +1,341 @@
 /**
- * ================================================================
- * Logistox - التطبيق الرئيسي
- * نظام إدارة المخازن والمخزون v5.0
- * ================================================================
+ * ============================================================================
+ * Logistox - Main Application
+ * ============================================================================
  */
 
-// منع التكرار
-if (typeof window.initApp === 'undefined') {
+const App = (() => {
+    // ========================================================================
+    // Initialization
+    // ========================================================================
+    const init = async () => {
+        console.log('🚀 Initializing Logistox...');
 
-// ================================================================
-// تهيئة التطبيق
-// ================================================================
-function initApp() {
-    console.log('%c📊 Logistox v5.0', 'font-size:22px;font-weight:bold;color:#667eea;');
-    console.log('%c🏢 ' + window.APP_CONFIG.COMPANY.NAME, 'font-size:14px;color:#aaa;');
-    console.log('%c👨‍💻 Developed by ' + window.APP_CONFIG.DEVELOPER.NAME + ' (' + window.APP_CONFIG.DEVELOPER.ALIAS + ')', 'font-size:12px;color:#aaa;');
-    console.log('%c🔗 API URL: ' + window.APP_CONFIG.API.BASE_URL, 'font-size:12px;color:#667eea;');
-    console.log('%c🔐 حالة المصادقة: ' + (window.Auth.isAuthenticated() ? '✅ نشطة' : '❌ غير نشطة'), 'font-size:12px;color:' + (window.Auth.isAuthenticated() ? '#28a745' : '#dc3545') + ';');
+        // تحميل الثيم المحفوظ
+        loadTheme();
 
-    // تهيئة الثيم
-    window.ThemeManager.init();
-
-    // التحقق من المصادقة
-    if (!window.Auth.checkAccess()) {
-        return;
-    }
-
-    // تهيئة WebSocket
-    window.WebSocketManager.init();
-
-    // تحديث بيانات المستخدم
-    updateUserProfile();
-
-    // إعداد مستمعي الأحداث
-    setupEventListeners();
-
-    // إعداد الإشعارات
-    setupNotifications();
-
-    // إعداد البحث العام
-    setupGlobalSearch();
-
-    // إعداد اختصارات لوحة المفاتيح
-    setupKeyboardShortcuts();
-
-    // إعداد التحديث التلقائي
-    setupAutoRefresh();
-
-    // إعداد اللغة
-    setupLanguage();
-
-    // إعداد وضع النظام
-    setupSystemMode();
-
-    // إعداد النسخ الاحتياطي التلقائي
-    setupAutoBackup();
-}
-
-// ================================================================
-// تحديث ملف المستخدم
-// ================================================================
-function updateUserProfile() {
-    const user = window.Auth.getUser();
-    if (!user) return;
-
-    // تحديث اسم المستخدم
-    const userName = document.getElementById('userName');
-    if (userName) {
-        userName.textContent = user.full_name || user.username;
-    }
-
-    // تحديث الدور
-    const userRole = document.getElementById('userRole');
-    if (userRole) {
-        userRole.textContent = user.role_display || user.role || 'مستخدم';
-    }
-
-    // تحديث الصورة الرمزية
-    const avatar = document.getElementById('userAvatar');
-    if (avatar) {
-        avatar.textContent = (user.full_name || user.username || 'م').charAt(0);
-    }
-}
-
-// ================================================================
-// إعداد مستمعي الأحداث
-// ================================================================
-function setupEventListeners() {
-    // زر تسجيل الخروج
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-                await window.Auth.logout();
-            }
-        });
-    }
-
-    // زر تحديث البيانات
-    const refreshBtn = document.getElementById('refreshBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            window.showToast('🔄 جاري تحديث البيانات...', 'warning');
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
-        });
-    }
-
-    // زر الإشعارات
-    const notifBtn = document.getElementById('notifBtn');
-    if (notifBtn) {
-        notifBtn.addEventListener('click', () => {
-            window.location.href = '/inventory-system/frontend/pages/notifications.html';
-        });
-    }
-
-    // زر تبديل الثيم
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const theme = window.ThemeManager.toggleTheme();
-            window.showToast('🎨 تم التبديل إلى ' + theme.display_name, 'success');
-        });
-    }
-
-    // زر القائمة الجانبية
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
-                sidebar.classList.toggle('open');
-                sidebarToggle.querySelector('i').classList.toggle('fa-bars');
-                sidebarToggle.querySelector('i').classList.toggle('fa-times');
-            }
-        });
-    }
-
-    // مستمع لتغيير حجم النافذة
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 992) {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
-                sidebar.classList.remove('open');
-            }
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            if (sidebarToggle) {
-                sidebarToggle.querySelector('i').classList.remove('fa-times');
-                sidebarToggle.querySelector('i').classList.add('fa-bars');
-            }
+        // إذا كنا في صفحة dashboard
+        if (window.location.pathname.includes('index.html') || 
+            window.location.pathname === '/inventory-system/frontend/') {
+            
+            if (!Auth.requireAuth()) return;
+            
+            await loadLayout();
+            await loadDashboard();
         }
-    });
+    };
 
-    // مستمع لتغيير حالة الاتصال
-    window.addEventListener('online', () => {
-        window.showToast('✅ تم استعادة الاتصال بالإنترنت', 'success');
-        window.WebSocketManager.reconnect();
-    });
-
-    window.addEventListener('offline', () => {
-        window.showToast('⚠️ فقد الاتصال بالإنترنت', 'warning');
-        window.WebSocketManager.disconnect();
-    });
-
-    // مستمع لتغيير المصادقة
-    window.addEventListener('auth:login', () => {
-        window.WebSocketManager.connect();
-        updateUserProfile();
-    });
-
-    window.addEventListener('auth:logout', () => {
-        window.WebSocketManager.disconnect();
-    });
-}
-
-// ================================================================
-// إعداد الإشعارات
-// ================================================================
-function setupNotifications() {
-    // التحقق من صلاحيات إشعارات المتصفح
-    if ('Notification' in window && window.APP_CONFIG.NOTIFICATIONS.BROWSER_ENABLED) {
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                console.log('✅ إشعارات المتصفح مفعلة');
-            }
-        });
-    }
-
-    // تحديث عداد الإشعارات
-    updateNotificationsBadge();
-    
-    // تحديث دوري لعداد الإشعارات
-    setInterval(updateNotificationsBadge, 60000);
-}
-
-// ================================================================
-// تحديث عداد الإشعارات
-// ================================================================
-async function updateNotificationsBadge() {
-    try {
-        const notifications = await window.Api.getNotifications();
-        const unreadCount = notifications.filter(n => !n.is_read).length;
-        
-        const notifCount = document.getElementById('notifCount');
-        const notifDot = document.getElementById('notifDot');
-        
-        if (notifCount) {
-            if (unreadCount > 0) {
-                notifCount.textContent = unreadCount;
-                notifCount.classList.add('active');
-            } else {
-                notifCount.classList.remove('active');
-            }
-        }
-        
-        if (notifDot) {
-            notifDot.classList.toggle('active', unreadCount > 0);
-        }
-    } catch (error) {
-        console.error('Error loading notifications:', error);
-    }
-}
-
-// ================================================================
-// إعداد البحث العام
-// ================================================================
-function setupGlobalSearch() {
-    const searchInput = document.getElementById('globalSearch');
-    if (!searchInput) return;
-
-    let searchTimer = null;
-
-    searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.trim();
-        
-        // إلغاء المؤقت السابق
-        clearTimeout(searchTimer);
-        
-        // تأخير البحث 300ms (debounce)
-        searchTimer = setTimeout(async () => {
-            if (query.length >= 2) {
-                await performGlobalSearch(query);
-            } else {
-                hideSearchResults();
-            }
-        }, 300);
-    });
-
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            searchInput.value = '';
-            hideSearchResults();
-        }
-    });
-}
-
-// ================================================================
-// تنفيذ البحث العام
-// ================================================================
-async function performGlobalSearch(query) {
-    try {
-        const results = await window.Api.globalSearch(query);
-        
-        const searchResultsContainer = document.getElementById('searchResults');
-        if (searchResultsContainer) {
-            showSearchResults(results, searchResultsContainer);
-        }
-        
-        const currentPage = window.location.pathname.split('/').pop().replace('.html', '');
-        if (currentPage === 'products') {
-            window.loadProducts({ search: query });
-        } else if (currentPage === 'warehouses') {
-            window.loadWarehouses({ search: query });
-        } else if (currentPage === 'users') {
-            window.loadUsers({ search: query });
-        }
-    } catch (error) {
-        console.error('Search error:', error);
-    }
-}
-
-// ================================================================
-// عرض نتائج البحث
-// ================================================================
-function showSearchResults(results, container) {
-    const html = results.map(result => `
-        <div class="search-result-item" onclick="window.location.href='${result.url}'">
-            <i class="fas ${result.icon}"></i>
-            <div>
-                <div class="result-title">${result.title}</div>
-                <div class="result-subtitle">${result.subtitle}</div>
-            </div>
-        </div>
-    `).join('');
-    
-    container.innerHTML = html;
-    container.classList.add('show');
-}
-
-// ================================================================
-// إخفاء نتائج البحث
-// ================================================================
-function hideSearchResults() {
-    const container = document.getElementById('searchResults');
-    if (container) {
-        container.classList.remove('show');
-        container.innerHTML = '';
-    }
-}
-
-// ================================================================
-// إعداد اختصارات لوحة المفاتيح
-// ================================================================
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        // Ctrl + K للبحث
-        if (e.ctrlKey && e.key === 'k') {
-            e.preventDefault();
-            const searchInput = document.getElementById('globalSearch');
-            if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-            }
-        }
-        
-        // Ctrl + R للتحديث
-        if (e.ctrlKey && e.key === 'r') {
-            e.preventDefault();
-            const refreshBtn = document.getElementById('refreshBtn');
-            if (refreshBtn) {
-                refreshBtn.click();
-            }
-        }
-        
-        // Ctrl + T لتبديل الثيم
-        if (e.ctrlKey && e.key === 't') {
-            e.preventDefault();
-            const themeToggle = document.getElementById('themeToggle');
-            if (themeToggle) {
-                themeToggle.click();
-            }
-        }
-        
-        // Ctrl + L لتسجيل الخروج
-        if (e.ctrlKey && e.key === 'l') {
-            e.preventDefault();
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.click();
-            }
-        }
-        
-        // Esc لإغلاق أي مودال
-        if (e.key === 'Escape') {
-            const modals = document.querySelectorAll('.modal-overlay.show');
-            modals.forEach(modal => {
-                modal.classList.remove('show');
-            });
-        }
-    });
-}
-
-// ================================================================
-// إعداد التحديث التلقائي
-// ================================================================
-function setupAutoRefresh() {
-    // تحديث البيانات كل 60 ثانية
-    setInterval(async () => {
-        const currentPage = window.location.pathname.split('/').pop().replace('.html', '');
-        
+    // ========================================================================
+    // Layout Loading
+    // ========================================================================
+    const loadLayout = async () => {
         try {
-            switch (currentPage) {
-                case 'dashboard':
-                    if (typeof window.loadDashboard === 'function') await window.loadDashboard();
-                    break;
-                case 'products':
-                    if (typeof window.loadProducts === 'function') await window.loadProducts();
-                    break;
-                case 'warehouses':
-                    if (typeof window.loadWarehouses === 'function') await window.loadWarehouses();
-                    break;
-                case 'users':
-                    if (typeof window.loadUsers === 'function') await window.loadUsers();
-                    break;
-                case 'receipts':
-                    if (typeof window.loadReceipts === 'function') await window.loadReceipts();
-                    break;
-                case 'issues':
-                    if (typeof window.loadIssues === 'function') await window.loadIssues();
-                    break;
-                case 'transfers':
-                    if (typeof window.loadTransfers === 'function') await window.loadTransfers();
-                    break;
-                case 'returns':
-                    if (typeof window.loadReturns === 'function') await window.loadReturns();
-                    break;
-                case 'stock-balances':
-                    if (typeof window.loadStockBalances === 'function') await window.loadStockBalances();
-                    break;
-                case 'stock-movements':
-                    if (typeof window.loadStockMovements === 'function') await window.loadStockMovements();
-                    break;
-                case 'notifications':
-                    if (typeof window.loadNotifications === 'function') await window.loadNotifications();
-                    break;
+            // تحميل Sidebar
+            const sidebarResponse = await fetch('/inventory-system/frontend/templates/sidebar.html');
+            const sidebarHTML = await sidebarResponse.text();
+            document.getElementById('sidebar-container').innerHTML = sidebarHTML;
+
+            // تحميل Navbar
+            const navbarResponse = await fetch('/inventory-system/frontend/templates/navbar.html');
+            const navbarHTML = await navbarResponse.text();
+            document.getElementById('navbar-container').innerHTML = navbarHTML;
+
+            // تحديث معلومات المستخدم
+            updateUserUI();
+
+            // تفعيل التنقل
+            setupNavigation();
+
+            // تحميل الإشعارات
+            loadNotifications();
+
+        } catch (error) {
+            console.error('Failed to load layout:', error);
+            showAlert('فشل في تحميل الواجهة', 'danger');
+        }
+    };
+
+    // ========================================================================
+    // User UI
+    // ========================================================================
+    const updateUserUI = () => {
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+
+        // تحديث اسم المستخدم
+        const userNameEl = document.getElementById('user-full-name');
+        if (userNameEl) userNameEl.textContent = user.full_name;
+
+        const userRoleEl = document.getElementById('user-role');
+        if (userRoleEl) userRoleEl.textContent = user.role_display_name || user.role_name;
+
+        const userInitials = document.getElementById('user-initials');
+        if (userInitials) {
+            const initials = user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2);
+            userInitials.textContent = initials;
+        }
+    };
+
+    // ========================================================================
+    // Navigation
+    // ========================================================================
+    const setupNavigation = () => {
+        document.querySelectorAll('[data-page]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                loadPage(page);
+                
+                // تحديث الحالة النشطة
+                document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+    };
+
+    const loadPage = async (pageName) => {
+        const contentArea = document.getElementById('main-content');
+        if (!contentArea) return;
+
+        contentArea.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+                <p class="mt-3 text-muted">جاري تحميل الصفحة...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`/inventory-system/frontend/pages/${pageName}.html`);
+            if (!response.ok) throw new Error('الصفحة غير موجودة');
+            
+            const html = await response.text();
+            contentArea.innerHTML = html;
+
+            // تحميل JavaScript الخاص بالصفحة
+            const scriptPath = `/inventory-system/frontend/assets/js/modules/${pageName}.js`;
+            try {
+                const script = document.createElement('script');
+                script.src = scriptPath;
+                script.onload = () => {
+                    if (window[`init${capitalize(pageName)}`]) {
+                        window[`init${capitalize(pageName)}`]();
+                    }
+                };
+                document.body.appendChild(script);
+            } catch (e) {
+                console.log('Page script not found:', scriptPath);
+            }
+
+        } catch (error) {
+            contentArea.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    فشل في تحميل الصفحة: ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    // ========================================================================
+    // Dashboard
+    // ========================================================================
+    const loadDashboard = async () => {
+        try {
+            const statsResponse = await API.get('/dashboard/stats');
+            if (statsResponse.success) {
+                renderDashboardStats(statsResponse.data);
+            }
+
+            const alertsResponse = await API.get('/dashboard/alerts');
+            if (alertsResponse.success) {
+                renderDashboardAlerts(alertsResponse.data);
+            }
+
+        } catch (error) {
+            console.error('Failed to load dashboard:', error);
+        }
+    };
+
+    const renderDashboardStats = (data) => {
+        const stats = [
+            { 
+                label: 'إجمالي المنتجات', 
+                value: data.products?.total || 0, 
+                icon: 'fa-boxes', 
+                color: 'primary' 
+            },
+            { 
+                label: 'المخازن النشطة', 
+                value: data.warehouses?.active || 0, 
+                icon: 'fa-warehouse', 
+                color: 'success' 
+            },
+            { 
+                label: 'المستخدمون', 
+                value: data.users?.active || 0, 
+                icon: 'fa-users', 
+                color: 'info' 
+            },
+            { 
+                label: 'المخزون المنخفض', 
+                value: data.stock?.low_stock_count || 0, 
+                icon: 'fa-exclamation-triangle', 
+                color: 'warning' 
+            },
+        ];
+
+        const container = document.getElementById('stats-cards');
+        if (!container) return;
+
+        container.innerHTML = stats.map(stat => `
+            <div class="col-md-6 col-xl-3">
+                <div class="card stat-card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">${stat.label}</h6>
+                                <h2 class="mb-0 fw-bold">${formatNumber(stat.value)}</h2>
+                            </div>
+                            <div class="stat-icon bg-${stat.color}-light text-${stat.color}">
+                                <i class="fas ${stat.icon}"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    };
+
+    const renderDashboardAlerts = (data) => {
+        const alertsContainer = document.getElementById('alerts-container');
+        if (!alertsContainer) return;
+
+        let alertsHTML = '';
+
+        // Low Stock
+        if (data.low_stock && data.low_stock.length > 0) {
+            alertsHTML += `
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> منتجات منخفضة المخزون</h6>
+                    <ul class="mb-0">
+                        ${data.low_stock.slice(0, 5).map(p => `
+                            <li>${p.name} - ${p.total_quantity} ${p.unit_symbol || ''} 
+                                (نقطة الطلب: ${p.reorder_point})</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Pending Operations
+        if (data.pending_operations) {
+            const { receipts, issues, transfers } = data.pending_operations;
+            const total = receipts + issues + transfers;
+            if (total > 0) {
+                alertsHTML += `
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-clock"></i> عمليات قيد الانتظار</h6>
+                        <div class="d-flex gap-3">
+                            ${receipts > 0 ? `<span><strong>${receipts}</strong> استلام</span>` : ''}
+                            ${issues > 0 ? `<span><strong>${issues}</strong> صرف</span>` : ''}
+                            ${transfers > 0 ? `<span><strong>${transfers}</strong> تحويل</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        alertsContainer.innerHTML = alertsHTML || '<div class="alert alert-success"><i class="fas fa-check-circle"></i> لا توجد تنبيهات حالياً</div>';
+    };
+
+    // ========================================================================
+    // Theme Management
+    // ========================================================================
+    const loadTheme = () => {
+        const theme = localStorage.getItem('logistox_theme') || 'dark';
+        setTheme(theme);
+    };
+
+    const setTheme = (theme) => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('logistox_theme', theme);
+        
+        const themeLink = document.getElementById('theme-css');
+        if (themeLink) {
+            themeLink.href = `/inventory-system/frontend/assets/css/themes/${theme}.css`;
+        }
+    };
+
+    const toggleTheme = () => {
+        const current = localStorage.getItem('logistox_theme') || 'dark';
+        setTheme(current === 'dark' ? 'light' : 'dark');
+    };
+
+    // ========================================================================
+    // Notifications
+    // ========================================================================
+    const loadNotifications = async () => {
+        try {
+            const response = await API.get('/notifications/unread-count');
+            if (response.success) {
+                updateNotificationBadge(response.data.total);
             }
         } catch (error) {
-            console.error('Auto refresh error:', error);
+            console.error('Failed to load notifications:', error);
         }
-    }, 60000);
-}
+    };
 
-// ================================================================
-// إعداد اللغة
-// ================================================================
-function setupLanguage() {
-    const savedLang = localStorage.getItem('app_language') || 'ar';
-    applyLanguage(savedLang);
-    
-    window.addEventListener('language:change', (e) => {
-        applyLanguage(e.detail);
-    });
-}
-
-// ================================================================
-// تطبيق اللغة
-// ================================================================
-function applyLanguage(lang) {
-    localStorage.setItem('app_language', lang);
-    
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = lang;
-    
-    document.querySelectorAll('[data-i18n]').forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        const translation = window.t(key);
-        if (translation) {
-            element.textContent = translation;
-        }
-    });
-    
-    const pageTitle = document.querySelector('.page-title h1');
-    if (pageTitle) {
-        const titleKey = pageTitle.getAttribute('data-i18n');
-        if (titleKey) {
-            pageTitle.textContent = window.t(titleKey);
-        }
-    }
-    
-    document.querySelectorAll('.sidebar .nav-item').forEach(item => {
-        const key = item.getAttribute('data-i18n');
-        if (key) {
-            const textElement = item.querySelector('span');
-            if (textElement) {
-                textElement.textContent = window.t(key);
+    const updateNotificationBadge = (count) => {
+        const badge = document.getElementById('notification-badge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
             }
         }
-    });
-    
-    window.dispatchEvent(new CustomEvent('language:applied', { detail: lang }));
-}
+    };
 
-// ================================================================
-// إعداد وضع النظام
-// ================================================================
-function setupSystemMode() {
-    const autoTheme = localStorage.getItem('auto_theme');
-    if (autoTheme === 'true') {
-        window.ThemeManager.initAutoTheme();
-    }
-    
-    setInterval(() => {
-        if (localStorage.getItem('auto_theme') === 'true') {
-            window.ThemeManager.initAutoTheme();
-        }
-    }, 300000);
-}
+    // ========================================================================
+    // Helpers
+    // ========================================================================
+    const showAlert = (message, type = 'info') => {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    };
 
-// ================================================================
-// إعداد النسخ الاحتياطي التلقائي
-// ================================================================
-function setupAutoBackup() {
-    const autoBackup = localStorage.getItem('auto_backup') === 'true';
-    if (!autoBackup) return;
-    
-    const lastBackup = localStorage.getItem('last_backup');
-    const now = new Date();
-    
-    if (!lastBackup) {
-        createAutoBackup();
-        return;
-    }
-    
-    const lastBackupDate = new Date(lastBackup);
-    const daysSinceLastBackup = Math.floor((now - lastBackupDate) / (1000 * 60 * 60 * 24));
-    
-    if (daysSinceLastBackup >= 1) {
-        createAutoBackup();
-    }
-}
+    const formatNumber = (num) => {
+        return new Intl.NumberFormat('ar-EG').format(num);
+    };
 
-// ================================================================
-// إنشاء نسخة احتياطية تلقائية
-// ================================================================
-async function createAutoBackup() {
-    try {
-        await window.Api.createBackup();
-        localStorage.setItem('last_backup', new Date().toISOString());
-        console.log('✅ تم إنشاء نسخة احتياطية تلقائية');
-    } catch (error) {
-        console.error('Auto backup error:', error);
-    }
-}
+    const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
-// ================================================================
-// عرض بيانات المستخدم
-// ================================================================
-function showUserInfo() {
-    const user = window.Auth.getUser();
-    if (!user) return;
-    
-    const modalBody = document.getElementById('modalBody');
-    if (!modalBody) return;
-    
-    modalBody.innerHTML = `
-        <div style="text-align:center;margin-bottom:20px;">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:32px;color:white;margin:0 auto 15px;">
-                ${(user.full_name || user.username || 'م').charAt(0)}
-            </div>
-            <h3 style="color:var(--text-primary);margin-bottom:5px;">${user.full_name || 'مستخدم'}</h3>
-            <p style="color:var(--text-muted);font-size:13px;">@${user.username}</p>
-        </div>
-        
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;">
-            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
-                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">الدور</div>
-                <div style="color:var(--text-primary);font-weight:600;">${user.role_display || user.role || 'مستخدم'}</div>
-            </div>
-            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
-                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">البريد الإلكتروني</div>
-                <div style="color:var(--text-primary);font-weight:600;">${user.email || 'غير متوفر'}</div>
-            </div>
-            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
-                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">الهاتف</div>
-                <div style="color:var(--text-primary);font-weight:600;">${user.phone || 'غير متوفر'}</div>
-            </div>
-            <div style="background:var(--bg-card);padding:15px;border-radius:10px;border:1px solid var(--border-color);">
-                <div style="color:var(--text-muted);font-size:12px;margin-bottom:5px;">المخزن</div>
-                <div style="color:var(--text-primary);font-weight:600;">${user.warehouse || 'الكل'}</div>
-            </div>
-        </div>
-        
-        <div style="display:flex;gap:10px;justify-content:center;">
-            <button class="btn btn-primary" onclick="window.location.href='${window.APP_CONFIG.PAGES.SETTINGS}'">
-                <i class="fas fa-cog"></i> الإعدادات
-            </button>
-            <button class="btn btn-secondary" onclick="closeModal()">
-                <i class="fas fa-times"></i> إغلاق
-            </button>
-        </div>
-    `;
-    
-    document.getElementById('modalTitle').textContent = '👤 معلومات المستخدم';
-    document.getElementById('activityModal').classList.add('show');
-}
+    // ========================================================================
+    // Public API
+    // ========================================================================
+    return {
+        init,
+        loadPage,
+        setTheme,
+        toggleTheme,
+        showAlert,
+        formatNumber,
+    };
+})();
 
-// ================================================================
-// عرض الإعدادات السريعة
-// ================================================================
-function showQuickSettings() {
-    const modalBody = document.getElementById('modalBody');
-    if (!modalBody) return;
-    
-    modalBody.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
-            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.ThemeManager.toggleTheme()">
-                <i class="fas fa-palette" style="font-size:28px;color:var(--primary);margin-bottom:10px;"></i>
-                <div style="font-size:14px;font-weight:600;">تغيير الثيم</div>
-            </div>
-            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.SETTINGS}'">
-                <i class="fas fa-cog" style="font-size:28px;color:var(--success);margin-bottom:10px;"></i>
-                <div style="font-size:14px;font-weight:600;">الإعدادات</div>
-            </div>
-            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.REPORTS}'">
-                <i class="fas fa-chart-bar" style="font-size:28px;color:var(--warning);margin-bottom:10px;"></i>
-                <div style="font-size:14px;font-weight:600;">التقارير</div>
-            </div>
-            <div style="background:var(--bg-card);padding:20px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid var(--border-color);transition:var(--transition);" onclick="window.location.href='${window.APP_CONFIG.PAGES.BACKUP}'">
-                <i class="fas fa-database" style="font-size:28px;color:var(--info);margin-bottom:10px;"></i>
-                <div style="font-size:14px;font-weight:600;">النسخ الاحتياطي</div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('modalTitle').textContent = '⚡ إعدادات سريعة';
-    document.getElementById('activityModal').classList.add('show');
-}
-
-// ================================================================
-// إغلاق المودال
-// ================================================================
-function closeModal() {
-    document.getElementById('activityModal').classList.remove('show');
-}
-
-// ================================================================
-// تصدير الدوال العامة
-// ================================================================
-window.initApp = initApp;
-window.updateUserProfile = updateUserProfile;
-window.showUserInfo = showUserInfo;
-window.showQuickSettings = showQuickSettings;
-window.closeModal = closeModal;
-window.updateNotificationsBadge = updateNotificationsBadge;
-window.applyLanguage = applyLanguage;
-
-// ================================================================
-// تشغيل التطبيق عند تحميل الصفحة
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.initApp === 'function') {
-        window.initApp();
-    }
+// بدء التطبيق عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', () => {
+    App.init();
 });
 
-} // نهاية منع التكرار
+window.App = App;

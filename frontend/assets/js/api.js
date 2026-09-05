@@ -1,585 +1,329 @@
 /**
- * ================================================================
- * Logistox - عميل API المتقدم
- * نظام إدارة المخازن والمخزون v5.0
- * ================================================================
+ * ============================================================================
+ * Logistox - Advanced API Client v5.1
+ * نظام إدارة المخازن والمخزون
+ * ============================================================================
+ *
+ * المميزات:
+ * - Bearer Token Authentication
+ * - Password Recovery (Forgot/Reset)
+ * - Advanced Error Handling
+ * - Request/Response Interceptors
+ * - Timeout & Retry Logic
+ * - Global Event System
+ * ============================================================================
  */
 
-// منع التكرار
-if (typeof window.Api === 'undefined') {
+const API = (() => {
+    'use strict';
 
-class ApiClient {
-    constructor() {
-        this.baseUrl = window.APP_CONFIG?.API?.BASE_URL || '/api';
-        this.token = localStorage.getItem('auth_token') || null;
-        this.defaultHeaders = {
+    // ========================================================================
+    // Configuration
+    // ========================================================================
+    const CONFIG = {
+        baseURL: '/inventory-system/backend/public/api',
+        timeout: 30000,
+        maxRetries: 2,
+        headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        };
-    }
+            'Accept': 'application/json',
+        },
+    };
 
-    // ================================================================
-    // إدارة التوكن
-    // ================================================================
-    setToken(token) {
-        this.token = token;
+    // ========================================================================
+    // Event System (للتنبيهات المتقدمة)
+    // ========================================================================
+    const events = {
+        listeners: {},
+        on(event, callback) {
+            if (!this.listeners[event]) this.listeners[event] = [];
+            this.listeners[event].push(callback);
+        },
+        off(event, callback) {
+            if (!this.listeners[event]) return;
+            this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+        },
+        emit(event, data) {
+            if (!this.listeners[event]) return;
+            this.listeners[event].forEach(cb => {
+                try { cb(data); } catch (e) { console.error('Event error:', e); }
+            });
+        }
+    };
+
+    // ========================================================================
+    // Token & User Management
+    // ========================================================================
+    const storage = {
+        get: (key) => {
+            try { return localStorage.getItem(key); } catch { return null; }
+        },
+        set: (key, value) => {
+            try { localStorage.setItem(key, value); } catch { console.warn('Storage full'); }
+        },
+        remove: (key) => {
+            try { localStorage.removeItem(key); } catch {}
+        },
+        getJSON: (key) => {
+            const val = storage.get(key);
+            if (!val) return null;
+            try { return JSON.parse(val); } catch { return null; }
+        },
+        setJSON: (key, value) => {
+            storage.set(key, JSON.stringify(value));
+        }
+    };
+
+    const getToken = () => storage.get('logistox_token');
+    const setToken = (token) => storage.set('logistox_token', token);
+    const clearToken = () => storage.remove('logistox_token');
+    
+    const getUser = () => storage.getJSON('logistox_user');
+    const setUser = (user) => storage.setJSON('logistox_user', user);
+    const clearUser = () => storage.remove('logistox_user');
+
+    const getPermissions = () => storage.getJSON('logistox_permissions') || [];
+    const setPermissions = (perms) => storage.setJSON('logistox_permissions', perms);
+    const clearPermissions = () => storage.remove('logistox_permissions');
+
+    // ========================================================================
+    // Request Builder
+    // ========================================================================
+    const buildHeaders = (customHeaders = {}) => {
+        const headers = { ...CONFIG.headers, ...customHeaders };
+        const token = getToken();
         if (token) {
-            localStorage.setItem('auth_token', token);
-        } else {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
+            headers['Authorization'] = `Bearer ${token}`;
         }
-    }
-
-    getToken() {
-        return this.token || localStorage.getItem('auth_token') || null;
-    }
-
-    isAuthenticated() {
-        return !!this.getToken();
-    }
-
-    // ================================================================
-    // إعداد الهيدرز
-    // ================================================================
-    getHeaders(includeAuth = true) {
-        const headers = { ...this.defaultHeaders };
-        
-        if (includeAuth) {
-            const token = this.getToken();
-            if (token) {
-                headers['Authorization'] = 'Bearer ' + token;
-            }
-        }
-        
         return headers;
-    }
+    };
 
-    // ================================================================
-    // الطلب الأساسي
-    // ================================================================
-    async request(method, endpoint, data = null, options = {}) {
-        const url = this.baseUrl + endpoint;
-        const config = {
-            method: method,
-            headers: this.getHeaders(options.includeAuth !== false)
-        };
-
-        if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-            config.body = JSON.stringify(data);
-        }
-
-        try {
-            const response = await fetch(url, config);
-            
-            // إذا كانت الجلسة غير صالحة
-            if (response.status === 401) {
-                this.setToken(null);
-                localStorage.removeItem('user');
-                if (window.location.pathname !== '/inventory-system/frontend/pages/login.html') {
-                    window.location.href = '/inventory-system/frontend/pages/login.html';
-                }
-                throw new Error('انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.');
-            }
-
-            // قراءة الاستجابة
-            let result;
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                result = await response.json();
-            } else {
-                const text = await response.text();
-                try {
-                    result = JSON.parse(text);
-                } catch (e) {
-                    throw new Error('استجابة غير صالحة من الخادم');
-                }
-            }
-
-            // التحقق من النجاح
-            if (!response.ok || !result.success) {
-                throw new Error(result.message || `خطأ ${response.status}: ${response.statusText}`);
-            }
-
-            return result.data || result;
-
-        } catch (error) {
-            if (error.message === 'Failed to fetch') {
-                throw new Error('تعذر الاتصال بالخادم. تأكد من تشغيل الخدمة.');
-            }
-            throw error;
-        }
-    }
-
-    // ================================================================
-    // طرق HTTP الأساسية
-    // ================================================================
-    get(endpoint, options = {}) {
-        return this.request('GET', endpoint, null, options);
-    }
-
-    post(endpoint, data, options = {}) {
-        return this.request('POST', endpoint, data, options);
-    }
-
-    put(endpoint, data, options = {}) {
-        return this.request('PUT', endpoint, data, options);
-    }
-
-    delete(endpoint, options = {}) {
-        return this.request('DELETE', endpoint, null, options);
-    }
-
-    patch(endpoint, data, options = {}) {
-        return this.request('PATCH', endpoint, data, options);
-    }
-
-    // ================================================================
-    // المصادقة
-    // ================================================================
-
-    // تسجيل الدخول
-    async login(username, password, remember = false) {
-        try {
-            const result = await this.post('/auth/login', { username, password, remember });
-            this.setToken(result.token);
-            localStorage.setItem('user', JSON.stringify(result.user));
-            return result;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    // تسجيل الخروج
-    async logout() {
-        try {
-            await this.post('/auth/logout');
-        } catch (e) {
-            // تجاهل الأخطاء عند الخروج
-        }
-        this.setToken(null);
-    }
-
-    // التحقق من الجلسة
-    async me() {
-        return this.get('/auth/me');
-    }
-
-    // استرجاع كلمة المرور
-    async forgotPassword(email) {
-        return this.post('/auth/forgot-password', { email });
-    }
-
-    // التحقق من إجابات الأمان
-    async verifySecurityAnswers(data) {
-        return this.post('/auth/verify-security-answers', data);
-    }
-
-    // إعادة تعيين كلمة المرور
-    async resetPassword(data) {
-        return this.post('/auth/reset-password', data);
-    }
-
-    // ================================================================
-    // لوحة التحكم
-    // ================================================================
-    async getDashboardStats() {
-        return this.get('/dashboard/stats');
-    }
-
-    async getDashboardActivities() {
-        return this.get('/dashboard/activities');
-    }
-
-    // ================================================================
-    // الأصناف
-    // ================================================================
-    async getProducts(params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        return this.get('/products' + (queryString ? '?' + queryString : ''));
-    }
-
-    async getProduct(id) {
-        return this.get('/products/' + id);
-    }
-
-    async createProduct(data) {
-        return this.post('/products', data);
-    }
-
-    async updateProduct(id, data) {
-        return this.put('/products/' + id, data);
-    }
-
-    async deleteProduct(id) {
-        return this.delete('/products/' + id);
-    }
-
-    // ================================================================
-    // المخازن
-    // ================================================================
-    async getWarehouses(params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        return this.get('/warehouses' + (queryString ? '?' + queryString : ''));
-    }
-
-    async getWarehouse(id) {
-        return this.get('/warehouses/' + id);
-    }
-
-    async createWarehouse(data) {
-        return this.post('/warehouses', data);
-    }
-
-    async updateWarehouse(id, data) {
-        return this.put('/warehouses/' + id, data);
-    }
-
-    async deleteWarehouse(id) {
-        return this.delete('/warehouses/' + id);
-    }
-
-    // ================================================================
-    // المستخدمون
-    // ================================================================
-    async getUsers() {
-        return this.get('/users');
-    }
-
-    async getUser(id) {
-        return this.get('/users/' + id);
-    }
-
-    async createUser(data) {
-        return this.post('/users', data);
-    }
-
-    async updateUser(id, data) {
-        return this.put('/users/' + id, data);
-    }
-
-    async deleteUser(id) {
-        return this.delete('/users/' + id);
-    }
-
-    // ================================================================
-    // التصنيفات
-    // ================================================================
-    async getCategories() {
-        return this.get('/categories');
-    }
-
-    async createCategory(data) {
-        return this.post('/categories', data);
-    }
-
-    async updateCategory(id, data) {
-        return this.put('/categories/' + id, data);
-    }
-
-    async deleteCategory(id) {
-        return this.delete('/categories/' + id);
-    }
-
-    // ================================================================
-    // الوحدات
-    // ================================================================
-    async getUnits() {
-        return this.get('/units');
-    }
-
-    async createUnit(data) {
-        return this.post('/units', data);
-    }
-
-    async updateUnit(id, data) {
-        return this.put('/units/' + id, data);
-    }
-
-    async deleteUnit(id) {
-        return this.delete('/units/' + id);
-    }
-
-    // ================================================================
-    // الحركات
-    // ================================================================
-    async getMovements(params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        return this.get('/movements' + (queryString ? '?' + queryString : ''));
-    }
-
-    async createMovement(data) {
-        return this.post('/movements', data);
-    }
-
-    // ================================================================
-    // الأرصدة
-    // ================================================================
-    async getStockBalances() {
-        return this.get('/stock-balances');
-    }
-
-    async getStockBalance(productId, warehouseId) {
-        return this.get(`/stock-balances?product_id=${productId}&warehouse_id=${warehouseId}`);
-    }
-
-    // ================================================================
-    // الإشعارات
-    // ================================================================
-    async getNotifications() {
-        return this.get('/notifications');
-    }
-
-    async markNotificationRead(id) {
-        return this.post('/notifications/' + id + '/read');
-    }
-
-    async markAllNotificationsRead() {
-        return this.post('/notifications/read-all');
-    }
-
-    // ================================================================
-    // التقارير
-    // ================================================================
-    async getReport(type, params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        return this.get('/reports/' + type + (queryString ? '?' + queryString : ''));
-    }
-
-    async exportReport(type, format, params = {}) {
-        const queryString = new URLSearchParams({ ...params, format }).toString();
-        const token = this.getToken();
-        
-        const response = await fetch(`${this.baseUrl}/reports/${type}/export?${queryString}`, {
-            headers: {
-                'Authorization': 'Bearer ' + token
+    const buildURL = (endpoint, params = {}) => {
+        const url = new URL(`${CONFIG.baseURL}${endpoint}`, window.location.origin);
+        Object.keys(params).forEach(key => {
+            const val = params[key];
+            if (val !== null && val !== undefined && val !== '') {
+                url.searchParams.append(key, val);
             }
         });
-        
-        if (!response.ok) {
-            throw new Error('خطأ في تصدير التقرير');
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report_${type}_${new Date().getTime()}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-    }
+        return url.toString();
+    };
 
-    // ================================================================
-    // سجل التدقيق
-    // ================================================================
-    async getAuditLogs(params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        return this.get('/audit' + (queryString ? '?' + queryString : ''));
-    }
+    // ========================================================================
+    // Retry Logic
+    // ========================================================================
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // ================================================================
-    // الإعدادات
-    // ================================================================
-    async getSettings() {
-        return this.get('/settings');
-    }
-
-    async saveSettings(data) {
-        return this.post('/settings', data);
-    }
-
-    // ================================================================
-    // الأدوار والصلاحيات
-    // ================================================================
-    async getRoles() {
-        return this.get('/roles');
-    }
-
-    async getPermissions() {
-        return this.get('/permissions');
-    }
-
-    async getRolePermissions() {
-        return this.get('/permissions/roles');
-    }
-
-    async updateRolePermissions(data) {
-        return this.post('/permissions/update', data);
-    }
-
-    // ================================================================
-    // الثيمات
-    // ================================================================
-    async getThemes() {
-        return this.get('/themes');
-    }
-
-    // ================================================================
-    // المرتجعات
-    // ================================================================
-    async getReturns() {
-        return this.get('/returns');
-    }
-
-    async createReturn(data) {
-        return this.post('/returns', data);
-    }
-
-    // ================================================================
-    // النسخ الاحتياطي
-    // ================================================================
-    async getBackups() {
-        return this.get('/backup');
-    }
-
-    async createBackup() {
-        return this.post('/backup');
-    }
-
-    // ================================================================
-    // إذونات الاستلام
-    // ================================================================
-    async getReceipts() {
-        return this.get('/receipts');
-    }
-
-    async createReceipt(data) {
-        return this.post('/receipts', data);
-    }
-
-    async approveReceipt(id) {
-        return this.post('/receipts/' + id + '/approve');
-    }
-
-    // ================================================================
-    // إذونات الصرف
-    // ================================================================
-    async getIssues() {
-        return this.get('/issues');
-    }
-
-    async createIssue(data) {
-        return this.post('/issues', data);
-    }
-
-    async approveIssue(id) {
-        return this.post('/issues/' + id + '/approve');
-    }
-
-    // ================================================================
-    // التحويلات
-    // ================================================================
-    async getTransfers() {
-        return this.get('/transfers');
-    }
-
-    async createTransfer(data) {
-        return this.post('/transfers', data);
-    }
-
-    async approveTransfer(id) {
-        return this.post('/transfers/' + id + '/approve');
-    }
-
-    // ================================================================
-    // تصدير البيانات
-    // ================================================================
-    async exportData(type, format = 'csv') {
-        try {
-            const response = await fetch(`${this.baseUrl}/export/${type}?format=${format}`, {
-                headers: this.getHeaders()
-            });
-            
-            if (!response.ok) {
-                throw new Error('خطأ في تصدير البيانات');
+    const fetchWithRetry = async (url, options, retries = CONFIG.maxRetries) => {
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const response = await fetch(url, options);
+                return response;
+            } catch (error) {
+                if (i === retries) throw error;
+                if (error.name === 'AbortError') throw error;
+                await sleep(1000 * (i + 1));
             }
-            
+        }
+    };
+
+    // ========================================================================
+    // Core Request Function
+    // ========================================================================
+    const request = async (method, endpoint, options = {}) => {
+        const { 
+            data = null, 
+            params = {}, 
+            headers = {}, 
+            timeout = CONFIG.timeout,
+            skipAuth = false,
+            raw = false
+        } = options;
+
+        // Emit request start
+        events.emit('request:start', { method, endpoint });
+
+        const url = buildURL(endpoint, params);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const fetchOptions = {
+                method,
+                headers: skipAuth ? CONFIG.headers : buildHeaders(headers),
+                signal: controller.signal,
+                credentials: 'same-origin',
+            };
+
+            if (data !== null) {
+                fetchOptions.body = data instanceof FormData ? data : JSON.stringify(data);
+                if (!(data instanceof FormData)) {
+                    fetchOptions.headers['Content-Type'] = 'application/json';
+                }
+            }
+
+            const response = await fetchWithRetry(url, fetchOptions);
+            clearTimeout(timeoutId);
+
+            // Parse response
+            const contentType = response.headers.get('content-type') || '';
+            let responseData;
+
+            if (raw) {
+                responseData = response;
+            } else if (contentType.includes('application/json')) {
+                responseData = await response.json();
+            } else {
+                responseData = await response.text();
+            }
+
+            // Handle errors
+            if (!response.ok) {
+                // 401: Unauthorized (تجاهلها في صفحة login)
+                if (response.status === 401 && !endpoint.includes('/auth/login')) {
+                    clearToken();
+                    clearUser();
+                    clearPermissions();
+                    
+                    if (window.location.pathname.includes('login.html') === false) {
+                        events.emit('auth:expired');
+                        window.location.href = '/inventory-system/frontend/login.html?expired=1';
+                    }
+                    throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.');
+                }
+
+                // 403: Forbidden
+                if (response.status === 403) {
+                    throw new Error(responseData?.message || 'لا تملك صلاحية للوصول إلى هذا المورد');
+                }
+
+                // 404: Not Found
+                if (response.status === 404) {
+                    throw new Error(responseData?.message || 'المورد المطلوب غير موجود');
+                }
+
+                // 422: Validation Error
+                if (response.status === 422) {
+                    const error = new Error(responseData?.message || 'بيانات غير صالحة');
+                    error.validationErrors = responseData?.errors || {};
+                    error.code = 'VALIDATION_ERROR';
+                    throw error;
+                }
+
+                // 500: Server Error
+                if (response.status >= 500) {
+                    throw new Error(responseData?.message || 'خطأ في الخادم. يرجى المحاولة لاحقاً');
+                }
+
+                // Other errors
+                throw new Error(responseData?.message || `خطأ في الخادم (${response.status})`);
+            }
+
+            // Emit success
+            events.emit('request:success', { method, endpoint, data: responseData });
+
+            return responseData;
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+
+            if (error.name === 'AbortError') {
+                throw new Error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+            }
+
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('لا يمكن الاتصال بالخادم. تحقق من اتصالك بالإنترنت.');
+            }
+
+            events.emit('request:error', { method, endpoint, error });
+            throw error;
+        }
+    };
+
+    // ========================================================================
+    // Public API Methods
+    // ========================================================================
+    const api = {
+        // HTTP Methods
+        get: (endpoint, params = {}, options = {}) => 
+            request('GET', endpoint, { ...options, params }),
+        
+        post: (endpoint, data = null, options = {}) => 
+            request('POST', endpoint, { ...options, data }),
+        
+        put: (endpoint, data = null, options = {}) => 
+            request('PUT', endpoint, { ...options, data }),
+        
+        patch: (endpoint, data = null, options = {}) => 
+            request('PATCH', endpoint, { ...options, data }),
+        
+        delete: (endpoint, options = {}) => 
+            request('DELETE', endpoint, options),
+
+        // File Upload
+        upload: (endpoint, formData, options = {}) =>
+            request('POST', endpoint, { ...options, data: formData }),
+
+        // Download
+        download: async (endpoint, params = {}, filename = 'download') => {
+            const url = buildURL(endpoint, params);
+            const response = await fetch(url, {
+                headers: buildHeaders(),
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) throw new Error('فشل في تحميل الملف');
+
             const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const blobUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `${type}_export_${new Date().getTime()}.${format}`;
+            a.href = blobUrl;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            
-            return true;
-        } catch (error) {
-            throw error;
-        }
-    }
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+        },
 
-    // ================================================================
-    // بحث شامل
-    // ================================================================
-    async globalSearch(query, modules = []) {
-        const params = new URLSearchParams({ query, modules: modules.join(',') });
-        return this.get('/search?' + params.toString());
-    }
+        // Auth Management
+        getToken,
+        setToken,
+        clearToken,
+        getUser,
+        setUser,
+        clearUser,
+        getPermissions,
+        setPermissions,
+        clearPermissions,
+        isAuthenticated: () => !!getToken(),
 
-    // ================================================================
-    // رفع ملف
-    // ================================================================
-    async uploadFile(file, endpoint = '/upload') {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const token = this.getToken();
-        const response = await fetch(this.baseUrl + endpoint, {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            },
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok || !result.success) {
-            throw new Error(result.message || 'خطأ في رفع الملف');
-        }
-        
-        return result.data;
-    }
+        // Password Recovery
+        forgotPassword: async (email) => {
+            return request('POST', '/auth/forgot-password', { 
+                data: { email },
+                skipAuth: true 
+            });
+        },
 
-    // ================================================================
-    // قراءة الباركود
-    // ================================================================
-    async getProductByBarcode(barcode) {
-        return this.get('/products/barcode/' + barcode);
-    }
+        resetPassword: async (token, newPassword, confirmPassword) => {
+            return request('POST', '/auth/reset-password', { 
+                data: { token, new_password: newPassword, confirm_password: confirmPassword },
+                skipAuth: true 
+            });
+        },
 
-    // ================================================================
-    // تنزيل ملف
-    // ================================================================
-    async downloadFile(endpoint, filename) {
-        const token = this.getToken();
-        const response = await fetch(this.baseUrl + endpoint, {
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error('خطأ في تنزيل الملف');
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-    }
-}
+        // Event System
+        on: (event, callback) => events.on(event, callback),
+        off: (event, callback) => events.off(event, callback),
 
-// إنشاء نسخة عالمية
-window.Api = new ApiClient();
+        // Configuration
+        configure: (config) => Object.assign(CONFIG, config),
+        getConfig: () => ({ ...CONFIG }),
+    };
 
-} // نهاية منع التكرار
+    // ========================================================================
+    // Export
+    // ========================================================================
+    window.API = api;
+    return api;
+})();

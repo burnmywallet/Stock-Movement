@@ -1,0 +1,91 @@
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="d-flex align-items-center">
+        <button class="btn btn-link d-lg-none" id="sidebar-toggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="navbar-brand ms-3">
+            <i class="fas fa-warehouse"></i>
+            Logistox
+        </div>
+    </div>
+    
+    <div class="navbar-actions">
+        <!-- Search -->
+        <div class="d-none d-md-block">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent border-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input 
+                    type="text" 
+                    class="form-control border-0 bg-transparent" 
+                    placeholder="بحث سريع..."
+                    style="width: 200px;"
+                >
+            </div>
+        </div>
+        
+        <!-- Notifications -->
+        <button class="notification-btn" id="notifications-btn">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+        </button>
+        
+        <!-- Theme Toggle -->
+        <button class="notification-btn" onclick="App.toggleTheme()" title="تبديل الثيم">
+            <i class="fas fa-moon"></i>
+        </button>
+        
+        <!-- User Dropdown -->
+        <div class="dropdown">
+            <div class="user-dropdown" data-bs-toggle="dropdown">
+                <div class="user-avatar" id="user-initials">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-info d-none d-md-block">
+                    <div class="user-name" id="user-full-name">المستخدم</div>
+                    <div class="user-role" id="user-role">الدور</div>
+                </div>
+                <i class="fas fa-chevron-down text-muted small"></i>
+            </div>
+            
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="#" data-page="profile">
+                        <i class="fas fa-user-circle ms-2"></i>
+                        الملف الشخصي
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" data-page="settings">
+                        <i class="fas fa-cog ms-2"></i>
+                        الإعدادات
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-danger" href="#" id="logout-btn">
+                        <i class="fas fa-sign-out-alt ms-2"></i>
+                        تسجيل الخروج
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<script>
+    // Logout
+    document.getElementById('logout-btn')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+            await Auth.logout();
+        }
+    });
+    
+    // Sidebar Toggle (Mobile)
+    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+        document.querySelector('.sidebar')?.classList.toggle('active');
+    });
+</script>

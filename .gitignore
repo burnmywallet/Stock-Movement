@@ -1,0 +1,37 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Database backups / generated dumps
+*.backup
+*.final
+*.bak
+*.dump
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Runtime / temporary
+tmp/
+temp/
+cache/
+storage/logs/
+
+# Dependencies
+vendor/
+node_modules/
+
+# Local server/runtime
+.pid
+*.pid
+.env

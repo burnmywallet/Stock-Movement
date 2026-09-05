@@ -1,3 +1,27 @@
 <IfModule mod_rewrite.c>
-    RewriteEngine Off
+    RewriteEngine On
+    RewriteBase /inventory-system/backend/public/
+    
+    # تعطيل ميزة MultiViews التي قد تسبب تعارضاً في توجيه الملفات
+    Options -MultiViews
+
+    # منع الوصول المباشر للملفات الحساسة
+    RewriteRule ^\.env$ - [F,L]
+    RewriteRule ^(.*)\.sql$ - [F,L]
+    RewriteRule ^(.*)\.log$ - [F,L]
+
+    # إذا كان الطلب ملفاً أو مجلداً حقيقياً، اسمح به
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # توجيه كل الطلبات الأخرى إلى index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
+
+# إعدادات الأمان الإضافية
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+Options -Indexes

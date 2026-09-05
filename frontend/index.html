@@ -1,36 +1,59 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logistox | نظام إدارة المخازن - شركة البركة لتوريد وتصنيع اللحوم</title>
-
-    <!-- SEO Meta -->
-    <meta name="description" content="نظام إدارة المخازن والمخزون Logistox - نسخة مسجلة لصالح شركة البركة لتوريد وتصنيع اللحوم">
-    <meta name="author" content="Abdelrahman.KH (BurnMyWallet)">
-    <meta name="robots" content="index, follow">
-
-    <!-- Open Graph -->
-    <meta property="og:title" content="Logistox - نظام إدارة المخازن">
-    <meta property="og:description" content="نظام متكامل لإدارة حركة المخزون والاستلام والصرف والتحويلات والمرتجعات">
-    <meta property="og:type" content="website">
-
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-
-    <!-- Font Awesome 6 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-    <!-- Google Font - Cairo -->
+    <meta name="description" content="لوحة تحكم نظام Logistox لإدارة المخازن والمخزون">
+    <title>لوحة التحكم | Logistox</title>
+    
+    <!-- Google Fonts: Cairo -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900;1000&display=swap" rel="stylesheet">
-
-    <!-- Theme & App CSS -->
-    <link rel="stylesheet" href="/inventory-system/frontend/assets/css/themes.css">
-    <link rel="stylesheet" href="/inventory-system/frontend/assets/css/app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 RTL -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #dbeafe;
+            --secondary-color: #0f172a;
+            --text-muted: #64748b;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --sidebar-bg: #ffffff;
+            --sidebar-text: #334155;
+            --sidebar-hover: #f1f5f9;
+            --sidebar-active: #dbeafe;
+            --sidebar-active-text: #2563eb;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --sidebar-bg: #1e293b;
+            --sidebar-text: #cbd5e1;
+            --sidebar-hover: #334155;
+            --sidebar-active: #1e3a8a;
+            --sidebar-active-text: #60a5fa;
+            --border-color: #334155;
+            --secondary-color: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -39,1720 +62,1674 @@
 
         body {
             font-family: 'Cairo', sans-serif;
-            background: var(--bg, #0a0e1a);
-            color: var(--text, #ffffff);
-            min-height: 100vh;
-            direction: rtl;
-            transition: background 0.3s ease, color 0.3s ease;
+            background-color: var(--bg-color);
+            color: var(--secondary-color);
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* ============================================================
-           PRELOADER
-           ============================================================ */
-        .preloader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--bg);
+        /* ============ Layout ============ */
+        .app-wrapper {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            transition: opacity 0.6s ease, visibility 0.6s ease;
+            min-height: 100vh;
         }
 
-        .preloader.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .loader-wrapper {
-            text-align: center;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        .loader-logo {
-            font-size: 56px;
-            display: block;
-            margin-bottom: 20px;
-            color: var(--primary);
-        }
-
-        .loader-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            margin: 0 auto 20px;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .loader-text {
-            font-size: 18px;
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-
-        .loader-version {
-            font-size: 14px;
-            color: var(--text-muted);
-            margin-top: 10px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        /* ============================================================
-           HEADER
-           ============================================================ */
-        .main-header {
+        /* ============ Sidebar ============ */
+        .sidebar {
+            width: 270px;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
             position: fixed;
-            top: 0;
-            left: 0;
             right: 0;
-            z-index: 1000;
-            background: rgba(var(--bg-rgb), 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
             transition: all 0.3s ease;
-            height: 70px;
+            z-index: 1040;
+            box-shadow: var(--shadow-sm);
         }
 
-        .main-header.scrolled {
-            background: rgba(var(--bg-rgb), 0.95);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .header-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 70px;
-        }
-
-        .logo-wrapper {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo-link {
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             gap: 12px;
-            text-decoration: none;
-            color: var(--text);
         }
 
-        .logo-icon {
-            font-size: 28px;
-            color: var(--primary);
-        }
-
-        .logo-text-group {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-        }
-
-        .logo-text {
-            font-size: 22px;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .logo-badge {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            background: var(--border);
-            padding: 2px 10px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-        }
-
-        .nav-list {
-            display: flex;
-            list-style: none;
-            gap: 6px;
-        }
-
-        .nav-link {
+        .sidebar-logo {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            border-radius: 12px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 18px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 15px;
-            font-weight: 600;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-brand-name {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--secondary-color);
+            line-height: 1.2;
+        }
+
+        .sidebar-brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 15px 10px;
+        }
+
+        .sidebar-section-title {
+            padding: 15px 15px 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 11px 15px;
+            color: var(--sidebar-text);
             border-radius: 10px;
-            transition: all 0.3s ease;
+            margin-bottom: 3px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
         }
 
-        .nav-link:hover {
-            color: var(--text);
-            background: var(--bg-hover);
+        .sidebar-link:hover {
+            background: var(--sidebar-hover);
+            color: var(--primary-color);
         }
 
-        .nav-link.active {
-            color: var(--text);
-            background: var(--bg-active);
+        .sidebar-link.active {
+            background: var(--sidebar-active);
+            color: var(--sidebar-active-text);
         }
 
-        .header-actions {
+        .sidebar-link i {
+            width: 22px;
+            margin-left: 12px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        /* ============ Main Content ============ */
+        .main-wrapper {
+            flex: 1;
+            margin-right: 270px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            transition: margin-right 0.3s ease;
+        }
+
+        /* ============ Navbar ============ */
+        .navbar {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .sidebar-toggle {
+            background: transparent;
+            border: none;
+            color: var(--secondary-color);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--sidebar-hover);
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--secondary-color);
+        }
+
+        .navbar-right {
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .theme-toggle-btn {
+        .navbar-icon-btn {
             width: 40px;
             height: 40px;
-            border: 1px solid var(--border);
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: var(--secondary-color);
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .theme-toggle-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text);
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 22px;
-            border: none;
-            border-radius: 10px;
-            font-family: 'Cairo', sans-serif;
-            font-size: 15px;
-            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
+            position: relative;
+            transition: all 0.2s ease;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: #fff;
+        .navbar-icon-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary-color);
+            border-color: var(--primary-color);
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(var(--primary-rgb), 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text);
-            border: 2px solid var(--border);
-        }
-
-        .btn-outline:hover {
-            background: var(--bg-hover);
-            transform: translateY(-2px);
-        }
-
-        .btn-login {
-            padding: 10px 20px;
-        }
-
-        .mobile-menu-toggle {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 8px 4px;
-        }
-
-        .mobile-menu-toggle .bar {
-            width: 25px;
-            height: 2px;
-            background: var(--text);
-            border-radius: 2px;
-            transition: all 0.3s ease;
-        }
-
-        .mobile-menu-toggle.active .bar:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-
-        .mobile-menu-toggle.active .bar:nth-child(2) {
-            opacity: 0;
-        }
-
-        .mobile-menu-toggle.active .bar:nth-child(3) {
-            transform: rotate(-45deg) translate(5px, -5px);
-        }
-
-        .mobile-menu {
-            display: none;
-            background: var(--bg);
-            border-top: 1px solid var(--border);
-            padding: 20px;
+        .notification-badge {
             position: absolute;
-            top: 70px;
-            left: 0;
-            right: 0;
-            box-shadow: var(--shadow);
+            top: -4px;
+            left: -4px;
+            background: var(--danger-color);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            border: 2px solid var(--card-bg);
         }
 
-        .mobile-menu.open {
-            display: block;
+        .user-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
         }
 
-        .mobile-nav-list {
-            list-style: none;
+        .user-dropdown:hover {
+            background: var(--sidebar-hover);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-info {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-        }
-
-        .mobile-nav-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            background: none;
-            border: none;
-            width: 100%;
             text-align: right;
-            font-family: 'Cairo', sans-serif;
-            cursor: pointer;
         }
 
-        .mobile-nav-link:hover {
-            background: var(--bg-hover);
-            color: var(--text);
-        }
-
-        .mobile-divider {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 8px 0;
-        }
-
-        .btn-login-mobile {
-            color: var(--primary);
+        .user-name {
+            font-size: 13px;
             font-weight: 700;
+            color: var(--secondary-color);
+            line-height: 1.2;
         }
 
-        /* ============================================================
-           HERO SECTION
-           ============================================================ */
-        .hero-section {
-            min-height: 100vh;
+        .user-role {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ============ Content ============ */
+        .content {
+            padding: 25px;
+            flex: 1;
+        }
+
+        .page-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            padding: 110px 0 60px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* ============ Stat Cards ============ */
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 22px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            height: 100%;
             position: relative;
             overflow: hidden;
         }
 
-        .hero-section::before {
+        .stat-card::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
+            top: 0;
+            right: 0;
+            width: 4px;
             height: 100%;
-            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.06), transparent 70%);
-            pointer-events: none;
+            background: var(--stat-color, var(--primary-color));
         }
 
-        .hero-inner {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero-content {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 18px;
-            background: rgba(var(--primary-rgb), 0.12);
-            border: 1px solid rgba(var(--primary-rgb), 0.2);
-            border-radius: 50px;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--primary);
-            width: fit-content;
-        }
-
-        .hero-company {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .company-label {
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-
-        .company-name {
-            font-size: 28px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero-title {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .hero-title-main {
-            font-size: 56px;
-            font-weight: 900;
-            line-height: 1.1;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero-title-sub {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--text-secondary);
-        }
-
-        .hero-tagline {
-            font-size: 22px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .hero-tagline strong {
-            color: var(--text);
-        }
-
-        .hero-description {
-            font-size: 17px;
-            color: var(--text-secondary);
-            line-height: 1.9;
-            max-width: 520px;
-        }
-
-        .hero-actions {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 6px;
-        }
-
-        .btn-hero {
-            padding: 14px 32px;
-            font-size: 16px;
-            border-radius: 12px;
-        }
-
-        .hero-license {
-            margin-top: 6px;
-        }
-
-        .license-text {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        .license-text strong {
-            color: var(--text-secondary);
-        }
-
-        .hero-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 30px;
-            backdrop-filter: blur(10px);
-        }
-
-        .stat-item {
-            text-align: center;
-        }
-
-        .stat-number {
-            display: block;
-            font-size: 34px;
-            font-weight: 800;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .stat-number.loading {
-            animation: shimmer 1.5s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% {
-                opacity: 0.3;
-            }
-            50% {
-                opacity: 0.8;
-            }
-        }
-
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-
-        .stat-label i {
-            margin-left: 6px;
-        }
-
-        .scroll-indicator {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            color: var(--text-muted);
-            animation: bounce 2s ease-in-out infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% {
-                transform: translateX(-50%) translateY(0);
-            }
-            50% {
-                transform: translateX(-50%) translateY(8px);
-            }
-        }
-
-        .animate-fade-in {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease forwards;
-        }
-
-        .animate-fade-in-delayed {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease 0.2s forwards;
-        }
-
-        .animate-fade-in-delayed-2 {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease 0.4s forwards;
-        }
-
-        .animate-fade-in-delayed-3 {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease 0.6s forwards;
-        }
-
-        .animate-fade-in-delayed-4 {
-            opacity: 0;
-            animation: fadeInUp 0.6s ease 0.8s forwards;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* ============================================================
-           DEVELOPER / SUPPORT SECTION
-           ============================================================ */
-        .developer-section {
-            padding: 80px 0;
-            background: var(--card);
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .developer-card {
-            max-width: 700px;
-            margin: 0 auto;
-            display: flex;
-            gap: 40px;
-            align-items: center;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 40px;
-            transition: all 0.3s ease;
-        }
-
-        .developer-card:hover {
-            border-color: var(--primary);
-            box-shadow: var(--shadow);
+        .stat-card:hover {
             transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
         }
 
-        .developer-avatar-wrapper {
+        .stat-header {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            flex-shrink: 0;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
         }
 
-        .developer-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 44px;
-            color: #fff;
+            font-size: 22px;
+            background: var(--stat-bg, var(--primary-light));
+            color: var(--stat-color, var(--primary-color));
         }
 
-        .developer-status {
-            font-size: 13px;
-            color: var(--success);
-            font-weight: 600;
-            display: flex;
+        .stat-trend {
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            display: inline-block;
-            animation: pulse-dot 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.4;
-            }
-        }
-
-        .developer-info {
-            flex: 1;
-        }
-
-        .developer-name {
-            font-size: 26px;
-            font-weight: 800;
-            color: var(--text);
-        }
-
-        .developer-alias {
-            font-size: 16px;
-            color: var(--primary);
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: 700;
         }
 
-        .developer-role {
-            font-size: 15px;
-            color: var(--text-secondary);
-            margin-top: 4px;
+        .stat-trend.up {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
         }
 
-        .developer-contact {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin: 16px 0;
+        .stat-trend.down {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
         }
 
-        .contact-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--border);
-            border-radius: 10px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-family: 'Cairo', sans-serif;
-        }
-
-        .contact-link:hover {
-            background: var(--primary);
-            color: #fff;
-            transform: translateY(-2px);
-        }
-
-        .contact-link.whatsapp:hover {
-            background: #25D366;
-        }
-
-        /* ============================================================
-           FOOTER
-           ============================================================ */
-        .main-footer {
-            background: var(--bg);
-            border-top: 1px solid var(--border);
-            padding: 40px 0 0;
-        }
-
-        .footer-inner {
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            gap: 30px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .footer-center {
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .footer-bottom {
-            padding: 16px 0;
-            background: var(--bg-secondary);
-        }
-
-        .footer-bottom-text {
-            text-align: center;
+        .stat-label {
             font-size: 13px;
             color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
         }
 
-        .footer-separator {
-            margin: 0 12px;
-            color: var(--border);
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--secondary-color);
+            line-height: 1.2;
         }
 
-        .footer-links {
-            display: flex;
-            gap: 16px;
-            justify-content: flex-end;
-            align-items: center;
-        }
-
-        .footer-links a {
+        .stat-footer {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             gap: 6px;
-            color: var(--text-secondary);
-            text-decoration: none;
+        }
+
+        /* ============ Cards ============ */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border-color);
+            padding: 18px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--primary-color);
+        }
+
+        .card-body {
+            padding: 22px;
+        }
+
+        /* ============ Alert Items ============ */
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .alert-item:hover {
+            border-color: var(--primary-color);
+            transform: translateX(-3px);
+        }
+
+        .alert-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .alert-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .alert-icon.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .alert-icon.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .alert-icon.info {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--info-color);
+        }
+
+        .alert-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .alert-title {
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 3px;
+        }
+
+        .alert-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ============ Movement List ============ */
+        .movement-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .movement-item:last-child {
+            border-bottom: none;
+        }
+
+        .movement-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .movement-icon.in {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .movement-icon.out {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .movement-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .movement-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 3px;
+        }
+
+        .movement-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .movement-qty {
+            font-size: 15px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .movement-qty.in { color: var(--success-color); }
+        .movement-qty.out { color: var(--danger-color); }
+
+        /* ============ Quick Actions ============ */
+        .quick-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 15px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--secondary-color);
+        }
+
+        .quick-action:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .quick-action-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 10px;
             transition: all 0.3s ease;
         }
 
-        .footer-links a:hover {
-            color: var(--text);
+        .quick-action:hover .quick-action-icon {
+            transform: scale(1.1);
         }
 
-        /* ============================================================
-           LOGIN MODAL
-           ============================================================ */
-        .modal-overlay {
+        .quick-action-label {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* ============ Progress Bars ============ */
+        .progress {
+            height: 8px;
+            background: var(--bg-color);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        /* ============ Empty State ============ */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        /* ============ Loading ============ */
+        .loading-skeleton {
+            background: linear-gradient(90deg, var(--bg-color) 25%, var(--border-color) 50%, var(--bg-color) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ============ Mobile Sidebar ============ */
+        .sidebar-overlay {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1035;
         }
 
-        .modal-overlay.open {
-            display: flex;
+        .sidebar-overlay.active {
+            display: block;
         }
 
-        .modal-container {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 440px;
-            width: 100%;
-            padding: 40px;
-            position: relative;
-            box-shadow: var(--shadow-lg);
-            animation: modalSlideIn 0.3s ease;
-        }
-
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: scale(0.95) translateY(20px);
+        /* ============ Responsive ============ */
+        @media (max-width: 991px) {
+            .sidebar {
+                transform: translateX(100%);
             }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
+
+            .sidebar.active {
+                transform: translateX(0);
             }
-        }
 
-        .modal-close {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            width: 36px;
-            height: 36px;
-            border: 1px solid var(--border);
-            border-radius: 50%;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-close:hover {
-            background: var(--bg-hover);
-            color: var(--text);
-        }
-
-        .modal-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .modal-logo {
-            font-size: 28px;
-            font-weight: 800;
-            color: var(--text);
-            margin-bottom: 8px;
-        }
-
-        .modal-title {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .modal-subtitle {
-            font-size: 15px;
-            color: var(--text-secondary);
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-input {
-            padding: 12px 16px;
-            background: var(--card);
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            color: var(--text);
-            font-size: 16px;
-            font-family: 'Cairo', sans-serif;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
-        }
-
-        .password-wrapper {
-            position: relative;
-        }
-
-        .password-wrapper .form-input {
-            padding-left: 48px;
-        }
-
-        .password-toggle {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 18px;
-            padding: 4px;
-            transition: all 0.3s ease;
-        }
-
-        .password-toggle:hover {
-            color: var(--text);
-        }
-
-        .form-options {
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
-
-        .checkbox-label input {
-            display: none;
-        }
-
-        .checkmark {
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--border);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-        }
-
-        .checkbox-label input:checked+.checkmark {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-
-        .checkbox-label input:checked+.checkmark::after {
-            content: '✓';
-            color: #fff;
-            font-size: 14px;
-        }
-
-        .btn-login-submit {
-            width: 100%;
-            padding: 14px;
-            font-size: 18px;
-            justify-content: center;
-            border-radius: 12px;
-        }
-
-        .btn-login-submit .btn-loader {
-            display: none;
-        }
-
-        .btn-login-submit.loading .btn-text {
-            display: none;
-        }
-
-        .btn-login-submit.loading .btn-loader {
-            display: inline;
-        }
-
-        .login-error {
-            background: rgba(var(--danger-rgb), 0.1);
-            border: 1px solid rgba(var(--danger-rgb), 0.2);
-            border-radius: 10px;
-            padding: 12px 16px;
-            color: var(--danger);
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .login-footer {
-            text-align: center;
-            margin-top: 8px;
-        }
-
-        .login-license {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .login-license i {
-            color: var(--primary);
-            margin-left: 4px;
-        }
-
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
-        @media (max-width: 1024px) {
-            .hero-inner {
-                grid-template-columns: 1fr;
-                text-align: center;
+            .main-wrapper {
+                margin-right: 0;
             }
-            .hero-content {
-                align-items: center;
-            }
-            .hero-description {
-                max-width: 100%;
-            }
-            .hero-actions {
-                justify-content: center;
-            }
-            .hero-stats {
-                max-width: 500px;
-                margin: 0 auto;
-            }
-            .footer-inner {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-            .footer-links {
-                justify-content: center;
-            }
-            .developer-card {
-                flex-direction: column;
-                text-align: center;
-            }
-            .developer-contact {
-                justify-content: center;
-            }
-        }
 
-        @media (max-width: 768px) {
-            .nav-list {
-                display: none;
-            }
-            .mobile-menu-toggle {
-                display: flex;
-            }
-            .mobile-menu.open {
+            .sidebar-toggle {
                 display: block;
             }
-            .hero-title-main {
-                font-size: 36px;
-            }
-            .hero-title-sub {
-                font-size: 20px;
-            }
-            .hero-stats {
-                grid-template-columns: repeat(2, 1fr);
-                padding: 20px;
-            }
-            .stat-number {
-                font-size: 26px;
-            }
-            .btn-login span {
+
+            .user-info {
                 display: none;
-            }
-            .theme-selector-label {
-                display: none;
-            }
-            .theme-selector-btn {
-                padding: 8px 12px;
-            }
-            .modal-container {
-                padding: 24px;
             }
         }
 
-        @media (max-width: 480px) {
-            .hero-stats {
-                grid-template-columns: 1fr 1fr;
-                padding: 16px;
+        @media (max-width: 576px) {
+            .content {
+                padding: 15px;
             }
-            .stat-number {
+
+            .stat-value {
+                font-size: 22px;
+            }
+
+            .page-header h1 {
                 font-size: 20px;
-            }
-            .hero-actions {
-                flex-direction: column;
-                width: 100%;
-            }
-            .btn-hero {
-                width: 100%;
-                justify-content: center;
-            }
-            .developer-card {
-                padding: 20px;
-            }
-            .developer-avatar {
-                width: 70px;
-                height: 70px;
-                font-size: 32px;
-            }
-            .modal-container {
-                padding: 20px;
-            }
-            .footer-links {
-                flex-wrap: wrap;
-                justify-content: center;
             }
         }
 
+        /* ============ Scrollbar ============ */
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
+
         ::-webkit-scrollbar-track {
-            background: var(--bg);
+            background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
-            background: var(--border);
+            background: var(--border-color);
             border-radius: 4px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary);
+            background: var(--text-muted);
         }
-        ::selection {
-            background: var(--primary);
-            color: #fff;
+
+        /* ============ Dropdown ============ */
+        .dropdown-menu {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            padding: 8px;
+            min-width: 220px;
         }
-        ::-moz-selection {
-            background: var(--primary);
-            color: #fff;
+
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-color);
+            color: var(--primary-color);
+        }
+
+        .dropdown-divider {
+            margin: 6px 0;
+            border-color: var(--border-color);
         }
     </style>
 </head>
 <body>
 
-    <!-- ============================================================
-         PRELOADER
-         ============================================================ -->
-    <div id="preloader" class="preloader" aria-hidden="true">
-        <div class="loader-wrapper">
-            <div class="loader-logo"><i class="fas fa-warehouse"></i></div>
-            <div class="loader-spinner"></div>
-            <p class="loader-text">جاري تحميل النظام...</p>
-            <p class="loader-version">v5.0</p>
-        </div>
-    </div>
+    <div class="app-wrapper">
+        <!-- Sidebar Overlay (Mobile) -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- ============================================================
-         MAIN APP
-         ============================================================ -->
-    <div id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <i class="fas fa-warehouse"></i>
+                </div>
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-name">Logistox</div>
+                    <div class="sidebar-brand-sub">نظام إدارة المخازن</div>
+                </div>
+            </div>
 
-        <!-- ============================================================
-             HEADER
-             ============================================================ -->
-        <header class="main-header" id="mainHeader" role="banner">
-            <div class="container header-inner">
-
-                <!-- Logo -->
-                <div class="logo-wrapper">
-                    <a href="/inventory-system/" class="logo-link" aria-label="الرئيسية">
-                        <span class="logo-icon"><i class="fas fa-cubes"></i></span>
-                        <div class="logo-text-group">
-                            <span class="logo-text">Logistox</span>
-                            <span class="logo-badge">v5.0</span>
-                        </div>
+            <ul class="sidebar-menu">
+                <li class="sidebar-section-title">الرئيسية</li>
+                <li>
+                    <a href="#" class="sidebar-link active" data-page="dashboard">
+                        <i class="fas fa-home"></i>
+                        <span>لوحة التحكم</span>
                     </a>
+                </li>
+
+                <li class="sidebar-section-title">العمليات</li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="receipts">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>إذونات الاستلام</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="issues">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>إذونات الصرف</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="transfers">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>التحويلات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="returns">
+                        <i class="fas fa-undo"></i>
+                        <span>المرتجعات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="inventory-counts">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>الجرد</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-section-title">البيانات الأساسية</li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="products">
+                        <i class="fas fa-box"></i>
+                        <span>المنتجات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="warehouses">
+                        <i class="fas fa-warehouse"></i>
+                        <span>المخازن</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="categories">
+                        <i class="fas fa-tags"></i>
+                        <span>التصنيفات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="units">
+                        <i class="fas fa-balance-scale"></i>
+                        <span>الوحدات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="suppliers">
+                        <i class="fas fa-truck"></i>
+                        <span>الموردون</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="recipients">
+                        <i class="fas fa-users"></i>
+                        <span>المستلمون</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-section-title">التقارير</li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="reports">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>التقارير</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="audit">
+                        <i class="fas fa-history"></i>
+                        <span>سجل التدقيق</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-section-title">الإدارة</li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="users">
+                        <i class="fas fa-user-cog"></i>
+                        <span>المستخدمون</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="roles">
+                        <i class="fas fa-user-shield"></i>
+                        <span>الأدوار والصلاحيات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="settings">
+                        <i class="fas fa-cog"></i>
+                        <span>الإعدادات</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link" data-page="backups">
+                        <i class="fas fa-database"></i>
+                        <span>النسخ الاحتياطي</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-wrapper">
+            <!-- Navbar -->
+            <nav class="navbar">
+                <div class="navbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="page-title">لوحة التحكم</div>
                 </div>
 
-                <!-- Navigation -->
-                <nav class="main-nav" id="mainNav" role="navigation">
-                    <ul class="nav-list">
-                        <li><a href="#home" class="nav-link active"><i class="fas fa-home"></i> الرئيسية</a></li>
-                        <li><a href="#support" class="nav-link"><i class="fas fa-headset"></i> الدعم الفني</a></li>
-                    </ul>
-                </nav>
+                <div class="navbar-right">
+                    <!-- Search -->
+                    <button class="navbar-icon-btn" title="بحث">
+                        <i class="fas fa-search"></i>
+                    </button>
 
-                <!-- Header Actions -->
-                <div class="header-actions">
+                    <!-- Notifications -->
+                    <button class="navbar-icon-btn" id="notificationsBtn" title="الإشعارات">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                    </button>
 
                     <!-- Theme Toggle -->
-                    <button class="theme-toggle-btn" id="themeToggle" aria-label="تبديل الثيم">
-                        <i class="fas fa-moon"></i>
+                    <button class="navbar-icon-btn" id="themeToggle" title="تبديل الثيم">
+                        <i class="fas fa-moon" id="themeIcon"></i>
                     </button>
 
-                    <!-- Login Button -->
-                    <div id="authAction">
-                        <button class="btn btn-primary btn-login" id="loginBtn" onclick="openLoginModal()">
-                            <i class="fas fa-sign-in-alt"></i> <span>تسجيل الدخول</span>
-                        </button>
+                    <!-- User Dropdown -->
+                    <div class="dropdown">
+                        <div class="user-dropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            <div class="user-avatar" id="userInitials">م</div>
+                            <div class="user-info">
+                                <div class="user-name" id="userName">المستخدم</div>
+                                <div class="user-role" id="userRole">الدور</div>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 11px; color: var(--text-muted);"></i>
+                        </div>
+
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <div class="px-3 py-2">
+                                    <div class="fw-bold" id="dropdownUserName">-</div>
+                                    <div class="small text-muted" id="dropdownUserEmail">-</div>
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-page="profile">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>الملف الشخصي</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-page="settings">
+                                    <i class="fas fa-cog"></i>
+                                    <span>الإعدادات</span>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" id="logoutBtn">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    <span>تسجيل الخروج</span>
+                                </a>
+                            </li>
+                        </ul>
                     </div>
-
-                    <!-- Mobile Menu Toggle -->
-                    <button class="mobile-menu-toggle" id="mobileToggle" aria-label="القائمة" aria-expanded="false">
-                        <span class="bar"></span>
-                        <span class="bar"></span>
-                        <span class="bar"></span>
-                    </button>
-
                 </div>
+            </nav>
 
-            </div>
-
-            <!-- Mobile Menu -->
-            <div class="mobile-menu" id="mobileMenu" role="navigation">
-                <ul class="mobile-nav-list">
-                    <li><a href="#home" class="mobile-nav-link active"><i class="fas fa-home"></i> الرئيسية</a></li>
-                    <li><a href="#support" class="mobile-nav-link"><i class="fas fa-headset"></i> الدعم الفني</a></li>
-                    <li><hr class="mobile-divider"></li>
-                    <li><button class="mobile-nav-link btn-login-mobile" onclick="openLoginModal()">
-                        <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
-                    </button></li>
-                </ul>
-            </div>
-
-        </header>
-
-        <!-- ============================================================
-             HERO SECTION
-             ============================================================ -->
-        <section class="hero-section" id="home">
-            <div class="container hero-inner">
-
-                <div class="hero-content">
-
-                    <!-- License Badge -->
-                    <div class="hero-badge animate-fade-in">
-                        <i class="fas fa-shield-alt"></i> نسخة مرخصة
+            <!-- Page Content -->
+            <div class="content">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div>
+                        <h1>مرحباً، <span id="welcomeName">مستخدم</span> 👋</h1>
+                        <p>إليك نظرة عامة على نشاط المخازن اليوم</p>
                     </div>
-
-                    <!-- Company Name -->
-                    <div class="hero-company animate-fade-in-delayed">
-                        <span class="company-label"><i class="fas fa-building"></i> مسجلة لصالح</span>
-                        <h2 class="company-name"><i class="fas fa-store"></i> شركة البركة لتوريد وتصنيع اللحوم</h2>
-                    </div>
-
-                    <!-- Title -->
-                    <h1 class="hero-title animate-fade-in-delayed-2">
-                        <span class="hero-title-main"><i class="fas fa-cubes"></i> Logistox</span>
-                        <span class="hero-title-sub"><i class="fas fa-warehouse"></i> نظام إدارة المخازن والمخزون</span>
-                    </h1>
-
-                    <!-- Tagline -->
-                    <p class="hero-tagline animate-fade-in-delayed-3">
-                        <i class="fas fa-lightbulb"></i> إدارة المخازن... <strong>بشكل أذكى</strong>
-                    </p>
-
-                    <!-- Description -->
-                    <p class="hero-description animate-fade-in-delayed-3">
-                        <i class="fas fa-check-circle"></i>
-                        نظام متكامل لإدارة حركة المخزون والاستلام والصرف والتحويلات والمرتجعات والتقارير والصلاحيات.
-                    </p>
-
-                    <!-- CTA Buttons -->
-                    <div class="hero-actions animate-fade-in-delayed-4">
-                        <button class="btn btn-primary btn-hero" onclick="openLoginModal()">
-                            <i class="fas fa-arrow-right"></i> دخول النظام
-                        </button>
-                    </div>
-
-                    <!-- License Notice -->
-                    <div class="hero-license animate-fade-in-delayed-4">
-                        <p class="license-text">
-                            <i class="fas fa-shield-alt"></i>
-                            هذه النسخة مسجلة لصالح <strong>شركة البركة لتوريد وتصنيع اللحوم</strong> — جميع الحقوق محفوظة
-                        </p>
-                    </div>
-
-                </div>
-
-                <!-- Hero Stats - من API -->
-                <div class="hero-stats" id="heroStats">
-                    <div class="stat-item">
-                        <span class="stat-number" id="statProducts">—</span>
-                        <span class="stat-label"><i class="fas fa-boxes"></i> الأصناف</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="statWarehouses">—</span>
-                        <span class="stat-label"><i class="fas fa-warehouse"></i> المخازن</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="statUsers">—</span>
-                        <span class="stat-label"><i class="fas fa-users"></i> المستخدمين</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="statMovements">—</span>
-                        <span class="stat-label"><i class="fas fa-exchange-alt"></i> الحركات</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="statLastUpdate">—</span>
-                        <span class="stat-label"><i class="fas fa-clock"></i> آخر تحديث</span>
+                    <div>
+                        <span class="text-muted" style="font-size: 13px;">
+                            <i class="fas fa-calendar-alt ms-1"></i>
+                            <span id="currentDate"></span>
+                        </span>
                     </div>
                 </div>
 
-            </div>
-
-            <div class="scroll-indicator">
-                <span class="scroll-text">مرر للأسفل</span>
-                <i class="fas fa-chevron-down scroll-arrow"></i>
-            </div>
-
-        </section>
-
-        <!-- ============================================================
-             SUPPORT SECTION
-             ============================================================ -->
-        <section class="developer-section" id="support">
-            <div class="container">
-                <div class="developer-card animate-on-scroll">
-                    <div class="developer-avatar-wrapper">
-                        <div class="developer-avatar"><i class="fas fa-headset"></i></div>
-                        <div class="developer-status"><span class="status-dot"></span> الدعم الفني</div>
+                <!-- Stats Cards -->
+                <div class="row g-3 mb-4" id="statsContainer">
+                    <!-- Stat Card 1 -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card" style="--stat-color: #2563eb; --stat-bg: #dbeafe;">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <span class="stat-trend up">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span id="productsTrend">+12%</span>
+                                </span>
+                            </div>
+                            <div class="stat-label">إجمالي المنتجات</div>
+                            <div class="stat-value" id="totalProducts">0</div>
+                            <div class="stat-footer">
+                                <i class="fas fa-check-circle text-success"></i>
+                                <span id="activeProducts">0</span> منتج نشط
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="developer-info">
-                        <h2 class="developer-name"><i class="fas fa-question-circle"></i> عندك مشكلة !؟</h2>
-                        <p class="developer-alias"><i class="fas fa-fire"></i> BurnMyWallet</p>
-                        <p class="developer-role"><i class="fas fa-laptop-code"></i> مطور النظام</p>
+                    <!-- Stat Card 2 -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card" style="--stat-color: #10b981; --stat-bg: #d1fae5;">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-warehouse"></i>
+                                </div>
+                                <span class="stat-trend up">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>+5%</span>
+                                </span>
+                            </div>
+                            <div class="stat-label">المخازن النشطة</div>
+                            <div class="stat-value" id="activeWarehouses">0</div>
+                            <div class="stat-footer">
+                                <i class="fas fa-cube"></i>
+                                <span>من أصل <span id="totalWarehouses">0</span> مخزن</span>
+                            </div>
+                        </div>
+                    </div>
 
-                        <div class="developer-contact">
-                            <a href="tel:+201286187173" class="contact-link"><i class="fas fa-phone"></i> 01286187173</a>
-                            <a href="tel:+201027191811" class="contact-link"><i class="fas fa-phone"></i> 01027191811</a>
-                            <a href="https://wa.me/201286187173" target="_blank" rel="noopener" class="contact-link whatsapp"><i class="fab fa-whatsapp"></i> واتساب</a>
+                    <!-- Stat Card 3 -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card" style="--stat-color: #f59e0b; --stat-bg: #fef3c7;">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <span class="stat-trend down">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>تنبيه</span>
+                                </span>
+                            </div>
+                            <div class="stat-label">مخزون منخفض</div>
+                            <div class="stat-value" id="lowStockCount">0</div>
+                            <div class="stat-footer">
+                                <i class="fas fa-bell"></i>
+                                <span>يحتاج إلى إعادة طلب</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 4 -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card" style="--stat-color: #8b5cf6; --stat-bg: #ede9fe;">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <span class="stat-trend up">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>+8%</span>
+                                </span>
+                            </div>
+                            <div class="stat-label">قيمة المخزون</div>
+                            <div class="stat-value" id="totalValue">0</div>
+                            <div class="stat-footer">
+                                <i class="fas fa-coins"></i>
+                                <span>جنيه مصري</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts + Quick Actions -->
+                <div class="row g-3 mb-4">
+                    <!-- Alerts -->
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-bell"></i>
+                                    التنبيهات الهامة
+                                </h5>
+                                <a href="#" class="btn btn-sm btn-outline-primary" data-page="reports">
+                                    عرض الكل
+                                </a>
+                            </div>
+                            <div class="card-body" id="alertsContainer">
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>جاري تحميل التنبيهات...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-bolt"></i>
+                                    إجراءات سريعة
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="receipts">
+                                            <div class="quick-action-icon" style="background: #d1fae5; color: #10b981;">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </div>
+                                            <div class="quick-action-label">استلام جديد</div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="issues">
+                                            <div class="quick-action-icon" style="background: #fee2e2; color: #ef4444;">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </div>
+                                            <div class="quick-action-label">صرف جديد</div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="transfers">
+                                            <div class="quick-action-icon" style="background: #dbeafe; color: #2563eb;">
+                                                <i class="fas fa-exchange-alt"></i>
+                                            </div>
+                                            <div class="quick-action-label">تحويل</div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="inventory-counts">
+                                            <div class="quick-action-icon" style="background: #fef3c7; color: #f59e0b;">
+                                                <i class="fas fa-clipboard-list"></i>
+                                            </div>
+                                            <div class="quick-action-label">جرد</div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="products">
+                                            <div class="quick-action-icon" style="background: #ede9fe; color: #8b5cf6;">
+                                                <i class="fas fa-plus"></i>
+                                            </div>
+                                            <div class="quick-action-label">منتج جديد</div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6">
+                                        <a href="#" class="quick-action" data-page="reports">
+                                            <div class="quick-action-icon" style="background: #fce7f3; color: #ec4899;">
+                                                <i class="fas fa-file-export"></i>
+                                            </div>
+                                            <div class="quick-action-label">التقارير</div>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Movements + Today Summary -->
+                <div class="row g-3">
+                    <!-- Recent Movements -->
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-history"></i>
+                                    آخر الحركات المخزنية
+                                </h5>
+                                <a href="#" class="btn btn-sm btn-outline-primary" data-page="stock-movements">
+                                    عرض الكل
+                                </a>
+                            </div>
+                            <div class="card-body" id="movementsContainer">
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>جاري تحميل الحركات...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today Summary -->
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-chart-pie"></i>
+                                    ملخص اليوم
+                                </h5>
+                            </div>
+                            <div class="card-body" id="todaySummary">
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>جاري التحميل...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
-
-        <!-- ============================================================
-             FOOTER
-             ============================================================ -->
-        <footer class="main-footer" role="contentinfo">
-            <div class="container footer-inner">
-                <div class="footer-center">
-                    <p style="font-size:15px;color:var(--text-secondary);">
-                        <i class="fas fa-shield-alt"></i>
-                        هذه النسخة مسجلة لصالح <strong>شركة البركة لتوريد وتصنيع اللحوم</strong>
-                    </p>
-                    <p style="font-size:14px;color:var(--text-muted);">
-                        <i class="fas fa-code"></i> Developed by <strong>BurnMyWallet — Abdelrahman.KH</strong>
-                    </p>
-                    <p style="font-size:12px;color:var(--text-muted);">
-                        <i class="fas fa-phone"></i> 01286187173 &bull; <i class="fab fa-whatsapp"></i> 01027191811
-                    </p>
-                </div>
-
-                <div class="footer-links">
-                    <a href="#home"><i class="fas fa-home"></i> الرئيسية</a>
-                    <a href="#support"><i class="fas fa-headset"></i> الدعم الفني</a>
-                    <a href="/inventory-system/frontend/pages/login.html"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</a>
-                </div>
-            </div>
-
-            <div class="footer-bottom">
-                <div class="container">
-                    <p class="footer-bottom-text">
-                        <i class="fas fa-cubes"></i> Logistox v5.0
-                        <span class="footer-separator">|</span>
-                        <i class="fas fa-lock"></i> نسخة مرخصة
-                        <span class="footer-separator">|</span>
-                        <i class="fas fa-building"></i> شركة البركة لتوريد وتصنيع اللحوم
-                        <span class="footer-separator">|</span>
-                        <i class="far fa-copyright"></i> 2026 جميع الحقوق محفوظة
-                    </p>
-                </div>
-            </div>
-        </footer>
-
-    </div>
-
-    <!-- ============================================================
-         LOGIN MODAL
-         ============================================================ -->
-    <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true">
-        <div class="modal-container login-modal">
-            <button class="modal-close" id="loginModalClose" aria-label="إغلاق"><i class="fas fa-times"></i></button>
-
-            <div class="modal-header">
-                <div class="modal-logo"><i class="fas fa-cubes"></i> Logistox</div>
-                <h2 class="modal-title"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</h2>
-                <p class="modal-subtitle"><i class="fas fa-warehouse"></i> نظام إدارة المخازن والمخزون</p>
-            </div>
-
-            <form class="login-form" id="loginForm" autocomplete="off">
-                <div class="form-group">
-                    <label class="form-label" for="loginUsername"><i class="fas fa-user"></i> اسم المستخدم</label>
-                    <input type="text" id="loginUsername" class="form-input" placeholder="أدخل اسم المستخدم" value="admin" required autofocus>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="loginPassword"><i class="fas fa-lock"></i> كلمة المرور</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="loginPassword" class="form-input" placeholder="أدخل كلمة المرور" value="123456" required>
-                        <button type="button" class="password-toggle" id="passwordToggle" aria-label="إظهار كلمة المرور">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="rememberMe" checked>
-                        <span class="checkmark"></span>
-                        <i class="fas fa-check"></i> تذكرني
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-login-submit" id="loginSubmit">
-                    <span class="btn-text"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</span>
-                    <span class="btn-loader"><i class="fas fa-spinner fa-spin"></i></span>
-                </button>
-
-                <div class="login-error" id="loginError" style="display:none;">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span id="loginErrorMessage">خطأ في اسم المستخدم أو كلمة المرور</span>
-                </div>
-
-                <div class="login-footer">
-                    <p class="login-license"><i class="fas fa-shield-alt"></i> هذه النسخة مسجلة لصالح شركة البركة لتوريد وتصنيع اللحوم</p>
-                </div>
-            </form>
         </div>
     </div>
 
-    <!-- ============================================================
-         TOAST CONTAINER
-         ============================================================ -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- ============================================================
-         SCRIPTS
-         ============================================================ -->
-    <script src="/inventory-system/frontend/assets/js/config.js"></script>
-    <script src="/inventory-system/frontend/assets/js/utils.js"></script>
-    <script src="/inventory-system/frontend/assets/js/api.js"></script>
-    <script src="/inventory-system/frontend/assets/js/auth.js"></script>
-    <script src="/inventory-system/frontend/assets/js/theme-manager.js"></script>
-    <script src="/inventory-system/frontend/assets/js/websocket.js"></script>
-    <script src="/inventory-system/frontend/assets/js/app.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- API & Auth -->
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/auth.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // ===== Preloader =====
-            setTimeout(function() {
-                document.getElementById('preloader').classList.add('hidden');
-            }, 1000);
-
-            // ===== Header Scroll =====
-            const header = document.getElementById('mainHeader');
-            window.addEventListener('scroll', function() {
-                if (window.scrollY > 50) {
-                    header.classList.add('scrolled');
-                } else {
-                    header.classList.remove('scrolled');
-                }
-            });
-
-            // ===== Theme Toggle =====
-            const themeToggle = document.getElementById('themeToggle');
-            if (themeToggle && typeof window.ThemeManager !== 'undefined') {
-                themeToggle.addEventListener('click', function() {
-                    window.ThemeManager.toggleTheme();
-                    const current = window.ThemeManager.getCurrentTheme();
-                    const icon = this.querySelector('i');
-                    if (icon) {
-                        const iconMap = {
-                            dark: 'fa-moon',
-                            light: 'fa-sun',
-                            purple: 'fa-gem',
-                            red: 'fa-fire',
-                            blue: 'fa-water',
-                            green: 'fa-leaf',
-                            gold: 'fa-crown',
-                            pink: 'fa-heart',
-                        };
-                        icon.className = `fas ${iconMap[current] || 'fa-palette'}`;
-                    }
-                });
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. التحقق من المصادقة
+            if (!Auth.isAuthenticated()) {
+                window.location.href = 'login.html';
+                return;
             }
 
-            // ===== Login Modal =====
-            const loginModal = document.getElementById('loginModal');
-            const loginModalClose = document.getElementById('loginModalClose');
+            // 2. تحميل معلومات المستخدم
+            loadUserInfo();
 
-            window.openLoginModal = function() {
-                if (loginModal) {
-                    loginModal.classList.add('open');
-                    document.body.style.overflow = 'hidden';
-                    document.getElementById('loginUsername').focus();
-                }
-            };
+            // 3. عرض التاريخ الحالي
+            displayCurrentDate();
 
-            window.closeLoginModal = function() {
-                if (loginModal) {
-                    loginModal.classList.remove('open');
-                    document.body.style.overflow = '';
-                }
-            };
+            // 4. تحميل بيانات Dashboard
+            await loadDashboardData();
 
-            if (loginModalClose) {
-                loginModalClose.addEventListener('click', window.closeLoginModal);
-            }
+            // 5. تحميل الإشعارات
+            await loadNotifications();
 
-            if (loginModal) {
-                loginModal.addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        window.closeLoginModal();
-                    }
-                });
-            }
+            // 6. إعدادlisteners
+            setupEventListeners();
 
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && loginModal && loginModal.classList.contains('open')) {
-                    window.closeLoginModal();
-                }
-            });
-
-            // ===== Login Form =====
-            const loginForm = document.getElementById('loginForm');
-            const loginSubmit = document.getElementById('loginSubmit');
-            const loginError = document.getElementById('loginError');
-            const loginErrorMessage = document.getElementById('loginErrorMessage');
-            const passwordToggle = document.getElementById('passwordToggle');
-
-            if (passwordToggle) {
-                passwordToggle.addEventListener('click', function() {
-                    const passwordInput = document.getElementById('loginPassword');
-                    if (passwordInput) {
-                        const type = passwordInput.type === 'password' ? 'text' : 'password';
-                        passwordInput.type = type;
-                        this.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-                    }
-                });
-            }
-
-            if (loginForm) {
-                loginForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-
-                    const username = document.getElementById('loginUsername').value.trim();
-                    const password = document.getElementById('loginPassword').value.trim();
-                    const remember = document.getElementById('rememberMe').checked;
-
-                    if (!username || !password) {
-                        showLoginError('يرجى إدخال اسم المستخدم وكلمة المرور');
-                        return;
-                    }
-
-                    loginSubmit.classList.add('loading');
-                    loginSubmit.disabled = true;
-                    loginError.style.display = 'none';
-
-                    try {
-                        if (typeof window.Api !== 'undefined') {
-                            const result = await window.Api.login(username, password, remember);
-
-                            if (result && result.user) {
-                                showToast('تم تسجيل الدخول بنجاح!', 'success');
-                                setTimeout(function() {
-                                    window.location.href = '/inventory-system/frontend/pages/dashboard.html';
-                                }, 800);
-                            } else {
-                                showLoginError('خطأ في اسم المستخدم أو كلمة المرور');
-                            }
-                        } else {
-                            showLoginError('API not loaded. Please refresh.');
-                        }
-                    } catch (error) {
-                        console.error('Login error:', error);
-                        showLoginError(error.message || 'حدث خطأ في الاتصال بالخادم');
-                    } finally {
-                        loginSubmit.classList.remove('loading');
-                        loginSubmit.disabled = false;
-                    }
-                });
-            }
-
-            function showLoginError(message) {
-                loginErrorMessage.textContent = message;
-                loginError.style.display = 'flex';
-            }
-
-            // ===== Load Stats from API =====
-            async function loadStats() {
-                try {
-                    const statElements = {
-                        products: document.getElementById('statProducts'),
-                        warehouses: document.getElementById('statWarehouses'),
-                        users: document.getElementById('statUsers'),
-                        movements: document.getElementById('statMovements'),
-                        lastUpdate: document.getElementById('statLastUpdate'),
-                    };
-
-                    Object.values(statElements).forEach(el => {
-                        if (el && el.id !== 'statLastUpdate') {
-                            el.classList.add('loading');
-                        }
-                    });
-
-                    const response = await fetch('/api/dashboard/stats');
-                    const data = await response.json();
-
-                    Object.values(statElements).forEach(el => {
-                        if (el) el.classList.remove('loading');
-                    });
-
-                    if (data.success && data.data) {
-                        if (statElements.products) {
-                            statElements.products.textContent = data.data.total_products || '0';
-                        }
-                        if (statElements.warehouses) {
-                            statElements.warehouses.textContent = data.data.total_warehouses || '0';
-                        }
-                        if (statElements.users) {
-                            statElements.users.textContent = data.data.total_users || '0';
-                        }
-                        if (statElements.movements) {
-                            statElements.movements.textContent = data.data.total_movements || '0';
-                        }
-                        if (statElements.lastUpdate && data.data.last_update) {
-                            const date = new Date(data.data.last_update);
-                            statElements.lastUpdate.textContent = date.toLocaleString('ar-EG', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            });
-                        }
-                    } else {
-                        if (statElements.products) statElements.products.textContent = '0';
-                        if (statElements.warehouses) statElements.warehouses.textContent = '0';
-                        if (statElements.users) statElements.users.textContent = '0';
-                        if (statElements.movements) statElements.movements.textContent = '0';
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Failed to load stats:', error);
-                    document.querySelectorAll('.stat-number').forEach(el => {
-                        if (el && el.id !== 'statLastUpdate') {
-                            el.classList.remove('loading');
-                            el.textContent = '0';
-                        }
-                    });
-                }
-            }
-
-            // ===== Toast System =====
-            function showToast(message, type = 'info') {
-                const container = document.getElementById('toastContainer');
-                if (!container) return;
-
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                const icons = {
-                    success: 'fa-check-circle',
-                    error: 'fa-exclamation-circle',
-                    warning: 'fa-exclamation-triangle',
-                    info: 'fa-info-circle',
-                };
-                toast.innerHTML = `
-                    <i class="fas ${icons[type] || icons.info}"></i>
-                    <span>${message}</span>
-                `;
-                container.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.style.transform = 'translateX(40px)';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
-            }
-
-            // ===== Load Stats on Page Load =====
-            loadStats();
-
-            // ===== Auto Refresh Stats Every 30 Seconds =====
-            setInterval(loadStats, 30000);
-
-            // ===== Smooth Scroll for Anchor Links =====
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        const headerHeight = document.getElementById('mainHeader').offsetHeight;
-                        const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
-                        window.scrollTo({
-                            top: targetPosition,
-                            behavior: 'smooth',
-                        });
-                    }
-                });
-            });
-
-            console.log('✅ Landing page loaded with real API data');
-            console.log('🔐 نسخة مسجلة لصالح شركة البركة لتوريد وتصنيع اللحوم');
-            console.log('👨‍💻 Developed by BurnMyWallet — Abdelrahman.KH');
+            // 7. تحميل الثيم المحفوظ
+            loadTheme();
         });
-    </script>
 
+        // ====================================================================
+        // تحميل معلومات المستخدم
+        // ====================================================================
+        function loadUserInfo() {
+            const user = Auth.getCurrentUser();
+            if (!user) return;
+
+            const fullName = user.full_name || user.username || 'المستخدم';
+            const roleName = user.role_display_name || user.role_name || 'مستخدم';
+            const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+            document.getElementById('userName').textContent = fullName;
+            document.getElementById('userRole').textContent = roleName;
+            document.getElementById('userInitials').textContent = initials;
+            document.getElementById('welcomeName').textContent = fullName.split(' ')[0];
+            document.getElementById('dropdownUserName').textContent = fullName;
+            document.getElementById('dropdownUserEmail').textContent = user.email || user.username;
+        }
+
+        // ====================================================================
+        // عرض التاريخ الحالي
+        // ====================================================================
+        function displayCurrentDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('ar-EG', options);
+            document.getElementById('currentDate').textContent = dateStr;
+        }
+
+        // ====================================================================
+        // تحميل بيانات Dashboard
+        // ====================================================================
+        async function loadDashboardData() {
+            try {
+                // تحميل الإحصائيات
+                const statsResponse = await API.get('/dashboard/stats');
+                if (statsResponse.success && statsResponse.data) {
+                    renderStats(statsResponse.data);
+                }
+
+                // تحميل التنبيهات
+                const alertsResponse = await API.get('/dashboard/alerts');
+                if (alertsResponse.success && alertsResponse.data) {
+                    renderAlerts(alertsResponse.data);
+                }
+
+                // تحميل آخر الحركات
+                const movementsResponse = await API.get('/stock/movements', { per_page: 5 });
+                if (movementsResponse.success) {
+                    renderMovements(movementsResponse.data || []);
+                }
+
+                // تحميل ملخص اليوم
+                renderTodaySummary(statsResponse?.data?.operations?.today || {});
+
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+                showLoadError();
+            }
+        }
+
+        // ====================================================================
+        // عرض الإحصائيات
+        // ====================================================================
+        function renderStats(data) {
+            // إجمالي المنتجات
+            document.getElementById('totalProducts').textContent = formatNumber(data.products?.total || 0);
+            document.getElementById('activeProducts').textContent = formatNumber(data.products?.active || 0);
+
+            // المخازن
+            document.getElementById('activeWarehouses').textContent = formatNumber(data.warehouses?.active || 0);
+            document.getElementById('totalWarehouses').textContent = formatNumber(data.warehouses?.total || 0);
+
+            // المخزون المنخفض
+            document.getElementById('lowStockCount').textContent = formatNumber(data.stock?.low_stock_count || 0);
+
+            // قيمة المخزون
+            const totalValue = data.stock?.total_value || 0;
+            document.getElementById('totalValue').textContent = formatCurrency(totalValue);
+        }
+
+        // ====================================================================
+        // عرض التنبيهات
+        // ====================================================================
+        function renderAlerts(data) {
+            const container = document.getElementById('alertsContainer');
+            const alerts = [];
+
+            // منتجات منخفضة المخزون
+            if (data.low_stock && data.low_stock.length > 0) {
+                data.low_stock.slice(0, 3).forEach(p => {
+                    alerts.push({
+                        type: 'warning',
+                        icon: 'fa-exclamation-triangle',
+                        title: p.name,
+                        desc: `الكمية: ${p.total_quantity} ${p.unit_symbol || ''} - نقطة الطلب: ${p.reorder_point}`
+                    });
+                });
+            }
+
+            // منتجات نفدت
+            if (data.out_of_stock && data.out_of_stock.length > 0) {
+                data.out_of_stock.slice(0, 2).forEach(p => {
+                    alerts.push({
+                        type: 'danger',
+                        icon: 'fa-times-circle',
+                        title: p.name,
+                        desc: 'نفد من المخزون تماماً'
+                    });
+                });
+            }
+
+            // عمليات معلقة
+            if (data.pending_operations) {
+                const { receipts, issues, transfers } = data.pending_operations;
+                const total = (receipts || 0) + (issues || 0) + (transfers || 0);
+                if (total > 0) {
+                    alerts.push({
+                        type: 'info',
+                        icon: 'fa-clock',
+                        title: `${total} عملية بانتظار الاعتماد`,
+                        desc: `${receipts || 0} استلام - ${issues || 0} صرف - ${transfers || 0} تحويل`
+                    });
+                }
+            }
+
+            if (alerts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+                        <p class="mt-2">لا توجد تنبيهات حالياً. كل شيء على ما يرام!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item">
+                    <div class="alert-icon ${alert.type}">
+                        <i class="fas ${alert.icon}"></i>
+                    </div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.title}</div>
+                        <div class="alert-desc">${alert.desc}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ====================================================================
+        // عرض آخر الحركات
+        // ====================================================================
+        function renderMovements(movements) {
+            const container = document.getElementById('movementsContainer');
+
+            if (!movements || movements.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p class="mt-2">لا توجد حركات مخزنية مؤخراً</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const typeIcons = {
+                'RECEIPT': { icon: 'fa-arrow-down', class: 'in' },
+                'ISSUE': { icon: 'fa-arrow-up', class: 'out' },
+                'TRANSFER_OUT': { icon: 'fa-sign-out-alt', class: 'out' },
+                'TRANSFER_IN': { icon: 'fa-sign-in-alt', class: 'in' },
+                'RETURN_IN': { icon: 'fa-undo', class: 'in' },
+                'RETURN_OUT': { icon: 'fa-redo', class: 'out' },
+                'COUNT_CORRECTION': { icon: 'fa-clipboard-check', class: 'in' },
+            };
+
+            container.innerHTML = movements.map(m => {
+                const typeInfo = typeIcons[m.movement_type] || { icon: 'fa-circle', class: 'in' };
+                const isInbound = typeInfo.class === 'in';
+                const qty = parseFloat(m.quantity || 0).toFixed(2);
+                const date = new Date(m.movement_date).toLocaleString('ar-EG', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                return `
+                    <div class="movement-item">
+                        <div class="movement-icon ${typeInfo.class}">
+                            <i class="fas ${typeInfo.icon}"></i>
+                        </div>
+                        <div class="movement-info">
+                            <div class="movement-name">${m.product_name || 'منتج'}</div>
+                            <div class="movement-meta">
+                                <span><i class="fas fa-warehouse"></i> ${m.warehouse_name || '-'}</span>
+                                <span><i class="fas fa-clock"></i> ${date}</span>
+                            </div>
+                        </div>
+                        <div class="movement-qty ${typeInfo.class}">
+                            ${isInbound ? '+' : '-'}${qty}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ====================================================================
+        // عرض ملخص اليوم
+        // ====================================================================
+        function renderTodaySummary(today) {
+            const container = document.getElementById('todaySummary');
+            
+            const receipts = today.receipts?.count || 0;
+            const issues = today.issues?.count || 0;
+            const transfers = today.transfers?.count || 0;
+            const total = receipts + issues + transfers;
+
+            if (total === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-day"></i>
+                        <p class="mt-2">لا توجد عمليات اليوم</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const maxCount = Math.max(receipts, issues, transfers, 1);
+
+            container.innerHTML = `
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold"><i class="fas fa-arrow-down text-success ms-2"></i>استلام</span>
+                        <span class="fw-bold text-success">${receipts}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" style="width: ${(receipts / maxCount) * 100}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold"><i class="fas fa-arrow-up text-danger ms-2"></i>صرف</span>
+                        <span class="fw-bold text-danger">${issues}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-danger" style="width: ${(issues / maxCount) * 100}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold"><i class="fas fa-exchange-alt text-primary ms-2"></i>تحويل</span>
+                        <span class="fw-bold text-primary">${transfers}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-primary" style="width: ${(transfers / maxCount) * 100}%"></div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3" style="background: var(--bg-color); text-align: center;">
+                    <div class="text-muted small mb-1">إجمالي العمليات اليوم</div>
+                    <div class="h3 fw-bold mb-0" style="color: var(--primary-color);">${total}</div>
+                </div>
+            `;
+        }
+
+        // ====================================================================
+        // تحميل الإشعارات
+        // ====================================================================
+        async function loadNotifications() {
+            try {
+                const response = await API.get('/notifications/unread-count');
+                if (response.success) {
+                    const count = response.data.total || 0;
+                    const badge = document.getElementById('notificationBadge');
+                    if (count > 0) {
+                        badge.textContent = count > 99 ? '99+' : count;
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+            }
+        }
+
+        // ====================================================================
+        // إعداد Event Listeners
+        // ====================================================================
+        function setupEventListeners() {
+            // Sidebar Toggle (Mobile)
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            sidebarToggle?.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            });
+
+            overlay?.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+
+            // Theme Toggle
+            document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+
+            // Logout
+            document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
+                e.preventDefault();
+                if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                    await Auth.logout();
+                }
+            });
+
+            // Sidebar Navigation
+            document.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = link.dataset.page;
+                    
+                    // تحديث الحالة النشطة
+                    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+
+                    // في النسخة الحالية، نعرض رسالة "قريباً" للصفحات الأخرى
+                    if (page !== 'dashboard') {
+                        showComingSoon(page);
+                    }
+
+                    // إغلاق Sidebar على الموبايل
+                    if (window.innerWidth < 992) {
+                        sidebar.classList.remove('active');
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+
+            // Quick Actions Navigation
+            document.querySelectorAll('.quick-action[data-page], [data-page]').forEach(link => {
+                if (!link.classList.contains('sidebar-link')) {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = link.dataset.page;
+                        showComingSoon(page);
+                    });
+                }
+            });
+        }
+
+        // ====================================================================
+        // إدارة الثيم
+        // ====================================================================
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('logistox_theme') || 'light';
+            applyTheme(savedTheme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('logistox_theme', newTheme);
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        // ====================================================================
+        // دوال مساعدة
+        // ====================================================================
+        function formatNumber(num) {
+            return new Intl.NumberFormat('ar-EG').format(num);
+        }
+
+        function formatCurrency(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + ' م';
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1) + ' ألف';
+            }
+            return formatNumber(num);
+        }
+
+        function showComingSoon(page) {
+            // رسالة بسيطة - يمكن استبدالها بنظام توجيه حقيقي لاحقاً
+            const pageNames = {
+                'receipts': 'إذونات الاستلام',
+                'issues': 'إذونات الصرف',
+                'transfers': 'التحويلات',
+                'returns': 'المرتجعات',
+                'inventory-counts': 'الجرد',
+                'products': 'المنتجات',
+                'warehouses': 'المخازن',
+                'categories': 'التصنيفات',
+                'units': 'الوحدات',
+                'suppliers': 'الموردون',
+                'recipients': 'المستلمون',
+                'reports': 'التقارير',
+                'audit': 'سجل التدقيق',
+                'users': 'المستخدمون',
+                'roles': 'الأدوار',
+                'settings': 'الإعدادات',
+                'backups': 'النسخ الاحتياطي',
+                'profile': 'الملف الشخصي',
+                'stock-movements': 'الحركات المخزنية',
+            };
+            
+            const pageName = pageNames[page] || page;
+            
+            // إنشاء Toast بسيط
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--secondary-color);
+                color: white;
+                padding: 14px 24px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                z-index: 9999;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                animation: slideUpToast 0.3s ease;
+            `;
+            toast.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <span>صفحة "${pageName}" قيد التطوير</span>
+            `;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        function showLoadError() {
+            const containers = ['alertsContainer', 'movementsContainer', 'todaySummary'];
+            containers.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--warning-color);"></i>
+                            <p class="mt-2">تعذر تحميل البيانات. يرجى تحديث الصفحة.</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Animation for toast
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes slideUpToast {
+                from { opacity: 0; transform: translate(-50%, 20px); }
+                to { opacity: 1; transform: translate(-50%, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>

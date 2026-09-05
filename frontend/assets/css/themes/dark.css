@@ -1,0 +1,83 @@
+/**
+ * ============================================================================
+ * Logistox - Dark Theme
+ * ============================================================================
+ */
+
+ [data-theme="dark"] {
+    --bg-color: #1a1d23;
+    --text-color: #e4e6eb;
+    --text-muted: #b0b3b8;
+    --card-bg: #24272e;
+    --sidebar-bg: #181a20;
+    --sidebar-color: #e4e6eb;
+    --navbar-bg: #24272e;
+    --border-color: #3a3d45;
+    --table-header-bg: #2c2f36;
+    --input-bg: #2c2f36;
+    --input-color: #e4e6eb;
+}
+
+[data-theme="dark"] body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .card {
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .navbar {
+    background: var(--navbar-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .table {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .table thead {
+    background: var(--table-header-bg);
+}
+
+[data-theme="dark"] .table tbody td {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background: var(--input-bg);
+    color: var(--input-color);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .dropdown-menu {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .dropdown-item {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .modal-content {
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .alert {
+    border: none;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
